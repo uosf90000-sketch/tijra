@@ -1,15 +1,22 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import { AppShell } from "@/components/app-shell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "تِجرا | إدارة تجارتك بذكاء",
-  description: "منصة ذكية لإدارة المخزون والموردين والمحاسبة والرواتب والمشتريات.",
+  title: {
+    default: "تِجرا | إدارة تجارتك بذكاء",
+    template: "%s | تِجرا",
+  },
+  description: "منصة عربية لإدارة المخزون والموردين والمشتريات والمحاسبة والموظفين والرواتب.",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="ar" dir="rtl">
-      <body>{children}</body>
+      <body>
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

@@ -1,152 +1,189 @@
+import Link from "next/link";
 import {
+  ArrowLeft,
   Boxes,
-  Calculator,
   CircleDollarSign,
   PackageSearch,
-  ReceiptText,
-  ShoppingCart,
+  ShoppingBasket,
   Sparkles,
-  Store,
   TrendingUp,
   TriangleAlert,
   UsersRound,
 } from "lucide-react";
+import { MetricCard } from "@/components/metric-card";
+import { PageHeader } from "@/components/page-header";
+import { ProgressBar } from "@/components/progress-bar";
+import { StatusPill } from "@/components/status-pill";
+import { inventoryProducts, purchaseSuggestions, weeklySales } from "@/lib/demo-data";
+import { formatSar } from "@/lib/format";
 
-const stats = [
-  { label: "مبيعات اليوم", value: "4,820 ر.س", note: "+8.4% عن أمس", icon: TrendingUp },
-  { label: "الربح التقديري", value: "1,146 ر.س", note: "هامش 23.8%", icon: CircleDollarSign },
-  { label: "قيمة المخزون", value: "38,540 ر.س", note: "612 صنفًا", icon: Boxes },
-  { label: "مشتريات مقترحة", value: "2,740 ر.س", note: "31 صنفًا", icon: ShoppingCart },
-];
+const maxSales = Math.max(...weeklySales.map((item) => item.value));
 
-const shortage = [
-  { name: "مياه 330 مل", left: "2 كرتون", days: "يكفي يومًا واحدًا", action: "اطلب 8" },
-  { name: "بيبسي 330 مل", left: "21 حبة", days: "يكفي يومين", action: "اطلب 3" },
-  { name: "حليب كامل الدسم", left: "14 حبة", days: "يكفي يومين", action: "اطلب 2" },
-];
+export default function DashboardPage() {
+  const stockValue = inventoryProducts.reduce((sum, item) => sum + item.quantity * item.averageCost, 0);
+  const suggestedTotal = purchaseSuggestions.reduce((sum, item) => sum + item.suggested * item.unitPrice, 0);
+  const totalSaving = purchaseSuggestions.reduce((sum, item) => sum + item.saving, 0);
+  const lowItems = inventoryProducts.filter((item) => item.status !== "healthy");
 
-const modules = [
-  { title: "المخزون", description: "الأصناف والكميات وحركة المخزون", icon: Boxes },
-  { title: "الموردون", description: "الأسعار والطلبات والمقارنة", icon: Store },
-  { title: "المحاسبة", description: "المبيعات والمصاريف والأرباح", icon: Calculator },
-  { title: "الفواتير", description: "المشتريات ومطابقة الاستلام", icon: ReceiptText },
-  { title: "الموظفون والرواتب", description: "الرواتب والبدلات والخصومات", icon: UsersRound },
-  { title: "المشتريات الذكية", description: "اقتراح ما تحتاجه ومتى تشتريه", icon: Sparkles },
-];
-
-export default function Home() {
   return (
-    <main className="shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brandMark">ت</div>
-          <div>
-            <strong>تِجرا</strong>
-            <span>إدارة تجارتك بذكاء</span>
-          </div>
-        </div>
+    <>
+      <PageHeader
+        eyebrow="الخميس، 21 أغسطس 2026"
+        title="مساء الخير 👋"
+        description="هذه أهم الأشياء التي تحتاج انتباهك اليوم."
+        actions={
+          <Link className="button primary" href="/purchases">
+            <Sparkles size={18} />
+            جهّز مشتريات اليوم
+          </Link>
+        }
+      />
 
-        <nav>
-          <a className="navItem active" href="#"><PackageSearch size={19} />الرئيسية</a>
-          <a className="navItem" href="#inventory"><Boxes size={19} />المخزون</a>
-          <a className="navItem" href="#suppliers"><Store size={19} />الموردون والمشتريات</a>
-          <a className="navItem" href="#accounting"><Calculator size={19} />المحاسبة</a>
-          <a className="navItem" href="#payroll"><UsersRound size={19} />الموظفون والرواتب</a>
-        </nav>
+      <section className="metricsGrid" aria-label="ملخص اليوم">
+        <MetricCard label="مبيعات اليوم" value="4,820 ر.س" note="+8.4% عن أمس" trend="up" icon={TrendingUp} />
+        <MetricCard label="الربح الإجمالي" value="1,146 ر.س" note="هامش 23.8%" trend="up" icon={CircleDollarSign} tone="blue" />
+        <MetricCard label="قيمة المخزون" value={formatSar(stockValue)} note={`${inventoryProducts.length} أصناف تجريبية`} icon={Boxes} tone="violet" />
+        <MetricCard label="مشتريات مقترحة" value={formatSar(suggestedTotal)} note={`${purchaseSuggestions.length} أصناف تحتاج طلب`} icon={ShoppingBasket} tone="amber" />
+      </section>
 
-        <div className="sidebarFoot">
-          <span>تموينات النخيل</span>
-          <small>حساب تجريبي</small>
-        </div>
-      </aside>
-
-      <section className="content">
-        <header className="topbar">
-          <div>
-            <span className="eyebrow">الخميس، 21 أغسطس</span>
-            <h1>مساء الخير 👋</h1>
-            <p>هذه أهم الأشياء التي تحتاج انتباهك اليوم.</p>
-          </div>
-          <button className="primaryButton"><Sparkles size={18} /> جهّز مشتريات اليوم</button>
-        </header>
-
-        <section className="statsGrid">
-          {stats.map(({ label, value, note, icon: Icon }) => (
-            <article className="statCard" key={label}>
-              <div className="iconBox"><Icon size={20} /></div>
-              <span>{label}</span>
-              <strong>{value}</strong>
-              <small>{note}</small>
-            </article>
-          ))}
-        </section>
-
-        <section className="mainGrid">
-          <article className="panel aiPanel">
-            <div className="panelHead">
-              <div>
-                <span className="eyebrow">اقتراح تِجرا</span>
-                <h2>طلبية اليوم جاهزة</h2>
-              </div>
-              <div className="spark"><Sparkles size={22} /></div>
-            </div>
-
-            <p className="lead">حللنا سرعة البيع والكميات الحالية، ونقترح طلب 31 صنفًا بقيمة 2,740 ر.س.</p>
-
-            <div className="saving">
-              <span>التوفير المتوقع بعد مقارنة الموردين</span>
-              <strong>186 ر.س</strong>
-            </div>
-
-            <div className="actions">
-              <button className="primaryButton">مراجعة الطلبية</button>
-              <button className="ghostButton">عرض التفاصيل</button>
-            </div>
-          </article>
-
-          <article className="panel">
-            <div className="panelHead">
-              <div>
-                <span className="eyebrow">تنبيه المخزون</span>
-                <h2>أصناف ستنفد قريبًا</h2>
-              </div>
-              <div className="warning"><TriangleAlert size={22} /></div>
-            </div>
-
-            <div className="shortageList">
-              {shortage.map((item) => (
-                <div className="shortageItem" key={item.name}>
-                  <div>
-                    <strong>{item.name}</strong>
-                    <span>{item.left} · {item.days}</span>
-                  </div>
-                  <button>{item.action}</button>
-                </div>
-              ))}
-            </div>
-          </article>
-        </section>
-
-        <section className="modules" id="inventory">
-          <div className="sectionTitle">
+      <section className="dashboardGrid">
+        <article className="panel aiRecommendation">
+          <div className="panelHeader">
             <div>
-              <span className="eyebrow">كل أعمال محلك</span>
-              <h2>من مكان واحد</h2>
+              <span className="eyebrow"><Sparkles size={14} /> اقتراح تِجرا</span>
+              <h2>طلبية اليوم جاهزة للمراجعة</h2>
             </div>
-            <span className="muted">التوصيل يبقى بين التاجر والمورد مباشرة</span>
+            <div className="softIcon brand"><Sparkles size={21} /></div>
+          </div>
+          <p className="panelLead">
+            حللنا سرعة البيع والكميات الحالية وأسعار الموردين المسجلة. نقترح شراء {purchaseSuggestions.length} أصناف
+            بقيمة تقريبية {formatSar(suggestedTotal)}.
+          </p>
+
+          <div className="savingCallout">
+            <div>
+              <span>التوفير المتوقع مقارنة بآخر سعر شراء</span>
+              <strong>{formatSar(totalSaving)}</strong>
+            </div>
+            <span className="savingBadge">توفير ذكي</span>
           </div>
 
-          <div className="moduleGrid">
-            {modules.map(({ title, description, icon: Icon }) => (
-              <article className="moduleCard" key={title}>
-                <div className="moduleIcon"><Icon size={22} /></div>
-                <strong>{title}</strong>
-                <p>{description}</p>
-              </article>
+          <div className="suggestionPreview">
+            {purchaseSuggestions.slice(0, 3).map((item) => (
+              <div className="suggestionRow" key={item.product}>
+                <div className="productDot" />
+                <div className="grow">
+                  <strong>{item.product}</strong>
+                  <span>{item.supplier}</span>
+                </div>
+                <div className="alignEnd">
+                  <strong>{item.suggested} {item.unit}</strong>
+                  <span>{formatSar(item.suggested * item.unitPrice)}</span>
+                </div>
+              </div>
             ))}
           </div>
-        </section>
+
+          <div className="panelActions">
+            <Link className="button primary" href="/purchases">مراجعة الطلبية</Link>
+            <Link className="button secondary" href="/suppliers">مقارنة الموردين</Link>
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panelHeader">
+            <div>
+              <span className="eyebrow amber"><TriangleAlert size={14} /> تنبيه المخزون</span>
+              <h2>أصناف ستنفد قريبًا</h2>
+            </div>
+            <Link className="textLink" href="/inventory">عرض الكل <ArrowLeft size={15} /></Link>
+          </div>
+
+          <div className="alertList">
+            {lowItems.map((item) => {
+              const coverage = item.avgDailySales > 0 ? item.quantity / item.avgDailySales : 99;
+              return (
+                <div className="alertRow" key={item.id}>
+                  <div className="grow">
+                    <div className="rowTitle">
+                      <strong>{item.name}</strong>
+                      <StatusPill status={item.status} />
+                    </div>
+                    <span>{item.quantity} {item.unit} · يغطي قرابة {Math.max(1, Math.round(coverage))} يوم</span>
+                    <ProgressBar
+                      value={item.quantity}
+                      max={Math.max(item.reorderPoint * 2, item.quantity)}
+                      tone={item.status === "critical" ? "red" : "amber"}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </article>
       </section>
-    </main>
+
+      <section className="dashboardGrid lower">
+        <article className="panel chartPanel">
+          <div className="panelHeader">
+            <div>
+              <span className="eyebrow">آخر 7 أيام</span>
+              <h2>اتجاه المبيعات</h2>
+            </div>
+            <div className="miniSummary">
+              <strong>29,470 ر.س</strong>
+              <span>إجمالي الأسبوع</span>
+            </div>
+          </div>
+
+          <div className="barChart" aria-label="مبيعات آخر سبعة أيام">
+            {weeklySales.map((item) => (
+              <div className="barColumn" key={item.day}>
+                <span className="barValue">{Math.round(item.value / 100) / 10}k</span>
+                <div className="barTrack">
+                  <div className="bar" style={{ height: `${Math.max(16, (item.value / maxSales) * 100)}%` }} />
+                </div>
+                <span>{item.day}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panelHeader">
+            <div>
+              <span className="eyebrow violet"><UsersRound size={14} /> الرواتب</span>
+              <h2>مسير أغسطس</h2>
+            </div>
+            <StatusPill status="draft" />
+          </div>
+
+          <div className="payrollSnapshot">
+            <div>
+              <span>صافي الرواتب المتوقع</span>
+              <strong>17,955 ر.س</strong>
+            </div>
+            <div>
+              <span>الموظفون</span>
+              <strong>4</strong>
+            </div>
+            <div>
+              <span>خصومات وسلف</span>
+              <strong>595 ر.س</strong>
+            </div>
+          </div>
+
+          <div className="noticeBox">
+            <PackageSearch size={18} />
+            <div>
+              <strong>لا يوجد تعارض</strong>
+              <span>المسير جاهز للمراجعة قبل الاعتماد.</span>
+            </div>
+          </div>
+
+          <Link className="button secondary full" href="/payroll">فتح مسير الرواتب</Link>
+        </article>
+      </section>
+    </>
   );
 }
