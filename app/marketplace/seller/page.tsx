@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Boxes, CirclePlus, ShoppingBasket, Store } from "lucide-react";
 import { MarketplaceListingForm } from "@/components/marketplace-listing-form";
+import { MarketplaceOrderActions } from "@/components/marketplace-order-actions";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
@@ -10,6 +11,13 @@ import { formatSar } from "@/lib/format";
 
 export const metadata = { title: "لوحة المورد" };
 export const dynamic = "force-dynamic";
+
+const statusLabels: Record<string, string> = {
+  PLACED: "طلب جديد",
+  ACCEPTED: "تم القبول",
+  RECEIVED: "استلمه التاجر",
+  CANCELLED: "ملغي",
+};
 
 export default async function MarketplaceSellerPage() {
   const context = await getSessionContext();
@@ -56,8 +64,13 @@ export default async function MarketplaceSellerPage() {
           <div className="alertList">
             {orders.map((order) => (
               <div className="marketOrderRow" key={order.id}>
-                <div><strong>{order.buyer.name}</strong><span>{order.items.map((item) => `${item.listing.name} × ${Number(item.quantity).toLocaleString("ar-SA")}`).join("، ")}</span></div>
-                <div className="alignEnd"><strong>{formatSar(Number(order.expectedTotal))}</strong><span>{order.status === "PLACED" ? "طلب جديد" : order.status}</span></div>
+                <div>
+                  <strong>{order.buyer.name}</strong>
+                  <span>{order.items.map((item) => `${item.listing.name} × ${Number(item.quantity).toLocaleString("ar-SA")}`).join("، ")}</span>
+                  {order.status === "PLACED" && <MarketplaceOrderActions orderId={order.id} actions={["ACCEPT", "CANCEL"]} />}
+                  {order.status === "ACCEPTED" && <MarketplaceOrderActions orderId={order.id} actions={["CANCEL"]} />}
+                </div>
+                <div className="alignEnd"><strong>{formatSar(Number(order.expectedTotal))}</strong><span>{statusLabels[order.status] ?? order.status}</span></div>
               </div>
             ))}
             {!orders.length && <div className="infoNote">لا توجد طلبات واردة حتى الآن.</div>}

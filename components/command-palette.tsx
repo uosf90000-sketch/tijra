@@ -6,8 +6,10 @@ import {
   BellRing,
   Boxes,
   Calculator,
+  ClipboardList,
   LayoutDashboard,
   Search,
+  ShoppingBag,
   ShoppingBasket,
   ShoppingCart,
   Store,
@@ -18,9 +20,11 @@ import {
 
 const commands = [
   { href: "/", label: "الرئيسية", hint: "لوحة التحكم", icon: LayoutDashboard },
+  { href: "/marketplace", label: "سوق تِجرا", hint: "منتجات الموردين والأسعار والمخزون", icon: ShoppingBag },
+  { href: "/marketplace/orders", label: "طلباتي من السوق", hint: "متابعة طلبات الموردين والاستلام", icon: ClipboardList },
+  { href: "/marketplace/seller", label: "متجري كمورد", hint: "عرض البضاعة ومخزون المورد", icon: Store },
   { href: "/inventory", label: "المخزون", hint: "الأصناف والكميات والتنبيهات", icon: Boxes },
   { href: "/sales", label: "المبيعات", hint: "بيع جديد وسجل المبيعات", icon: ShoppingCart },
-  { href: "/suppliers", label: "الموردون", hint: "الأسعار والموردون", icon: Store },
   { href: "/purchases", label: "المشتريات", hint: "الطلبات والاقتراحات الذكية", icon: ShoppingBasket },
   { href: "/alerts", label: "السعر الأذكى", hint: "فرص التوفير بين الموردين", icon: BellRing },
   { href: "/accounting", label: "المحاسبة", hint: "المبيعات والتكاليف والربح", icon: Calculator },
@@ -65,13 +69,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       <section className="commandPalette" role="dialog" aria-modal="true" aria-label="بحث سريع" onMouseDown={(event) => event.stopPropagation()}>
         <div className="commandSearch">
           <Search size={19} />
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="ابحث عن مخزون، مورد، مشتريات..."
-            aria-label="بحث سريع"
-          />
+          <input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ابحث عن سوق، منتج، طلب أو مخزون..." aria-label="بحث سريع" />
           <button type="button" className="commandClose" onClick={onClose} aria-label="إغلاق"><X size={18} /></button>
         </div>
         <div className="commandMeta"><span>انتقال سريع</span><kbd>ESC</kbd></div>
