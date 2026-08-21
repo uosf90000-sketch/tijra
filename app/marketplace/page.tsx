@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { PackageSearch, ShoppingBasket, Store, Tags } from "lucide-react";
+import { ClipboardList, PackageSearch, ShoppingBasket, Store, Tags } from "lucide-react";
 import { MarketplaceBuyButton } from "@/components/marketplace-buy-button";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
@@ -15,6 +15,8 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
   if (!context) redirect("/login");
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
+  const canBuy = ['RETAILER', 'BOTH'].includes(context.business.businessType);
+  const canSell = ['SUPPLIER', 'BOTH'].includes(context.business.businessType);
 
   const listings = await db.marketplaceListing.findMany({
     where: {
@@ -46,7 +48,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         eyebrow="TIJRA MARKET"
         title="سوق الموردين"
         description="تصفح بضائع الموردين مباشرة، قارن نفس المنتج بين أكثر من مورد، واطلب بالسعر الأنسب."
-        actions={context.business.businessType !== "RETAILER" ? <Link className="button secondary" href="/marketplace/seller"><Store size={17} /> لوحة المورد</Link> : undefined}
+        actions={<>{canBuy && <Link className="button secondary" href="/marketplace/orders"><ClipboardList size={17} /> طلباتي</Link>}{canSell && <Link className="button secondary" href="/marketplace/seller"><Store size={17} /> لوحة المورد</Link>}</>}
       />
 
       <section className="marketHero panel">
@@ -73,7 +75,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
               <div className="marketPrice"><div><strong>{formatSar(Number(listing.price))}</strong><span> / {listing.unit}</span></div>{isBest && <span className="bestPriceTag">أفضل سعر</span>}</div>
               <div className="marketStock"><span className="marketChip good">متوفر {Number(listing.quantity).toLocaleString("ar-SA")}</span><span className="marketChip">حد الطلب {Number(listing.minOrderQty).toLocaleString("ar-SA")}</span></div>
               <div className="marketSeller"><strong>{listing.seller.name}</strong><span>{listing.seller.city || "السعودية"}</span></div>
-              {['RETAILER', 'BOTH'].includes(context.business.businessType) ? <MarketplaceBuyButton listingId={listing.id} minOrderQty={Number(listing.minOrderQty)} available={Number(listing.quantity)} /> : <div className="infoNote">أنت داخل حساب مورد. استخدم حساب تاجر أو «الاثنان» للشراء.</div>}
+              {canBuy ? <MarketplaceBuyButton listingId={listing.id} minOrderQty={Number(listing.minOrderQty)} available={Number(listing.quantity)} /> : <div className="infoNote">أنت داخل حساب مورد. استخدم حساب تاجر أو «الاثنان» للشراء.</div>}
             </article>
           );
         })}
