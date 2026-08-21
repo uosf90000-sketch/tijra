@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireApiRoles } from "@/lib/api-auth";
 import { calculateNetSalary, calculatePayrollRun } from "@/lib/payroll";
 
 const employeeSchema = z.object({
@@ -13,8 +14,10 @@ const employeeSchema = z.object({
 const bodySchema = z.object({ employees: z.array(employeeSchema).max(1000) });
 
 export async function POST(request: Request) {
-  const parsed = bodySchema.safeParse(await request.json());
+  const auth = await requireApiRoles(["OWNER", "ACCOUNTANT"]);
+  if (auth.response) return auth.response;
 
+  const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json(
       { error: "INVALID_INPUT", details: parsed.error.flatten() },

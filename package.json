@@ -1,6 +1,6 @@
 {
   "name": "tijra",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "engines": {
     "node": ">=22"
@@ -9,18 +9,22 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "postinstall": "prisma generate",
     "typecheck": "tsc --noEmit",
     "check": "npm run db:generate && npm run typecheck && npm run build",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "db:deploy": "prisma db push --skip-generate"
   },
   "dependencies": {
     "@prisma/client": "6.19.0",
+    "bcryptjs": "3.0.2",
     "lucide-react": "latest",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "tesseract.js": "6.0.1",
     "zod": "latest"
   },
   "devDependencies": {

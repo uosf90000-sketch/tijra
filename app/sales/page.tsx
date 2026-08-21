@@ -1,125 +1,89 @@
-import { Banknote, Barcode, CreditCard, Plus, ReceiptText, ShoppingCart, TrendingUp } from "lucide-react";
+import { redirect } from "next/navigation";
+import { Banknote, ReceiptText, TrendingUp } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
-import { recentSales } from "@/lib/demo-data";
+import { PosTerminal } from "@/components/pos-terminal";
+import { getSessionContext } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
 
 export const metadata = { title: "المبيعات" };
+export const dynamic = "force-dynamic";
 
-const cart = [
-  { name: "بيبسي 330 مل", qty: 2, price: 2.5 },
-  { name: "شيبس ملح 160 جم", qty: 1, price: 8 },
-  { name: "مياه صفا 330 مل", qty: 1, price: 18 },
-];
+const paymentLabels: Record<string, string> = { CASH: "نقدي", CARD: "بطاقة", TRANSFER: "تحويل", OTHER: "أخرى" };
 
-export default function SalesPage() {
-  const cartTotal = cart.reduce((sum, item) => sum + item.qty * item.price, 0);
-  const salesTotal = recentSales.reduce((sum, item) => sum + item.total, 0);
-  const grossProfit = recentSales.reduce((sum, item) => sum + item.total - item.cost, 0);
+export default async function SalesPage() {
+  const context = await getSessionContext();
+  if (!context) redirect("/login");
+  const businessId = context.business.id;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [products, recentSales, todayAggregate] = await Promise.all([
+    db.product.findMany({
+      where: { businessId, active: true },
+      select: { id: true, name: true, barcode: true, salePrice: true, quantity: true, unit: true },
+      orderBy: { name: "asc" },
+    }),
+    db.sale.findMany({
+      where: { businessId },
+      include: { items: true },
+      orderBy: { soldAt: "desc" },
+      take: 30,
+    }),
+    db.sale.aggregate({
+      where: { businessId, soldAt: { gte: today } },
+      _sum: { total: true, costTotal: true },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const salesTotal = Number(todayAggregate._sum.total ?? 0);
+  const costTotal = Number(todayAggregate._sum.costTotal ?? 0);
+  const grossProfit = salesTotal - costTotal;
+  const count = todayAggregate._count._all;
 
   return (
     <>
       <PageHeader
         eyebrow="نقطة البيع"
         title="المبيعات"
-        description="سجّل البيع بسرعة؛ كل عملية تخصم الكمية من المخزون وتحدّث تكلفة وربح الصنف."
-        actions={<button className="button primary"><Plus size={17} /> عملية بيع جديدة</button>}
+        description="كل عملية بيع تسجل الفاتورة وتخصم الكمية من المخزون داخل معاملة واحدة."
       />
 
       <section className="metricsGrid three">
-        <MetricCard label="مبيعات آخر العمليات" value={formatSar(salesTotal)} note={`${recentSales.length} فواتير`} icon={TrendingUp} />
-        <MetricCard label="مجمل الربح" value={formatSar(grossProfit)} note="بحسب متوسط التكلفة" icon={Banknote} tone="blue" />
-        <MetricCard label="متوسط الفاتورة" value={formatSar(salesTotal / recentSales.length)} note="في العينة الحالية" icon={ReceiptText} tone="violet" />
+        <MetricCard label="مبيعات اليوم" value={formatSar(salesTotal)} note={`${count} فواتير`} icon={TrendingUp} />
+        <MetricCard label="مجمل الربح اليوم" value={formatSar(grossProfit)} note="بحسب متوسط التكلفة" icon={Banknote} tone="blue" />
+        <MetricCard label="متوسط الفاتورة" value={formatSar(count ? salesTotal / count : 0)} note="لعمليات اليوم" icon={ReceiptText} tone="violet" />
       </section>
 
-      <section className="posGrid">
-        <article className="panel posCatalog">
-          <div className="panelHeader">
-            <div>
-              <span className="eyebrow">بيع سريع</span>
-              <h2>امسح الباركود أو ابحث</h2>
-            </div>
-          </div>
-          <div className="barcodeField">
-            <Barcode size={21} />
-            <input aria-label="بحث أو باركود" placeholder="امسح الباركود أو اكتب اسم الصنف..." />
-            <span>Enter</span>
-          </div>
-
-          <div className="quickProducts">
-            {[
-              ["مياه صفا 330 مل", "18.00"],
-              ["بيبسي 330 مل", "2.50"],
-              ["حليب 1 لتر", "7.50"],
-              ["شيبس ملح", "8.00"],
-              ["مناديل 200", "9.50"],
-              ["سكر 2 كجم", "11.00"],
-            ].map(([name, price]) => (
-              <button className="quickProduct" key={name}>
-                <div className="productThumb large">{name.slice(0, 1)}</div>
-                <strong>{name}</strong>
-                <span>{price} ر.س</span>
-              </button>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel cartPanel">
-          <div className="panelHeader">
-            <div>
-              <span className="eyebrow">السلة الحالية</span>
-              <h2>3 أصناف</h2>
-            </div>
-            <ShoppingCart size={21} />
-          </div>
-
-          <div className="cartList">
-            {cart.map((item) => (
-              <div className="cartRow" key={item.name}>
-                <div className="grow">
-                  <strong>{item.name}</strong>
-                  <span>{formatSar(item.price)} للوحدة</span>
-                </div>
-                <div className="qtyControl">
-                  <button>-</button><span>{item.qty}</span><button>+</button>
-                </div>
-                <strong>{formatSar(item.qty * item.price)}</strong>
-              </div>
-            ))}
-          </div>
-
-          <div className="cartTotals">
-            <div><span>الإجمالي قبل الضريبة</span><strong>{formatSar(cartTotal)}</strong></div>
-            <div><span>الضريبة</span><strong>تُحسب حسب إعداد المنشأة</strong></div>
-            <div className="grandTotal"><span>الإجمالي</span><strong>{formatSar(cartTotal)}</strong></div>
-          </div>
-
-          <div className="paymentButtons">
-            <button className="button secondary"><Banknote size={17} /> نقدي</button>
-            <button className="button primary"><CreditCard size={17} /> مدى / بطاقة</button>
-          </div>
-        </article>
-      </section>
+      <PosTerminal products={products.map((item) => ({
+        id: item.id,
+        name: item.name,
+        barcode: item.barcode,
+        salePrice: Number(item.salePrice),
+        quantity: Number(item.quantity),
+        unit: item.unit,
+      }))} />
 
       <section className="panel tablePanel">
-        <div className="panelHeader tableHeader">
-          <div><span className="eyebrow">اليوم</span><h2>آخر الفواتير</h2></div>
-        </div>
+        <div className="panelHeader tableHeader"><div><span className="eyebrow">السجل</span><h2>آخر الفواتير</h2></div></div>
         <div className="tableScroll">
           <table className="dataTable">
             <thead><tr><th>الفاتورة</th><th>الوقت</th><th>عدد الأصناف</th><th>الإجمالي</th><th>التكلفة</th><th>الربح</th><th>الدفع</th></tr></thead>
             <tbody>
               {recentSales.map((sale) => (
                 <tr key={sale.id}>
-                  <td><strong>{sale.id}</strong></td>
-                  <td>{sale.time}</td>
-                  <td>{sale.items}</td>
-                  <td>{formatSar(sale.total)}</td>
-                  <td>{formatSar(sale.cost)}</td>
-                  <td className="positive">{formatSar(sale.total - sale.cost)}</td>
-                  <td>{sale.payment}</td>
+                  <td><strong>{sale.invoiceNumber || sale.id.slice(-8).toUpperCase()}</strong></td>
+                  <td>{new Intl.DateTimeFormat("ar-SA", { dateStyle: "short", timeStyle: "short" }).format(sale.soldAt)}</td>
+                  <td>{sale.items.length}</td>
+                  <td>{formatSar(Number(sale.total))}</td>
+                  <td>{formatSar(Number(sale.costTotal))}</td>
+                  <td className="positive">{formatSar(Number(sale.total) - Number(sale.costTotal))}</td>
+                  <td>{paymentLabels[sale.paymentMethod] ?? sale.paymentMethod}</td>
                 </tr>
               ))}
+              {!recentSales.length && <tr><td colSpan={7}><div className="infoNote">لا توجد مبيعات مسجلة بعد.</div></td></tr>}
             </tbody>
           </table>
         </div>

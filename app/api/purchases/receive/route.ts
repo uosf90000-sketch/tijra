@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireApiRoles } from "@/lib/api-auth";
 import { receivePurchaseOrder } from "@/lib/stock-operations";
 
 const receiptSchema = z.object({
-  businessId: z.string().min(1),
   purchaseOrderId: z.string().min(1),
   invoiceNumber: z.string().trim().min(1).max(100).optional(),
   issuedAt: z.coerce.date().optional(),
@@ -22,13 +22,16 @@ const receiptSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const auth = await requireApiRoles(["OWNER", "MANAGER"]);
+  if (auth.response) return auth.response;
+
   const parsed = receiptSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
   }
 
   try {
-    const result = await receivePurchaseOrder(parsed.data);
+    const result = await receivePurchaseOrder({ ...parsed.data, businessId: auth.context.business.id });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "RECEIPT_FAILED";

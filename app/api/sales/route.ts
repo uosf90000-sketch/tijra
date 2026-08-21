@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireApiRoles } from "@/lib/api-auth";
 import { recordSale } from "@/lib/stock-operations";
 
 const saleSchema = z.object({
-  businessId: z.string().min(1),
   invoiceNumber: z.string().trim().min(1).max(80).optional(),
   paymentMethod: z.enum(["CASH", "CARD", "TRANSFER", "OTHER"]).optional(),
   items: z.array(
@@ -21,13 +21,16 @@ const saleSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const auth = await requireApiRoles(["OWNER", "MANAGER", "CASHIER"]);
+  if (auth.response) return auth.response;
+
   const parsed = saleSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
   }
 
   try {
-    const sale = await recordSale(parsed.data);
+    const sale = await recordSale({ ...parsed.data, businessId: auth.context.business.id });
     return NextResponse.json({ sale }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "SALE_FAILED";

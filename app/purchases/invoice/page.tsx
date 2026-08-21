@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, Camera, CheckCircle2, FileImage, TriangleAlert, Upload } from "lucide-react";
+import { ArrowRight, CheckCircle2, TriangleAlert } from "lucide-react";
+import { InvoiceOcrUploader } from "@/components/invoice-ocr-uploader";
 import { PageHeader } from "@/components/page-header";
 import { formatSar } from "@/lib/format";
 
@@ -28,22 +29,11 @@ export default function PurchaseInvoicePage() {
       />
 
       <section className="invoiceMatchGrid">
-        <article className="panel uploadPanel">
-          <div className="uploadDropzone">
-            <div className="uploadIcon"><Camera size={26} /></div>
-            <h2>صوّر أو ارفع فاتورة المورد</h2>
-            <p>JPG، PNG أو PDF. في النسخة المتصلة سيقرأ النظام الأصناف والكميات والأسعار تلقائيًا.</p>
-            <label className="button primary fileButton">
-              <Upload size={17} /> اختيار ملف
-              <input type="file" accept="image/*,.pdf" />
-            </label>
-          </div>
-          <div className="privacyLine"><FileImage size={15} /> لا يتم وضع مفاتيح أو بيانات حساسة في المستودع العام.</div>
-        </article>
+        <InvoiceOcrUploader />
 
         <article className="panel">
           <div className="panelHeader">
-            <div><span className="eyebrow">نتيجة المطابقة التجريبية</span><h2>وجدنا اختلافين</h2></div>
+            <div><span className="eyebrow">مثال المطابقة بعد القراءة</span><h2>وجدنا اختلافين</h2></div>
             <span className="varianceBadge">{formatSar(variance)}</span>
           </div>
           <div className="matchSummary">
@@ -56,7 +46,7 @@ export default function PurchaseInvoicePage() {
 
       <section className="panel tablePanel">
         <div className="panelHeader tableHeader">
-          <div><span className="eyebrow">PO-1042</span><h2>مقارنة سطر بسطر</h2></div>
+          <div><span className="eyebrow">PO-1042 · مثال توضيحي</span><h2>مقارنة سطر بسطر</h2></div>
         </div>
         <div className="tableScroll">
           <table className="dataTable">
