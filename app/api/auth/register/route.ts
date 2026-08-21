@@ -10,6 +10,7 @@ const schema = z.object({
   password: z.string().min(8).max(128),
   phone: z.string().trim().max(30).optional(),
   businessName: z.string().trim().min(2).max(140),
+  businessType: z.enum(["RETAILER", "SUPPLIER", "BOTH"]),
   city: z.string().trim().max(100).optional(),
   taxNumber: z.string().trim().max(30).optional(),
 });
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
         data: {
           name: parsed.data.businessName,
           commercialName: parsed.data.businessName,
+          businessType: parsed.data.businessType,
           city: parsed.data.city,
           taxNumber: parsed.data.taxNumber,
         },
