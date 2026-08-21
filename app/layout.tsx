@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
 import "./globals.css";
@@ -6,13 +6,20 @@ import "./premium.css";
 import "./smart-price.css";
 import "./command.css";
 import "./marketplace.css";
+import "./brand.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "تِجرا | إدارة تجارتك بذكاء",
+    default: "تِجرا | التجارة الذكية بين المورد والتاجر",
     template: "%s | تِجرا",
   },
-  description: "سوق B2B عربي يربط الموردين بتجار التجزئة مع إدارة المخزون والمشتريات والمحاسبة.",
+  description: "منصة B2B عربية تربط الموردين بتجار التجزئة مع السوق الذكي وإدارة المخزون والمشتريات والمحاسبة والرواتب.",
+  applicationName: "TIJRA",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0F4D4D",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
