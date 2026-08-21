@@ -76,21 +76,25 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [viewer, setViewer] = useState<Viewer | null>(null);
+  const authPage = pathname === "/login" || pathname === "/register";
 
   useEffect(() => {
+    if (authPage) return;
     let active = true;
     fetch("/api/auth/me", { cache: "no-store" })
       .then((response) => response.ok ? response.json() : null)
       .then((data) => { if (active && data) setViewer(data); })
       .catch(() => undefined);
     return () => { active = false; };
-  }, []);
+  }, [authPage]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     router.replace("/login");
     router.refresh();
   }
+
+  if (authPage) return <>{children}</>;
 
   return (
     <div className="appFrame">
