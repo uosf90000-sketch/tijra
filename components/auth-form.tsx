@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowLeftRight, Building2, Store, UsersRound } from "lucide-react";
 import { FormEvent, useState } from "react";
+import { TijraLogo } from "@/components/tijra-logo";
 import styles from "./auth-form.module.css";
 
 type Mode = "login" | "register";
@@ -18,6 +20,12 @@ const activities = [
   ["HARDWARE", "أدوات ومواد"],
   ["OFFICE", "مكتبة ومستلزمات مكتبية"],
   ["OTHER", "نشاط آخر"],
+] as const;
+
+const accountTypes = [
+  ["RETAILER", "تاجر تجزئة", "أشتري من الموردين وأدير المتجر", Store],
+  ["SUPPLIER", "مورد", "أعرض البضاعة وأستقبل الطلبات", Building2],
+  ["BOTH", "الاثنان", "أبيع وأشتري داخل تِجرا", UsersRound],
 ] as const;
 
 const messages: Record<string, string> = {
@@ -81,34 +89,39 @@ export function AuthForm({ mode }: { mode: Mode }) {
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
-        <div className={styles.brand}><span className={styles.mark}>ت</span> تِجرا</div>
+        <TijraLogo inverse size={62} className={styles.brandLogo} />
+
         <div className={styles.heroCopy}>
-          <h1>{register ? "سوق الجملة وإدارة تجارتك في مكان واحد." : "رجعت لتجارتك. خلّ تِجرا ترتب الباقي."}</h1>
-          <p>المورد يعرض بضاعته ومخزونه، وتاجر التجزئة يشتري ويقارن الأسعار مباشرة داخل تِجرا.</p>
+          <span className={styles.heroEyebrow}>منصة B2B للتجارة الذكية</span>
+          <h1>الربط الذكي بين المورد وتاجر التجزئة.</h1>
+          <p>المورد يعرض البضاعة والسعر والمخزون، والتاجر يقارن ويطلب ويحدّث مخزونه ومحاسبته من مكان واحد.</p>
+
+          <div className={styles.connectionVisual} aria-hidden="true">
+            <div className={styles.connectionRole}><Building2 size={19} /><span>المورد</span></div>
+            <div className={styles.connectionLine}><ArrowLeftRight size={18} /></div>
+            <div className={styles.connectionRole}><Store size={19} /><span>التاجر</span></div>
+          </div>
+
           <div className={styles.points}>
-            <div className={styles.point}><span className={styles.dot} /> سوق B2B بين المورد وتاجر التجزئة</div>
-            <div className={styles.point}><span className={styles.dot} /> السوق يتخصص حسب نشاط المنشأة</div>
-            <div className={styles.point}><span className={styles.dot} /> مقارنة تلقائية للسعر الأذكى</div>
+            <div className={styles.point}><span className={styles.dot} /> سوق الموردين حسب نشاطك</div>
+            <div className={styles.point}><span className={styles.dot} /> السعر الأذكى يقارن العروض تلقائيًا</div>
+            <div className={styles.point}><span className={styles.dot} /> المخزون والمحاسبة والرواتب في نظام واحد</div>
           </div>
         </div>
-        <div className={styles.fine}>TIJRA · سوق وتشغيل التجارة</div>
+        <div className={styles.fine}>TIJRA · المورد ↔ التاجر · تجارة مستمرة</div>
       </section>
 
       <section className={styles.formSide}>
         <div className={styles.card}>
-          <span className={styles.eyebrow}>{register ? "حساب جديد" : "تسجيل الدخول"}</span>
-          <h2>{register ? "اختر نشاطك" : "أهلًا بك"}</h2>
-          <p className={styles.sub}>{register ? "حدد نوع الحساب ونشاط المنشأة حتى نعرض لك المنتجات المناسبة." : "استخدم بريدك وكلمة المرور للوصول إلى لوحة منشأتك."}</p>
+          <span className={styles.eyebrow}>{register ? "ابدأ مع تِجرا" : "مرحبًا بعودتك"}</span>
+          <h2>{register ? "أنشئ حساب منشأتك" : "تسجيل الدخول"}</h2>
+          <p className={styles.sub}>{register ? "اختر دورك ونشاطك، وسنجهز لك السوق واللوحة المناسبة تلقائيًا." : "ادخل إلى سوقك ومخزونك وتقارير تجارتك."}</p>
 
           <form className={styles.form} onSubmit={submit}>
             {register && (
               <>
                 <div className={styles.typeGrid} role="radiogroup" aria-label="نوع المنشأة">
-                  {[
-                    ["RETAILER", "تاجر تجزئة", "أشتري من الموردين وأدير المتجر"],
-                    ["SUPPLIER", "مورد", "أعرض البضاعة وأستقبل الطلبات"],
-                    ["BOTH", "الاثنان", "أبيع وأشتري داخل تِجرا"],
-                  ].map(([value, title, note]) => (
+                  {accountTypes.map(([value, title, note, Icon]) => (
                     <button
                       key={value}
                       type="button"
@@ -116,6 +129,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                       onClick={() => setBusinessType(value)}
                       aria-pressed={businessType === value}
                     >
+                      <span className={styles.typeIcon}><Icon size={18} /></span>
                       <strong>{title}</strong>
                       <span>{note}</span>
                     </button>
@@ -126,7 +140,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                   <select id="businessActivity" value={businessActivity} onChange={(event) => setBusinessActivity(event.target.value)}>
                     {activities.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                   </select>
-                  <small>مثال: محل إلكترونيات لن تظهر له منتجات البقالة في السوق الافتراضي.</small>
+                  <small>نستخدم النشاط لترتيب المنتجات والموردين الأكثر صلة بمنشأتك.</small>
                 </div>
                 <div className={styles.grid2}>
                   <div className={styles.field}><label htmlFor="name">اسمك</label><input id="name" name="name" required minLength={2} autoComplete="name" /></div>
@@ -143,7 +157,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             <div className={styles.field}><label htmlFor="email">البريد الإلكتروني</label><input id="email" name="email" type="email" required autoComplete="email" dir="ltr" /></div>
             <div className={styles.field}><label htmlFor="password">كلمة المرور</label><input id="password" name="password" type="password" required minLength={register ? 8 : 1} autoComplete={register ? "new-password" : "current-password"} dir="ltr" /></div>
             {error && <div className={styles.error}>{error}</div>}
-            <button className={styles.button} disabled={loading}>{loading ? "جاري الحفظ..." : register ? "إنشاء الحساب" : "دخول"}</button>
+            <button className={styles.button} disabled={loading}>{loading ? "جاري الحفظ..." : register ? "إنشاء الحساب والمتابعة" : "دخول إلى تِجرا"}</button>
           </form>
 
           <p className={styles.switch}>

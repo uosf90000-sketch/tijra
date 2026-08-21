@@ -1,0 +1,282 @@
+/* TIJRA 2026 approved brand system
+   UX/UI Pro Max hierarchy + lightweight 21st.dev-inspired interactions.
+   Loaded last so it safely skins existing functional screens. */
+
+:root{
+  --tijra-teal:#0F4D4D;
+  --tijra-teal-strong:#0A3D3D;
+  --tijra-teal-soft:#E8F1EF;
+  --tijra-sand:#D8C6A6;
+  --tijra-sand-soft:#F4EDE2;
+  --tijra-cream:#FAF7F2;
+  --tijra-white:#FFFFFF;
+  --tijra-ink:#17302F;
+  --tijra-text:#263C3A;
+  --tijra-muted:#71807D;
+  --tijra-line:#E8E2D9;
+  --tijra-success:#24A66A;
+  --tijra-warning:#E59A25;
+  --tijra-danger:#E44B4B;
+  --tijra-info:#3B7FA6;
+  --tijra-radius-sm:10px;
+  --tijra-radius-md:14px;
+  --tijra-radius-lg:18px;
+  --tijra-radius-xl:24px;
+  --tijra-shadow-sm:0 1px 2px rgba(15,77,77,.025),0 8px 22px rgba(30,52,49,.045);
+  --tijra-shadow-md:0 16px 42px rgba(30,52,49,.075);
+  --tijra-ease:cubic-bezier(.2,.72,.2,1);
+  --brand:var(--tijra-teal);
+  --brand-dark:var(--tijra-teal-strong);
+  --brand-soft:var(--tijra-teal-soft);
+  --bg:var(--tijra-cream);
+  --surface:#fff;
+  --surface-soft:#FCFBF8;
+  --surface-tint:var(--tijra-sand-soft);
+  --text:var(--tijra-ink);
+  --text-soft:var(--tijra-text);
+  --muted:var(--tijra-muted);
+  --line:var(--tijra-line);
+  --line-strong:#DCD3C5;
+  --amber:#A9782E;
+  --amber-soft:#F6ECDD;
+  --violet:var(--tijra-teal);
+  --violet-soft:var(--tijra-teal-soft);
+  --blue:var(--tijra-info);
+  --blue-soft:#EAF3F8;
+}
+
+html{background:var(--tijra-cream)}
+body{
+  background:
+    radial-gradient(800px 360px at 92% -5%,rgba(15,77,77,.055),transparent 64%),
+    radial-gradient(650px 300px at 5% 8%,rgba(216,198,166,.11),transparent 68%),
+    var(--tijra-cream);
+  color:var(--tijra-ink);
+  font-family:Cairo,"Noto Kufi Arabic","Noto Sans Arabic","SF Arabic",-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;
+  font-feature-settings:"tnum" 1,"ss01" 1;
+}
+
+::selection{background:rgba(216,198,166,.45);color:var(--tijra-teal-strong)}
+
+/* Approved logo */
+.tijraLogo{display:inline-flex;align-items:center;gap:10px;color:var(--tijra-teal);line-height:1;text-decoration:none}
+.tijraLogoSymbol{display:grid;place-items:center;flex:none}
+.tijraLogoSymbol svg{display:block;overflow:visible;filter:drop-shadow(0 5px 12px rgba(15,77,77,.08))}
+.tijraLogoWords{display:grid;gap:3px;min-width:0}
+.tijraLogoWords strong{font-size:22px;line-height:1;font-weight:900;letter-spacing:-.6px;white-space:nowrap}
+.tijraLogoWords span{font-size:9px;font-weight:800;letter-spacing:.34em;direction:ltr;color:inherit;opacity:.78}
+.tijraLogoInverse{color:#F9F7F2}
+.tijraLogoCompact{gap:0}
+
+/* Main shell */
+.appFrame{grid-template-columns:236px minmax(0,1fr)}
+.sidebar{
+  width:236px;
+  padding:20px 13px 14px;
+  background:
+    radial-gradient(410px 220px at 50% -6%,rgba(216,198,166,.11),transparent 62%),
+    linear-gradient(180deg,#0F4D4D 0%,#0B4141 62%,#083737 100%);
+  border-inline-end:1px solid rgba(255,255,255,.08);
+  box-shadow:16px 0 46px rgba(15,77,77,.06);
+}
+.sidebarTop{min-height:58px;padding-inline:7px}
+.brand{gap:0}
+.sidebar .tijraLogoWords strong{font-size:20px}
+.sidebar .tijraLogoWords span{font-size:8px}
+.sidebarClose{background:rgba(255,255,255,.07)!important;border-color:rgba(255,255,255,.1)!important}
+.workspaceSwitcher{
+  margin-top:15px;
+  min-height:60px;
+  padding:9px;
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:14px;
+  background:rgba(255,255,255,.06);
+  backdrop-filter:blur(16px);
+}
+.workspaceSwitcher:hover{background:rgba(255,255,255,.1);border-color:rgba(230,214,184,.2);transform:translateY(-1px)}
+.workspaceIcon{background:rgba(216,198,166,.14);color:#F1DFC0;border:1px solid rgba(216,198,166,.13)}
+.workspaceSwitcher span{color:#9EB6B2;font-size:9px}
+.workspaceSwitcher strong{color:#fff;font-size:11.5px}
+.sideNav{margin-top:20px;gap:19px}
+.navGroupLabel{padding-inline:11px;color:#789B96;font-size:9px;letter-spacing:.03em}
+.navItem{min-height:42px;padding:0 10px;border-radius:11px;color:#C2D2CF;font-size:11.5px;font-weight:700;gap:9px;position:relative}
+.navIcon{width:27px;height:27px;display:grid;place-items:center;border-radius:8px;color:#A9C1BD;transition:background .18s ease,color .18s ease,transform .18s var(--tijra-ease)}
+.navItem:hover{background:rgba(255,255,255,.055);color:#fff;transform:none}
+.navItem:hover .navIcon{background:rgba(255,255,255,.06);color:#fff;transform:translateY(-1px)}
+.navItem.active{
+  background:linear-gradient(90deg,rgba(216,198,166,.19),rgba(216,198,166,.1));
+  color:#fff;
+  box-shadow:inset -2px 0 #E3C997,0 8px 24px rgba(0,0,0,.07);
+}
+.navItem.active .navIcon{background:rgba(216,198,166,.13);color:#F2D8A7}
+.navItem.active::after{content:"";position:absolute;inset-inline-end:9px;width:5px;height:5px;border-radius:50%;background:#E3C997;box-shadow:0 0 0 4px rgba(227,201,151,.08)}
+.sidebarInsight{display:grid;grid-template-columns:34px 1fr;gap:9px;align-items:start;padding:11px;background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.07);border-radius:13px}
+.sidebarInsightIcon{margin:0;background:rgba(216,198,166,.12);color:#ECD6AF}
+.sidebarInsight strong{font-size:10.5px;color:#F4F7F5}
+.sidebarInsight span{font-size:9px;color:#8FAAA5;line-height:1.7}
+.accountBlock{min-height:54px;padding:9px 5px 2px;border-top-color:rgba(255,255,255,.07)}
+.avatar{background:rgba(255,255,255,.08);color:#D5E2DF}
+.accountBlock strong{font-size:10.5px}.accountBlock span{font-size:8.5px;color:#8DA6A2}
+.logoutButton{width:32px;height:32px;background:transparent!important;border-color:transparent!important;color:#91AAA6!important}
+
+.appTopbar{
+  min-height:68px;
+  padding:0 clamp(20px,3.2vw,42px);
+  background:rgba(250,247,242,.88);
+  border-bottom:1px solid rgba(221,214,203,.82);
+  backdrop-filter:blur(20px) saturate(130%);
+}
+.searchTrigger{width:min(460px,46vw);min-height:39px;border-radius:12px;background:rgba(255,255,255,.82);border-color:#E6E0D7;box-shadow:0 1px 1px rgba(17,49,47,.02)}
+.searchTrigger:hover{background:#fff;border-color:#DAD1C3;box-shadow:0 8px 22px rgba(29,55,52,.05)}
+.searchTrigger kbd{background:#F7F3EC;border-color:#E8E1D7;color:#8A8580}
+.iconButton{border-color:#E7E0D7;background:rgba(255,255,255,.86);color:#4D6360;border-radius:11px}
+.iconButton:hover{border-color:#DAD1C4;background:#fff;color:var(--tijra-teal)}
+.syncStatus{color:#7B8986}.syncDot{background:var(--tijra-success);box-shadow:0 0 0 4px rgba(36,166,106,.08)}
+.notificationDot{background:var(--tijra-danger)}
+.quickSale,.button.primary{
+  border-radius:11px;
+  background:linear-gradient(135deg,#0F4D4D,#0B4242);
+  color:#fff;
+  box-shadow:0 8px 20px rgba(15,77,77,.15);
+}
+.quickSale:hover,.button.primary:hover{background:linear-gradient(135deg,#0C4545,#083A3A);box-shadow:0 12px 28px rgba(15,77,77,.2)}
+.quickSale::after,.button.primary::after{background:linear-gradient(90deg,transparent,rgba(232,218,192,.28),transparent)}
+
+.pageContent{width:min(100%,1500px);padding:28px clamp(20px,3.2vw,42px) 62px}
+.pageHeader{align-items:center}
+.pageHeader h1{margin:5px 0 6px;font-size:clamp(24px,2.8vw,32px);letter-spacing:-.65px;color:var(--tijra-ink)}
+.pageHeader p{font-size:11.5px;line-height:1.85;color:#75817F}
+.eyebrow{color:var(--tijra-teal);font-size:9.5px;letter-spacing:.035em}
+.eyebrow.amber{color:#A4752C}.eyebrow.violet{color:var(--tijra-teal)}
+.button{border-radius:11px;font-size:10.5px;min-height:38px}
+.button.secondary{border-color:#E3DCD2;background:#fff;color:#526460}
+.button.secondary:hover{background:#FCFBF8;border-color:#D5CBBC;color:var(--tijra-teal)}
+
+/* Cards & dashboard */
+.metricsGrid{margin-top:18px;gap:10px}
+.metricCard,.panel{
+  border:1px solid rgba(215,207,195,.76);
+  border-radius:16px;
+  background:rgba(255,255,255,.94);
+  box-shadow:var(--tijra-shadow-sm);
+  backdrop-filter:blur(12px);
+}
+.metricCard{padding:14px 15px;min-height:126px}
+.metricCard:hover,.panel:hover{border-color:rgba(15,77,77,.16);box-shadow:var(--tijra-shadow-md)}
+.metricCard:hover{transform:translateY(-2px)}
+.metricIcon,.softIcon{border-radius:10px}
+.metricIcon.tone-brand,.softIcon.brand{background:#E9F1EF;color:var(--tijra-teal)}
+.metricIcon.tone-blue{background:#EDF4F5;color:#3C7880}
+.metricIcon.tone-amber{background:#F6EEE1;color:#A5752A}
+.metricIcon.tone-violet{background:#EEF2F0;color:#55716C}
+.metricLabel{margin-top:12px;color:#7D8986}.metricCard>strong{font-size:clamp(17px,1.8vw,22px);color:#1B3432}.metricNote{color:#87918E}
+.dashboardGrid{gap:10px;margin-top:10px}.dashboardGrid>.panel,.accountingGrid>.panel,.posGrid>.panel,.invoiceMatchGrid>.panel,.onboardingGrid>.panel{padding:18px}
+.panelHeader h2{font-size:15.5px;color:#203735}.panelLead{font-size:10.5px;color:#6E7D79}
+.aiRecommendation{
+  border-color:rgba(15,77,77,.12);
+  background:
+    radial-gradient(520px 220px at 100% 0%,rgba(216,198,166,.16),transparent 60%),
+    linear-gradient(145deg,#fff,#FCFBF8);
+}
+.aiRecommendation::after{background:linear-gradient(110deg,transparent 25%,rgba(216,198,166,.12) 48%,rgba(15,77,77,.06) 54%,transparent 77%)}
+.savingCallout{background:#F7F2E9;border-color:#E9DECC}.savingCallout strong{color:var(--tijra-teal)}
+.savingBadge,.aiBadge{background:#E8F1EF;color:#0F4D4D!important}
+.suggestionRow,.alertRow,.cartRow,.employeePayrollRow{border-bottom-color:#EEE8DF}
+.suggestionRow:hover,.alertRow:hover,.cartRow:hover,.employeePayrollRow:hover{background:#FAF8F4;transform:translateX(-1px)}
+.productDot{background:#BF9E65;box-shadow:0 0 0 4px #F6EFE3}
+.progressTrack{background:#F0ECE5}.progressFill{background:var(--tijra-teal)}
+.progressFill.tone-amber{background:#D49A43}.progressFill.tone-red{background:#DA5D55}
+.barChart{border-bottom-color:#E8E2D9}.bar{background:linear-gradient(180deg,#0F4D4D,#D8C6A6)}
+.noticeBox,.infoNote{background:#FAF8F4;border-color:#E9E1D5;color:#64726F}
+.payrollSnapshot>div{background:#FAF8F4;border-color:#E9E2D8}
+
+/* Smart Price: strategic hero, not an AI neon surface */
+.smartPriceHero{
+  border-color:#E4D5BC;
+  background:
+    radial-gradient(430px 190px at 95% 0%,rgba(216,198,166,.28),transparent 66%),
+    linear-gradient(135deg,#FFFDF9,#F9F2E7);
+}
+.smartPriceHero::after{background:linear-gradient(115deg,transparent 41%,rgba(255,255,255,.55) 50%,transparent 59%)}
+.smartPriceKicker{background:#E9F1EF;color:#0F4D4D}
+.smartPriceHeroSaving{border-color:#E4D7C4;background:rgba(255,255,255,.7)}
+.smartPriceHeroSaving strong{color:var(--tijra-teal)}
+.smartPricePercent{background:#E7F3EC;color:#16704A}
+.smartPriceCard::before{background:linear-gradient(90deg,transparent,#D8C6A6,#0F4D4D,transparent)}
+.priceBest strong,.savingText,.positive{color:var(--tijra-teal)!important}
+.smartPriceSavings .total{background:#EDF4F1}.smartPriceSavings .total svg,.smartPriceSavings .total strong{color:var(--tijra-teal)}
+.smartPriceAction{background:#0F4D4D}.smartPriceAction:hover{background:#0A3D3D;box-shadow:0 9px 22px rgba(15,77,77,.15)}
+
+/* Marketplace */
+.marketHero{
+  border-color:#E5D8C4;
+  background:linear-gradient(135deg,#FFFDF9,#F7F0E5);
+}
+.marketHero::before{background:radial-gradient(circle,rgba(15,77,77,.06) 1px,transparent 1px);background-size:14px 14px;opacity:.22}
+.marketSearch{border:1px solid #E3DCD2;background:#fff;border-radius:14px;box-shadow:var(--tijra-shadow-sm)}
+.marketSearch:focus-within{border-color:rgba(15,77,77,.33);box-shadow:0 0 0 4px rgba(15,77,77,.055),var(--tijra-shadow-sm)}
+.marketGrid{gap:10px}
+.marketCard{border-radius:17px;padding:16px;background:#fff}
+.marketCard:hover{transform:translateY(-2px);border-color:rgba(15,77,77,.17);box-shadow:var(--tijra-shadow-md)}
+.marketProductIcon{background:#F3EEE5;color:var(--tijra-teal);border-color:#E7DCCB}
+.marketPrice strong{color:var(--tijra-teal);font-size:20px}
+.bestPriceTag{background:#E8F2EF;color:#0F4D4D;border-color:#D8E7E2}
+.marketChip{background:#F7F3EC;color:#687873}.marketChip.good{background:#EAF5EF;color:#23704E}
+.marketSeller{border-top-color:#EEE8DF}.marketSeller strong{color:#203B38}
+.marketSeller span{color:#7E8986}
+.favoriteSupplierButton{border-color:#E5DDD1;background:#fff;color:#64736F}.favoriteSupplierButton.active{background:#F5EBDD;border-color:#E6D0AB;color:#8D6525}
+.marketBuyBox{background:#FAF8F4;border-color:#E8E0D5}
+.marketSellerGrid{gap:10px}
+.marketOrderRow{border-bottom-color:#EEE8DF}
+
+/* Tables and form controls */
+.dataTable thead{background:#F9F7F2}.dataTable th{color:#76827F;border-bottom-color:#E8E1D7}.dataTable td{border-bottom-color:#EEE9E1}.dataTable tbody tr:hover{background:#FCFAF6}
+input,select,textarea{border-color:#E2DBD1!important;background:#FCFBF8!important;color:#263C3A}
+input:focus,select:focus,textarea:focus{border-color:rgba(15,77,77,.42)!important;box-shadow:0 0 0 4px rgba(15,77,77,.06)!important;background:#fff!important}
+.statusPill{border-color:rgba(15,77,77,.04)}
+.status-healthy,.status-active,.status-received,.status-paid,.status-in{background:#E8F4ED;color:#216B49}
+.status-low,.status-sent,.status-partial,.status-draft{background:#F8EEDB;color:#8A6329}
+.status-critical,.status-out{background:#FDE9E7;color:#A53F3A}
+.status-confirmed{background:#EAF2F4;color:#356B74}
+
+/* Command palette, 21st-style focused surface */
+.commandBackdrop{background:rgba(16,38,36,.36);backdrop-filter:blur(9px)}
+.commandPalette{border-color:#DDD5C9;background:rgba(255,255,255,.97);box-shadow:0 30px 90px rgba(18,43,40,.18)}
+.commandSearch{background:#FAF8F4;border-color:#E5DED3}.commandResult:hover,.commandResult.active{background:#F4EFE7;color:var(--tijra-teal)}
+
+/* Accessible motion: small, fast, purposeful */
+.pageContent>*{animation:tijraBrandRise .28s var(--tijra-ease) both}
+@keyframes tijraBrandRise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.panel,.metricCard,.marketCard,.button,.navItem,.searchTrigger,.iconButton,.workspaceSwitcher{transition:transform .17s var(--tijra-ease),box-shadow .17s ease,border-color .17s ease,background .17s ease,color .17s ease}
+
+/* Mobile-first tuning */
+.mobileBottomNav{background:rgba(255,255,255,.94)!important;border-top-color:#E5DED4!important;box-shadow:0 -10px 30px rgba(30,52,49,.06)}
+.mobileBottomNav a{color:#788581}.mobileBottomNav a.active{color:var(--tijra-teal);background:#F3EEE6}
+.mobileBottomNav a.active::before{background:var(--tijra-sand)}
+
+@media(max-width:980px){
+  .appFrame{grid-template-columns:1fr}.sidebar{width:min(290px,84vw)}
+}
+
+@media(max-width:760px){
+  .appTopbar{padding-inline:14px;min-height:62px;background:rgba(250,247,242,.94)}
+  .pageContent{padding:20px 14px 88px}
+  .pageHeader{align-items:flex-start}.pageHeader h1{font-size:25px}.pageHeader p{font-size:10.5px}
+  .metricsGrid{gap:8px}.metricCard{min-height:116px;padding:13px}
+  .dashboardGrid{gap:8px}.dashboardGrid>.panel,.accountingGrid>.panel,.posGrid>.panel,.invoiceMatchGrid>.panel,.onboardingGrid>.panel{padding:15px}
+  .marketGrid{gap:8px}.marketCard{padding:14px}
+  .smartPriceHero{padding:17px}
+  .tijraLogoWords strong{font-size:18px}
+  .mobileBrand .tijraLogoSymbol svg{width:38px}
+}
+
+@media(max-width:520px){
+  .metricsGrid,.metricsGrid.three,.metricsGrid.four{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pageHeaderActions{width:100%}.pageHeaderActions .button{flex:1}
+  .smartPriceHeroActions .button{flex:1}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  .pageContent>*{opacity:1!important;transform:none!important}
+}

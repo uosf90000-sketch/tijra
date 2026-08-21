@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ClipboardList, PackageSearch, ShoppingBasket, Store, Tags } from "lucide-react";
+import { ArrowLeft, ClipboardList, PackageSearch, ShoppingBasket, Star, Store, Tags } from "lucide-react";
 import { FavoriteSupplierButton } from "@/components/favorite-supplier-button";
 import { MarketplaceBuyButton } from "@/components/marketplace-buy-button";
 import { PageHeader } from "@/components/page-header";
@@ -69,25 +69,68 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
     bestByKey.set(key, Math.min(bestByKey.get(key) ?? price, price));
   }
 
+  const supplierMap = new Map<string, { id: string; name: string; city: string; products: number; bestPrice: number; favorite: boolean }>();
+  for (const listing of listings) {
+    const current = supplierMap.get(listing.sellerBusinessId);
+    if (current) {
+      current.products += 1;
+      current.bestPrice = Math.min(current.bestPrice, Number(listing.price));
+    } else {
+      supplierMap.set(listing.sellerBusinessId, {
+        id: listing.sellerBusinessId,
+        name: listing.seller.name,
+        city: listing.seller.city || "السعودية",
+        products: 1,
+        bestPrice: Number(listing.price),
+        favorite: favoriteIds.has(listing.sellerBusinessId),
+      });
+    }
+  }
+  const topSuppliers = [...supplierMap.values()]
+    .sort((a, b) => Number(b.favorite) - Number(a.favorite) || b.products - a.products || a.bestPrice - b.bestPrice)
+    .slice(0, 4);
+
   return (
     <>
       <PageHeader
         eyebrow="TIJRA MARKET"
-        title="سوق الموردين"
-        description={q ? "نتائج البحث من جميع أقسام السوق." : `نعرض لك تلقائيًا منتجات ${activityLabels[context.business.businessActivity] ?? "نشاطك"}، والموردون المفضلون يظهرون أولًا.`}
+        title="السوق"
+        description={q ? "نتائج البحث من جميع أقسام السوق." : `منتجات ${activityLabels[context.business.businessActivity] ?? "نشاطك"} أولًا، مع أولوية لمورديك المفضلين.`}
         actions={<>{canBuy && <Link className="button secondary" href="/marketplace/orders"><ClipboardList size={17} /> طلباتي</Link>}{canSell && <Link className="button secondary" href="/marketplace/seller"><Store size={17} /> لوحة المورد</Link>}</>}
       />
 
       <section className="marketHero panel">
-        <div><span className="eyebrow"><ShoppingBasket size={14} /> شراء جملة مباشر</span><h2>سوق مخصص لنشاط منشأتك</h2><p>الواجهة الرئيسية تعرض المنتجات المناسبة لنشاطك فقط. تقدر تبحث عن أي منتج في السوق بالكامل متى ما احتجته.</p></div>
+        <div><span className="eyebrow"><ShoppingBasket size={14} /> سوق B2B مباشر</span><h2>ابحث، قارن، واطلب من المورد الأنسب</h2><p>تِجرا يرتب الموردين والمنتجات حسب نشاطك، ويظهر لك السعر الأفضل لنفس الصنف عندما تتوفر أكثر من مقارنة.</p></div>
         <Link className="button secondary" href="/alerts"><Tags size={17} /> السعر الأذكى</Link>
       </section>
 
       <form className="marketSearch" action="/marketplace">
         <PackageSearch size={19} />
-        <input name="q" defaultValue={q} placeholder="ابحث في كل السوق: منتج، باركود أو اسم مورد..." />
+        <input name="q" defaultValue={q} placeholder="ابحث عن منتج، باركود أو اسم مورد..." />
         <button className="button primary">بحث</button>
       </form>
+
+      {topSuppliers.length > 0 && (
+        <section className="supplierShowcase" aria-label="الموردون المميزون">
+          <div className="supplierShowcaseHead"><div><span className="eyebrow"><Star size={13} /> الموردون المميزون</span><h2>ابدأ من المورد</h2></div><span>{supplierMap.size} مورد متاح</span></div>
+          <div className="supplierShowcaseGrid">
+            {topSuppliers.map((supplier, index) => (
+              <article className="supplierShowcaseCard" key={supplier.id}>
+                <div className="supplierAvatar"><Store size={19} /></div>
+                <div className="supplierShowcaseInfo">
+                  <div className="supplierTitleLine"><strong>{supplier.name}</strong>{supplier.favorite && <span className="supplierFavoriteTag">مفضل</span>}</div>
+                  <span>{supplier.city} · {supplier.products} منتج</span>
+                  <small>أسعار تبدأ من {formatSar(supplier.bestPrice)}</small>
+                </div>
+                <Link href={`/marketplace?q=${encodeURIComponent(supplier.name)}`} className="supplierShowcaseAction" aria-label={`عرض منتجات ${supplier.name}`}><ArrowLeft size={16} /></Link>
+                <span className="supplierRank">{index + 1}</span>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="marketSectionTitle"><div><span className="eyebrow">المنتجات</span><h2>{q ? "نتائج البحث" : "منتجات مقترحة لمنشأتك"}</h2></div><span>{listings.length} عرض</span></section>
 
       <section className="marketGrid">
         {listings.map((listing) => {
