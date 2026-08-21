@@ -2,9 +2,9 @@ import { compare, hash } from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import type { UserRole } from "@prisma/client";
+import { SESSION_COOKIE } from "@/lib/auth-constants";
 import { db } from "@/lib/db";
 
-export const SESSION_COOKIE = "tijra_session";
 const DEFAULT_SESSION_DAYS = 30;
 
 function sessionDays() {
