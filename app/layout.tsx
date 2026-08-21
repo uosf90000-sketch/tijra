@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
 import "./globals.css";
+import "./premium.css";
+import "./smart-price.css";
 
 export const metadata: Metadata = {
   title: {
