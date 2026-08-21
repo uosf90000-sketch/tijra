@@ -8,6 +8,7 @@ const listingSchema = z.object({
   sku: z.string().trim().max(80).optional(),
   barcode: z.string().trim().max(80).optional(),
   category: z.string().trim().max(100).optional(),
+  activity: z.enum(["GROCERY", "ELECTRONICS", "PHARMACY", "RESTAURANT", "CAFE", "FASHION", "BEAUTY", "HARDWARE", "OFFICE", "OTHER"]),
   unit: z.string().trim().min(1).max(40).default("piece"),
   price: z.coerce.number().positive().max(1000000),
   quantity: z.coerce.number().nonnegative().max(100000000),
@@ -17,7 +18,7 @@ const listingSchema = z.object({
 export async function POST(request: Request) {
   const context = await getSessionContext();
   if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  if (!['SUPPLIER', 'BOTH'].includes(context.business.businessType)) {
+  if (!["SUPPLIER", "BOTH"].includes(context.business.businessType)) {
     return NextResponse.json({ error: "SUPPLIER_ACCOUNT_REQUIRED" }, { status: 403 });
   }
 
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
       sku: parsed.data.sku || null,
       barcode: parsed.data.barcode || null,
       category: parsed.data.category || null,
+      activity: parsed.data.activity,
       unit: parsed.data.unit,
       price: parsed.data.price,
       quantity: parsed.data.quantity,

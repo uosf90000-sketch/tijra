@@ -7,6 +7,19 @@ import styles from "./auth-form.module.css";
 
 type Mode = "login" | "register";
 
+const activities = [
+  ["GROCERY", "بقالة وتموينات"],
+  ["ELECTRONICS", "إلكترونيات"],
+  ["PHARMACY", "صيدلية"],
+  ["RESTAURANT", "مطعم"],
+  ["CAFE", "مقهى"],
+  ["FASHION", "ملابس"],
+  ["BEAUTY", "عناية وتجميل"],
+  ["HARDWARE", "أدوات ومواد"],
+  ["OFFICE", "مكتبة ومستلزمات مكتبية"],
+  ["OTHER", "نشاط آخر"],
+] as const;
+
 const messages: Record<string, string> = {
   INVALID_CREDENTIALS: "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
   EMAIL_ALREADY_EXISTS: "يوجد حساب بهذا البريد الإلكتروني مسبقًا.",
@@ -19,6 +32,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [businessType, setBusinessType] = useState("RETAILER");
+  const [businessActivity, setBusinessActivity] = useState("GROCERY");
   const register = mode === "register";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -35,6 +49,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           phone: form.get("phone") || undefined,
           businessName: form.get("businessName"),
           businessType,
+          businessActivity,
           city: form.get("city") || undefined,
           taxNumber: form.get("taxNumber") || undefined,
         }
@@ -72,8 +87,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
           <p>المورد يعرض بضاعته ومخزونه، وتاجر التجزئة يشتري ويقارن الأسعار مباشرة داخل تِجرا.</p>
           <div className={styles.points}>
             <div className={styles.point}><span className={styles.dot} /> سوق B2B بين المورد وتاجر التجزئة</div>
+            <div className={styles.point}><span className={styles.dot} /> السوق يتخصص حسب نشاط المنشأة</div>
             <div className={styles.point}><span className={styles.dot} /> مقارنة تلقائية للسعر الأذكى</div>
-            <div className={styles.point}><span className={styles.dot} /> المخزون والمحاسبة يتحدثان مع حركة البيع والشراء</div>
           </div>
         </div>
         <div className={styles.fine}>TIJRA · سوق وتشغيل التجارة</div>
@@ -83,7 +98,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         <div className={styles.card}>
           <span className={styles.eyebrow}>{register ? "حساب جديد" : "تسجيل الدخول"}</span>
           <h2>{register ? "اختر نشاطك" : "أهلًا بك"}</h2>
-          <p className={styles.sub}>{register ? "حدد كيف ستستخدم تِجرا. يمكنك اختيار الاثنين إذا كنت تبيع وتشتري." : "استخدم بريدك وكلمة المرور للوصول إلى لوحة منشأتك."}</p>
+          <p className={styles.sub}>{register ? "حدد نوع الحساب ونشاط المنشأة حتى نعرض لك المنتجات المناسبة." : "استخدم بريدك وكلمة المرور للوصول إلى لوحة منشأتك."}</p>
 
           <form className={styles.form} onSubmit={submit}>
             {register && (
@@ -105,6 +120,13 @@ export function AuthForm({ mode }: { mode: Mode }) {
                       <span>{note}</span>
                     </button>
                   ))}
+                </div>
+                <div className={styles.field}>
+                  <label htmlFor="businessActivity">نشاط المنشأة</label>
+                  <select id="businessActivity" value={businessActivity} onChange={(event) => setBusinessActivity(event.target.value)}>
+                    {activities.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                  <small>مثال: محل إلكترونيات لن تظهر له منتجات البقالة في السوق الافتراضي.</small>
                 </div>
                 <div className={styles.grid2}>
                   <div className={styles.field}><label htmlFor="name">اسمك</label><input id="name" name="name" required minLength={2} autoComplete="name" /></div>
