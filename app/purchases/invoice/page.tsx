@@ -1,82 +1,61 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, TriangleAlert } from "lucide-react";
+import { redirect } from "next/navigation";
+import { ArrowRight } from "lucide-react";
 import { InvoiceOcrUploader } from "@/components/invoice-ocr-uploader";
 import { PageHeader } from "@/components/page-header";
-import { formatSar } from "@/lib/format";
+import { PurchaseReceiptForm } from "@/components/purchase-receipt-form";
+import { getSessionContext } from "@/lib/auth";
+import { db } from "@/lib/db";
 
-export const metadata = { title: "مطابقة فاتورة المورد" };
+export const metadata = { title: "مطابقة واستلام فاتورة المورد" };
+export const dynamic = "force-dynamic";
 
-const matches = [
-  { item: "مياه صفا 330 مل", ordered: 40, invoiced: 40, received: 40, unit: "كرتون", expected: 13.2, invoice: 13.2, status: "ok" },
-  { item: "بيبسي 330 مل", ordered: 60, invoiced: 60, received: 58, unit: "حبة", expected: 1.78, invoice: 1.78, status: "qty" },
-  { item: "حليب كامل الدسم 1 لتر", ordered: 30, invoiced: 30, received: 30, unit: "حبة", expected: 5.62, invoice: 5.9, status: "price" },
-];
+export default async function PurchaseInvoicePage() {
+  const context = await getSessionContext();
+  if (!context) redirect("/login");
 
-export default function PurchaseInvoicePage() {
-  const variance = matches.reduce((sum, item) => {
-    const quantityDifference = (item.invoiced - item.received) * item.invoice;
-    const priceDifference = item.received * Math.max(0, item.invoice - item.expected);
-    return sum + quantityDifference + priceDifference;
-  }, 0);
+  const orders = await db.purchaseOrder.findMany({
+    where: {
+      businessId: context.business.id,
+      status: { in: ["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] },
+    },
+    include: { supplier: true, items: { include: { product: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const receiptOrders = orders.map((order) => ({
+    id: order.id,
+    orderNumber: order.orderNumber || order.id.slice(-8).toUpperCase(),
+    supplierName: order.supplier.name,
+    items: order.items.map((item) => ({
+      productId: item.productId,
+      name: item.product.name,
+      unit: item.product.unit,
+      orderedQty: Number(item.orderedQty),
+      receivedQty: Number(item.receivedQty),
+      unitCost: Number(item.unitCost),
+    })),
+  }));
 
   return (
     <>
       <PageHeader
         eyebrow="الاستلام"
-        title="مطابقة فاتورة المورد"
-        description="ارفع صورة الفاتورة، ثم قارن ما طلبته وما فُوتر وما استلمته قبل تحديث المخزون."
+        title="فاتورة المورد والاستلام"
+        description="اقرأ الفاتورة بالصورة للمساعدة، ثم اعتمد ما استلمته فعلًا ليُحدّث المخزون ومتوسط التكلفة."
         actions={<Link className="button secondary" href="/purchases"><ArrowRight size={17} /> رجوع للمشتريات</Link>}
       />
 
       <section className="invoiceMatchGrid">
         <InvoiceOcrUploader />
-
         <article className="panel">
-          <div className="panelHeader">
-            <div><span className="eyebrow">مثال المطابقة بعد القراءة</span><h2>وجدنا اختلافين</h2></div>
-            <span className="varianceBadge">{formatSar(variance)}</span>
-          </div>
-          <div className="matchSummary">
-            <div className="matchOk"><CheckCircle2 size={18} /><span>1 مطابق تمامًا</span></div>
-            <div className="matchWarn"><TriangleAlert size={18} /><span>2 تحتاج مراجعة</span></div>
-          </div>
-          <p className="policyNote">لا يتم تحديث المخزون إلا بعد اعتماد الكميات المستلمة فعليًا.</p>
+          <div className="panelHeader"><div><span className="eyebrow">قاعدة الاستلام</span><h2>OCR يساعدك، ولا يعتمد بدلًا عنك</h2></div></div>
+          <div className="infoNote">قارن الصورة بطلب الشراء. عدّل الكميات والتكلفة في نموذج الاستلام أدناه، ثم اضغط «اعتماد الاستلام». لن يدخل المخزون إلا ما اعتمدته فعلًا.</div>
+          <p className="policyNote">هذا يمنع إضافة كميات مفوترة لم تصل، ويكشف فرق السعر قبل تثبيت متوسط التكلفة.</p>
         </article>
       </section>
 
-      <section className="panel tablePanel">
-        <div className="panelHeader tableHeader">
-          <div><span className="eyebrow">PO-1042 · مثال توضيحي</span><h2>مقارنة سطر بسطر</h2></div>
-        </div>
-        <div className="tableScroll">
-          <table className="dataTable">
-            <thead>
-              <tr><th>الصنف</th><th>المطلوب</th><th>في الفاتورة</th><th>المستلم</th><th>السعر المتفق</th><th>سعر الفاتورة</th><th>الملاحظة</th></tr>
-            </thead>
-            <tbody>
-              {matches.map((item) => (
-                <tr key={item.item}>
-                  <td><strong>{item.item}</strong></td>
-                  <td>{item.ordered} {item.unit}</td>
-                  <td>{item.invoiced}</td>
-                  <td className={item.status === "qty" ? "dangerText" : ""}>{item.received}</td>
-                  <td>{formatSar(item.expected)}</td>
-                  <td className={item.status === "price" ? "dangerText" : ""}>{formatSar(item.invoice)}</td>
-                  <td>
-                    {item.status === "ok" ? <span className="savingText">مطابق</span> : null}
-                    {item.status === "qty" ? <span className="dangerText">ناقص 2 من المستلم</span> : null}
-                    {item.status === "price" ? <span className="dangerText">السعر أعلى بـ {formatSar(item.invoice - item.expected)}</span> : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="orderSummaryBar">
-          <span>بعد الاعتماد: تُضاف الكميات المستلمة فقط ويُحدّث متوسط التكلفة.</span>
-          <button className="button primary"><CheckCircle2 size={17} /> اعتماد الاستلام</button>
-        </div>
-      </section>
+      <PurchaseReceiptForm orders={receiptOrders} />
     </>
   );
 }

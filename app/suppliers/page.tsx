@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CirclePlus, ExternalLink, Phone, Search, Store, Tags } from "lucide-react";
+import { BellRing, CirclePlus, ExternalLink, Phone, Search, Sparkles, Store, Tags } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
+import { buildSmartPriceAlerts } from "@/lib/price-intelligence";
 
 export const metadata = { title: "الموردون" };
 export const dynamic = "force-dynamic";
@@ -28,10 +29,24 @@ export default async function SuppliersPage() {
       where: { supplier: { businessId }, product: { active: true } },
       include: { supplier: true, product: true },
       orderBy: [{ productId: "asc" }, { price: "asc" }],
-      take: 200,
+      take: 1000,
     }),
     db.purchaseOrder.count({ where: { businessId, status: { in: ["DRAFT", "SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } } }),
   ]);
+
+  const smartAlerts = buildSmartPriceAlerts(offers.map((offer) => ({
+    productId: offer.productId,
+    productName: offer.product.name,
+    unit: offer.product.unit,
+    supplierId: offer.supplierId,
+    supplierName: offer.supplier.name,
+    unitPrice: Number(offer.price),
+    minOrderQty: offer.minOrderQty == null ? null : Number(offer.minOrderQty),
+    onHand: Number(offer.product.quantity),
+    reorderPoint: Number(offer.product.reorderPoint),
+    lastQuotedAt: offer.lastQuotedAt,
+  })));
+  const potentialSaving = smartAlerts.reduce((sum, alert) => sum + alert.estimatedOrderSaving, 0);
 
   const bestOfferByProduct = new Map<string, (typeof offers)[number]>();
   for (const offer of offers) {
@@ -45,20 +60,42 @@ export default async function SuppliersPage() {
       <PageHeader
         eyebrow="شبكة التوريد"
         title="الموردون"
-        description="احتفظ بمورديك الحاليين وسجّل أسعارهم وقارن بينهم. التوصيل والاتفاقات اللوجستية تبقى مباشرة بينكما."
+        description="احتفظ بمورديك الحاليين وسجّل أسعارهم. تِجرا يقارن نفس الصنف تلقائيًا وينبهك عند وجود مورد أرخص."
         actions={
           <>
+            <Link className="button secondary" href="/alerts"><BellRing size={17} /> السعر الأذكى</Link>
             <Link className="button secondary" href="/suppliers/prices/new"><Tags size={17} /> تسجيل سعر</Link>
             <Link className="button primary" href="/suppliers/new"><CirclePlus size={17} /> إضافة مورد</Link>
           </>
         }
       />
 
-      <section className="metricsGrid three">
+      <section className="metricsGrid four">
         <MetricCard label="الموردون" value={`${suppliers.length}`} note="مرتبطون بمنشأتك" icon={Store} />
         <MetricCard label="طلبات مفتوحة" value={`${openOrders}`} note="بانتظار الإكمال" icon={ExternalLink} tone="blue" />
-        <MetricCard label="أسعار مسجلة" value={`${offers.length}`} note="تستخدم في المقارنة" icon={Tags} tone="amber" />
+        <MetricCard label="فرص توفير" value={`${smartAlerts.length}`} note="وجدنا موردًا أرخص" icon={BellRing} tone="amber" />
+        <MetricCard label="توفير محتمل" value={formatSar(potentialSaving)} note="على الكميات المقترحة" icon={Sparkles} tone="violet" />
       </section>
+
+      {smartAlerts.length > 0 && (
+        <section className="panel">
+          <div className="panelHeader">
+            <div><span className="eyebrow"><Sparkles size={14} /> السعر الأذكى</span><h2>وجدنا موردين أرخص</h2></div>
+            <Link className="textLink" href="/alerts">عرض كل التنبيهات</Link>
+          </div>
+          <div className="alertList">
+            {smartAlerts.slice(0, 4).map((alert) => (
+              <div className="alertRow" key={alert.productId}>
+                <div className="grow">
+                  <div className="rowTitle"><strong>{alert.productName}</strong><span className="savingText">وفر {Math.round(alert.savingPercent)}%</span></div>
+                  <span>{alert.comparedSupplierName}: {formatSar(alert.comparedPrice)} ← {alert.bestSupplierName}: {formatSar(alert.bestPrice)}</span>
+                  <span>التوفير {formatSar(alert.savingPerUnit)} للوحدة · نحو {formatSar(alert.estimatedOrderSaving)} على {alert.suggestedQty} {alert.unit}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="supplierGrid">
         {suppliers.map((supplier) => (
