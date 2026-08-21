@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { BarcodeInput } from "@/components/barcode-input";
 
 const activities = [
   ["GROCERY", "بقالة وتموينات"],
@@ -65,12 +66,12 @@ export function MarketplaceListingForm() {
         <label>اسم المنتج<input name="name" required minLength={2} /></label>
         <label>قسم السوق<select name="activity" defaultValue="GROCERY" required>{activities.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label>التصنيف الفرعي<input name="category" placeholder="مثال: مشروبات غازية" /></label>
-        <label>الباركود<input name="barcode" inputMode="numeric" /></label>
-        <label>SKU<input name="sku" dir="ltr" /></label>
+        <BarcodeInput />
+        <label>SKU<input name="sku" dir="ltr" placeholder="اختياري - كودك الداخلي" /></label>
         <label>سعر البيع للتاجر<input name="price" type="number" step="0.01" min="0.01" required /></label>
         <label>الكمية المتوفرة<input name="quantity" type="number" step="0.001" min="0" required /></label>
         <label>الحد الأدنى للطلب<input name="minOrderQty" type="number" step="0.001" min="0.001" defaultValue="1" required /></label>
-        <label>الوحدة<input name="unit" defaultValue="piece" required /></label>
+        <label>الوحدة<select name="unit" defaultValue="piece" required><option value="piece">حبة / قطعة</option><option value="pack">باك</option><option value="carton">كرتون</option><option value="bag">كيس</option><option value="box">صندوق</option><option value="kg">كيلو</option><option value="liter">لتر</option></select></label>
       </div>
       <button className="button primary" disabled={loading}>{loading ? "جاري النشر..." : "نشر المنتج في السوق"}</button>
       {message && <div className="infoNote">{message}</div>}
