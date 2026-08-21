@@ -5,13 +5,14 @@ import "./globals.css";
 import "./premium.css";
 import "./smart-price.css";
 import "./command.css";
+import "./marketplace.css";
 
 export const metadata: Metadata = {
   title: {
     default: "تِجرا | إدارة تجارتك بذكاء",
     template: "%s | تِجرا",
   },
-  description: "منصة عربية لإدارة المخزون والموردين والمشتريات والمحاسبة والموظفين والرواتب.",
+  description: "سوق B2B عربي يربط الموردين بتجار التجزئة مع إدارة المخزون والمشتريات والمحاسبة.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

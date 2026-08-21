@@ -18,6 +18,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [businessType, setBusinessType] = useState("RETAILER");
   const register = mode === "register";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -33,6 +34,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           password: form.get("password"),
           phone: form.get("phone") || undefined,
           businessName: form.get("businessName"),
+          businessType,
           city: form.get("city") || undefined,
           taxNumber: form.get("taxNumber") || undefined,
         }
@@ -52,7 +54,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         setError(messages[result.error] ?? "تعذر إكمال العملية. حاول مرة أخرى.");
         return;
       }
-      router.replace(register ? "/onboarding" : "/");
+      router.replace(register ? (businessType === "SUPPLIER" ? "/marketplace/seller" : "/marketplace") : "/");
       router.refresh();
     } catch {
       setError("تعذر الاتصال بالخادم. تحقق من الاتصال وحاول مرة أخرى.");
@@ -66,26 +68,44 @@ export function AuthForm({ mode }: { mode: Mode }) {
       <section className={styles.hero}>
         <div className={styles.brand}><span className={styles.mark}>ت</span> تِجرا</div>
         <div className={styles.heroCopy}>
-          <h1>{register ? "ابدأ إدارة تجارتك من مكان واحد." : "رجعت لتجارتك. خلّ تِجرا ترتب الباقي."}</h1>
-          <p>المخزون، الموردون، المشتريات، المحاسبة والرواتب في نظام عربي بسيط ومصمم للتاجر الصغير.</p>
+          <h1>{register ? "سوق الجملة وإدارة تجارتك في مكان واحد." : "رجعت لتجارتك. خلّ تِجرا ترتب الباقي."}</h1>
+          <p>المورد يعرض بضاعته ومخزونه، وتاجر التجزئة يشتري ويقارن الأسعار مباشرة داخل تِجرا.</p>
           <div className={styles.points}>
-            <div className={styles.point}><span className={styles.dot} /> تنبيهات مخزون واقتراح مشتريات ذكية</div>
-            <div className={styles.point}><span className={styles.dot} /> البيع يحدّث المخزون والتكلفة آليًا</div>
-            <div className={styles.point}><span className={styles.dot} /> التوصيل يبقى مباشرة بينك وبين المورد</div>
+            <div className={styles.point}><span className={styles.dot} /> سوق B2B بين المورد وتاجر التجزئة</div>
+            <div className={styles.point}><span className={styles.dot} /> مقارنة تلقائية للسعر الأذكى</div>
+            <div className={styles.point}><span className={styles.dot} /> المخزون والمحاسبة يتحدثان مع حركة البيع والشراء</div>
           </div>
         </div>
-        <div className={styles.fine}>TIJRA · تشغيل تجارتك بوضوح</div>
+        <div className={styles.fine}>TIJRA · سوق وتشغيل التجارة</div>
       </section>
 
       <section className={styles.formSide}>
         <div className={styles.card}>
           <span className={styles.eyebrow}>{register ? "حساب جديد" : "تسجيل الدخول"}</span>
-          <h2>{register ? "أنشئ منشأتك" : "أهلًا بك"}</h2>
-          <p className={styles.sub}>{register ? "أنشئ حساب المالك، وبعدها أضف المنتجات والموردين والموظفين." : "استخدم بريدك وكلمة المرور للوصول إلى لوحة منشأتك."}</p>
+          <h2>{register ? "اختر نشاطك" : "أهلًا بك"}</h2>
+          <p className={styles.sub}>{register ? "حدد كيف ستستخدم تِجرا. يمكنك اختيار الاثنين إذا كنت تبيع وتشتري." : "استخدم بريدك وكلمة المرور للوصول إلى لوحة منشأتك."}</p>
 
           <form className={styles.form} onSubmit={submit}>
             {register && (
               <>
+                <div className={styles.typeGrid} role="radiogroup" aria-label="نوع المنشأة">
+                  {[
+                    ["RETAILER", "تاجر تجزئة", "أشتري من الموردين وأدير المتجر"],
+                    ["SUPPLIER", "مورد", "أعرض البضاعة وأستقبل الطلبات"],
+                    ["BOTH", "الاثنان", "أبيع وأشتري داخل تِجرا"],
+                  ].map(([value, title, note]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={`${styles.typeCard} ${businessType === value ? styles.typeCardActive : ""}`}
+                      onClick={() => setBusinessType(value)}
+                      aria-pressed={businessType === value}
+                    >
+                      <strong>{title}</strong>
+                      <span>{note}</span>
+                    </button>
+                  ))}
+                </div>
                 <div className={styles.grid2}>
                   <div className={styles.field}><label htmlFor="name">اسمك</label><input id="name" name="name" required minLength={2} autoComplete="name" /></div>
                   <div className={styles.field}><label htmlFor="phone">الجوال</label><input id="phone" name="phone" inputMode="tel" autoComplete="tel" /></div>
