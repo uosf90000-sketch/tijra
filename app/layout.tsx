@@ -7,6 +7,7 @@ import "./smart-price.css";
 import "./command.css";
 import "./marketplace.css";
 import "./brand.css";
+import "./showcase.css";
 
 export const metadata: Metadata = {
   title: {
