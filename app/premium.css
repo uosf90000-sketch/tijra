@@ -1,0 +1,204 @@
+/* TIJRA premium UI layer
+   UI/UX Pro Max design-system application + 21st.dev-inspired motion patterns.
+   This file intentionally overrides globals.css without replacing functional styles. */
+
+:root{
+  --tijra-ink:#10231a;
+  --tijra-canvas:#f4f7f5;
+  --tijra-card:rgba(255,255,255,.88);
+  --tijra-card-solid:#fff;
+  --tijra-emerald:#147447;
+  --tijra-emerald-deep:#0a5332;
+  --tijra-mint:#ddf5e6;
+  --tijra-ai:#6254d8;
+  --tijra-ai-soft:#efedff;
+  --tijra-gold:#bd7a16;
+  --tijra-danger:#c64545;
+  --tijra-border:rgba(18,55,35,.09);
+  --tijra-shadow:0 1px 2px rgba(13,38,25,.03),0 12px 34px rgba(13,38,25,.055);
+  --tijra-shadow-hover:0 2px 4px rgba(13,38,25,.04),0 20px 52px rgba(13,38,25,.09);
+  --tijra-ease:cubic-bezier(.2,.75,.25,1);
+}
+
+html{scroll-behavior:smooth}
+body{
+  background:
+    radial-gradient(900px 460px at 91% -8%,rgba(38,154,91,.08),transparent 60%),
+    radial-gradient(700px 420px at 5% 18%,rgba(98,84,216,.035),transparent 60%),
+    var(--tijra-canvas);
+  color:var(--tijra-ink);
+  font-family:"SF Arabic","DIN Next Arabic","Segoe UI",Tahoma,Arial,sans-serif;
+  font-feature-settings:"tnum" 1;
+}
+
+::selection{background:rgba(20,116,71,.18);color:var(--tijra-ink)}
+
+/* 21st.dev-style subtle entrance choreography: transform + opacity only. */
+.pageContent>*{
+  animation:tijra-rise .34s var(--tijra-ease) both;
+}
+.pageContent>*:nth-child(2){animation-delay:.035s}
+.pageContent>*:nth-child(3){animation-delay:.07s}
+.pageContent>*:nth-child(4){animation-delay:.105s}
+.pageContent>*:nth-child(5){animation-delay:.14s}
+@keyframes tijra-rise{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+
+/* Shell */
+.sidebar{
+  background:
+    radial-gradient(430px 260px at 28% -5%,rgba(108,223,157,.15),transparent 58%),
+    linear-gradient(180deg,#10231a 0%,#0c1c15 100%);
+  border-inline-end:1px solid rgba(255,255,255,.055);
+  box-shadow:14px 0 50px rgba(8,27,17,.04);
+}
+.brandMark{
+  border-radius:13px;
+  background:linear-gradient(145deg,#f0fff5,#bdecca);
+  color:var(--tijra-emerald-deep);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.9),0 7px 22px rgba(71,196,119,.12);
+  transition:transform .22s var(--tijra-ease),box-shadow .22s var(--tijra-ease);
+}
+.brand:hover .brandMark{transform:rotate(-2deg) translateY(-1px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.9),0 11px 28px rgba(71,196,119,.18)}
+.workspaceSwitcher{backdrop-filter:blur(14px);transition:transform .2s var(--tijra-ease),background .2s ease,border-color .2s ease}
+.workspaceSwitcher:hover{transform:translateY(-1px);border-color:rgba(150,235,183,.16)}
+.navItem{position:relative;transition:background .18s ease,color .18s ease,transform .18s var(--tijra-ease)}
+.navItem:hover{transform:translateX(-2px)}
+.navItem.active{background:linear-gradient(90deg,rgba(114,221,157,.14),rgba(114,221,157,.07));box-shadow:inset -2px 0 #75d79d,0 8px 28px rgba(0,0,0,.05)}
+.navItem.active::after{content:"";position:absolute;inset-inline-end:9px;width:5px;height:5px;border-radius:50%;background:#91e2b0;box-shadow:0 0 0 4px rgba(145,226,176,.07)}
+.sidebarInsight{background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.025));backdrop-filter:blur(14px)}
+
+.appTopbar{
+  min-height:72px;
+  background:rgba(244,247,245,.78);
+  border-bottom:1px solid var(--tijra-border);
+  backdrop-filter:blur(22px) saturate(145%);
+  -webkit-backdrop-filter:blur(22px) saturate(145%);
+}
+.searchTrigger,.iconButton{
+  transition:transform .18s var(--tijra-ease),border-color .18s ease,background .18s ease,box-shadow .18s ease;
+}
+.searchTrigger:hover,.iconButton:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(17,45,29,.055)}
+.iconButton:active,.button:active,.quickSale:active{transform:scale(.98)}
+.notificationButton{isolation:isolate}
+.notificationButton::before{content:"";position:absolute;inset:6px;border-radius:9px;background:rgba(98,84,216,.08);opacity:0;transform:scale(.76);transition:opacity .2s ease,transform .25s var(--tijra-ease);z-index:-1}
+.notificationButton:hover::before{opacity:1;transform:scale(1)}
+.notificationDot{animation:tijra-pulse 2.6s ease-in-out infinite}
+@keyframes tijra-pulse{0%,70%,100%{box-shadow:0 0 0 0 rgba(232,91,87,.22)}82%{box-shadow:0 0 0 6px rgba(232,91,87,0)}}
+.syncDot{animation:tijra-sync 3.2s ease-in-out infinite}
+@keyframes tijra-sync{0%,100%{opacity:1}50%{opacity:.6}}
+.quickSale,.button.primary{
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(135deg,var(--tijra-emerald),#11683f);
+  box-shadow:0 9px 24px rgba(20,116,71,.16);
+  transition:transform .18s var(--tijra-ease),box-shadow .18s ease,filter .18s ease;
+}
+.quickSale::after,.button.primary::after{content:"";position:absolute;top:-120%;bottom:-120%;width:34%;inset-inline-start:-45%;transform:rotate(16deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent);transition:inset-inline-start .55s var(--tijra-ease)}
+.quickSale:hover::after,.button.primary:hover::after{inset-inline-start:115%}
+.quickSale:hover,.button.primary:hover{filter:saturate(1.04);box-shadow:0 13px 30px rgba(20,116,71,.22);transform:translateY(-1px)}
+
+/* Typography & hierarchy */
+.pageHeader h1{font-size:clamp(27px,3vw,36px);letter-spacing:-.9px;line-height:1.15}
+.pageHeader p{font-size:12.5px;line-height:1.9;color:#6b776f}
+.eyebrow{letter-spacing:.01em}
+
+/* Cards / bento surfaces */
+.metricCard,.panel{
+  border-color:var(--tijra-border);
+  background:var(--tijra-card);
+  box-shadow:var(--tijra-shadow);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  transition:transform .22s var(--tijra-ease),box-shadow .22s ease,border-color .22s ease,background .22s ease;
+}
+.metricCard:hover,.panel:hover{border-color:rgba(20,116,71,.13);box-shadow:var(--tijra-shadow-hover)}
+.metricCard:hover{transform:translateY(-3px)}
+.metricCard>strong{font-size:clamp(20px,2vw,25px);letter-spacing:-.55px}
+.metricIcon,.softIcon{transition:transform .24s var(--tijra-ease)}
+.metricCard:hover .metricIcon,.panel:hover .softIcon{transform:scale(1.06) rotate(-2deg)}
+
+.aiRecommendation{
+  isolation:isolate;
+  border-color:rgba(20,116,71,.12);
+  background:
+    radial-gradient(500px 210px at 95% 0%,rgba(96,84,216,.08),transparent 60%),
+    radial-gradient(520px 240px at 0 100%,rgba(20,116,71,.08),transparent 62%),
+    rgba(255,255,255,.94);
+}
+.aiRecommendation::before{border-color:rgba(20,116,71,.045)}
+.aiRecommendation::after{
+  content:"";
+  position:absolute;
+  inset:-1px;
+  border-radius:inherit;
+  pointer-events:none;
+  z-index:-1;
+  background:linear-gradient(110deg,transparent 24%,rgba(112,213,154,.13) 46%,rgba(98,84,216,.09) 54%,transparent 76%);
+  transform:translateX(-105%);
+  animation:tijra-ai-sweep 7s ease-in-out infinite;
+}
+@keyframes tijra-ai-sweep{0%,68%{transform:translateX(-105%)}88%,100%{transform:translateX(105%)}}
+.savingBadge,.aiBadge{box-shadow:inset 0 0 0 1px rgba(20,116,71,.06)}
+.savingText,.positive{color:var(--tijra-emerald)!important;font-weight:800}
+
+/* Lists and operational rows */
+.suggestionRow,.alertRow,.cartRow,.employeePayrollRow{transition:background .18s ease,transform .18s var(--tijra-ease)}
+.suggestionRow:hover,.alertRow:hover,.cartRow:hover,.employeePayrollRow:hover{background:rgba(20,116,71,.025);transform:translateX(-2px)}
+.productDot{box-shadow:0 0 0 4px #edf8f1,0 0 18px rgba(79,186,121,.15)}
+.statusPill{border:1px solid rgba(16,35,26,.035)}
+.progressFill{position:relative;overflow:hidden;transition:width .55s var(--tijra-ease)}
+.progressFill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);transform:translateX(-100%);animation:tijra-progress 3.4s ease-in-out infinite}
+@keyframes tijra-progress{0%,60%{transform:translateX(-100%)}90%,100%{transform:translateX(100%)}}
+
+/* Tables */
+.tablePanel{overflow:hidden}
+.dataTable thead{background:rgba(244,248,245,.82)}
+.dataTable th{font-size:9.5px;letter-spacing:.01em;color:#6c786f}
+.dataTable tbody tr{transition:background .16s ease,transform .16s var(--tijra-ease)}
+.dataTable tbody tr:hover{background:rgba(20,116,71,.028)}
+.dataTable td strong{font-weight:800}
+.tableScroll{scrollbar-width:thin;scrollbar-color:#cdd8d0 transparent}
+
+/* Forms */
+input,select,textarea{transition:border-color .18s ease,box-shadow .18s ease,background .18s ease}
+input:focus,select:focus,textarea:focus{outline:none;border-color:rgba(20,116,71,.48)!important;box-shadow:0 0 0 4px rgba(20,116,71,.075)!important;background:#fff!important}
+.button.secondary{transition:transform .18s var(--tijra-ease),border-color .18s ease,box-shadow .18s ease,background .18s ease}
+.button.secondary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(15,38,23,.055)}
+
+/* Alerts: make Smart Price feel like an intelligence surface, not just a table. */
+body:has(.savingText) .pageHeader .eyebrow{color:var(--tijra-ai)}
+body:has(.savingText) .metricsGrid .metricCard:nth-child(2){background:linear-gradient(150deg,rgba(255,255,255,.94),rgba(239,237,255,.7));border-color:rgba(98,84,216,.12)}
+body:has(.savingText) .tablePanel{position:relative}
+body:has(.savingText) .tablePanel::before{content:"";position:absolute;top:0;inset-inline:0;height:2px;background:linear-gradient(90deg,transparent,var(--tijra-ai),var(--tijra-emerald),transparent);opacity:.48}
+
+/* Mobile */
+.mobileBottomNav{
+  background:rgba(255,255,255,.88)!important;
+  backdrop-filter:blur(20px) saturate(145%);
+  -webkit-backdrop-filter:blur(20px) saturate(145%);
+  border-top-color:rgba(18,55,35,.08)!important;
+  box-shadow:0 -8px 28px rgba(15,38,23,.055);
+  padding-bottom:max(7px,env(safe-area-inset-bottom));
+}
+.mobileBottomNav a{transition:transform .18s var(--tijra-ease),color .18s ease,background .18s ease}
+.mobileBottomNav a:active{transform:scale(.96)}
+.mobileBottomNav a.active{position:relative}
+.mobileBottomNav a.active::before{content:"";position:absolute;top:3px;width:28px;height:3px;border-radius:999px;background:var(--tijra-emerald)}
+
+@media(max-width:760px){
+  .pageContent{padding-inline:16px;padding-top:22px}
+  .pageHeader{gap:15px}
+  .pageHeader h1{font-size:27px}
+  .metricCard,.dashboardGrid>.panel,.accountingGrid>.panel,.posGrid>.panel,.invoiceMatchGrid>.panel,.onboardingGrid>.panel{padding:17px}
+  .metricsGrid{gap:10px}
+  .panel{border-radius:18px}
+  .metricCard{border-radius:17px}
+  .quickSale{min-width:42px;padding-inline:11px}
+}
+
+/* Accessibility and performance guardrails. */
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+  .pageContent>*{opacity:1!important;transform:none!important}
+}
