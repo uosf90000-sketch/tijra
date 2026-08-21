@@ -4,6 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import "./globals.css";
 import "./premium.css";
 import "./smart-price.css";
+import "./command.css";
 
 export const metadata: Metadata = {
   title: {
