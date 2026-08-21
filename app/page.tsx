@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   ArrowLeft,
+  BellRing,
   Boxes,
   CircleDollarSign,
   PackageSearch,
@@ -18,6 +19,7 @@ import { StatusPill } from "@/components/status-pill";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
+import { buildSmartPriceAlerts } from "@/lib/price-intelligence";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +38,7 @@ export default async function DashboardPage() {
   const weekStart = new Date(today);
   weekStart.setDate(weekStart.getDate() - 6);
 
-  const [todaySales, products, weekSalesRows, employees, latestPayroll] = await Promise.all([
+  const [todaySales, products, weekSalesRows, employees, latestPayroll, supplierOffers] = await Promise.all([
     db.sale.aggregate({
       where: { businessId, soldAt: { gte: today } },
       _sum: { total: true, costTotal: true },
@@ -49,6 +51,12 @@ export default async function DashboardPage() {
     db.sale.findMany({ where: { businessId, soldAt: { gte: weekStart } }, select: { soldAt: true, total: true } }),
     db.employee.findMany({ where: { businessId, active: true }, select: { baseSalary: true, defaultAllowance: true } }),
     db.payrollRun.findFirst({ where: { businessId }, include: { items: true }, orderBy: { periodEnd: "desc" } }),
+    db.supplierProduct.findMany({
+      where: { supplier: { businessId }, product: { active: true } },
+      include: { supplier: true, product: true },
+      orderBy: [{ productId: "asc" }, { price: "asc" }],
+      take: 1000,
+    }),
   ]);
 
   const salesToday = Number(todaySales._sum.total ?? 0);
@@ -86,6 +94,21 @@ export default async function DashboardPage() {
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   const suggestedTotal = purchaseSuggestions.reduce((sum, item) => sum + item.suggested * item.unitPrice, 0);
+
+  const smartPriceAlerts = buildSmartPriceAlerts(supplierOffers.map((offer) => ({
+    productId: offer.productId,
+    productName: offer.product.name,
+    unit: offer.product.unit,
+    supplierId: offer.supplierId,
+    supplierName: offer.supplier.name,
+    unitPrice: Number(offer.price),
+    minOrderQty: offer.minOrderQty == null ? null : Number(offer.minOrderQty),
+    onHand: Number(offer.product.quantity),
+    reorderPoint: Number(offer.product.reorderPoint),
+    lastQuotedAt: offer.lastQuotedAt,
+  })));
+  const topSmartPrice = smartPriceAlerts[0];
+  const totalSmartSaving = smartPriceAlerts.reduce((sum, alert) => sum + alert.estimatedOrderSaving, 0);
 
   const daySlots = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(weekStart);
@@ -125,6 +148,26 @@ export default async function DashboardPage() {
         <MetricCard label="قيمة المخزون" value={formatSar(stockValue)} note={`${products.length} صنفًا فعليًا`} icon={Boxes} tone="violet" />
         <MetricCard label="مشتريات مقترحة" value={formatSar(suggestedTotal)} note={`${purchaseSuggestions.length} أصناف لها سعر مورد`} icon={ShoppingBasket} tone="amber" />
       </section>
+
+      {topSmartPrice && (
+        <section className="smartPriceHero" aria-label="أفضل فرصة توفير">
+          <div className="smartPriceHeroCopy">
+            <span><BellRing size={15} /> السعر الأذكى</span>
+            <h2>وجدنا موردًا أرخص لـ {topSmartPrice.productName}</h2>
+            <p>
+              {topSmartPrice.comparedSupplierName} بسعر {formatSar(topSmartPrice.comparedPrice)}، بينما {topSmartPrice.bestSupplierName} بسعر {formatSar(topSmartPrice.bestPrice)}. وفر {formatSar(topSmartPrice.savingPerUnit)} لكل {topSmartPrice.unit} ({Math.round(topSmartPrice.savingPercent)}%).
+            </p>
+            <div className="smartPriceHeroActions">
+              <Link className="button primary" href="/alerts">عرض فرص التوفير</Link>
+              <Link className="button secondary" href="/suppliers">مقارنة الموردين</Link>
+            </div>
+          </div>
+          <div className="smartPriceHeroSaving">
+            <small>توفير محتمل على الكميات المقترحة</small>
+            <strong>{formatSar(totalSmartSaving)}</strong>
+          </div>
+        </section>
+      )}
 
       <section className="dashboardGrid">
         <article className="panel aiRecommendation">
