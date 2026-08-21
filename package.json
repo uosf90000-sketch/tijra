@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@prisma/client": "6.19.0",
+    "@zxing/browser": "latest",
     "bcryptjs": "3.0.2",
     "lucide-react": "latest",
     "next": "latest",
