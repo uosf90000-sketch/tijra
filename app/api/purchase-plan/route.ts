@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireApiRoles } from "@/lib/api-auth";
 import { buildPurchasePlan } from "@/lib/purchasing";
 
 const offerSchema = z.object({
@@ -22,8 +23,10 @@ const itemSchema = z.object({
 const bodySchema = z.object({ items: z.array(itemSchema).max(500) });
 
 export async function POST(request: Request) {
-  const parsed = bodySchema.safeParse(await request.json());
+  const auth = await requireApiRoles(["OWNER", "MANAGER"]);
+  if (auth.response) return auth.response;
 
+  const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json(
       { error: "INVALID_INPUT", details: parsed.error.flatten() },
