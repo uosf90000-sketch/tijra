@@ -116,7 +116,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="appTopbar">
           <div className="mobileBrand"><button className="iconButton" onClick={() => setOpen(true)} aria-label="فتح القائمة"><Menu size={21} /></button><Link href="/" className="brand brandCompact"><div className="brandMark">ت</div><strong>تِجرا</strong></Link></div>
           <button className="searchTrigger"><Search size={18} /><span>ابحث عن صنف، مورد أو فاتورة...</span><kbd>⌘ K</kbd></button>
-          <div className="topActions"><span className="syncStatus"><span className="syncDot" /> متزامن الآن</span><button className="iconButton notificationButton" aria-label="التنبيهات"><Bell size={19} /><span className="notificationDot" /></button><Link className="quickSale" href="/sales"><BadgeDollarSign size={18} /><span>بيع جديد</span></Link></div>
+          <div className="topActions"><span className="syncStatus"><span className="syncDot" /> متزامن الآن</span><Link className="iconButton notificationButton" href="/alerts" aria-label="تنبيهات السعر الأذكى" title="تنبيهات السعر الأذكى"><Bell size={19} /><span className="notificationDot" /></Link><Link className="quickSale" href="/sales"><BadgeDollarSign size={18} /><span>بيع جديد</span></Link></div>
         </header>
         <main className="pageContent">{children}</main>
         <nav className="mobileBottomNav" aria-label="التنقل على الجوال">
