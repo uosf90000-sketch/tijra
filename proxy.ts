@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE } from "@/lib/auth";
+import { SESSION_COOKIE } from "@/lib/auth-constants";
 
 const publicExact = new Set(["/login", "/register", "/api/health"]);
 const protectedPagePrefixes = ["/", "/inventory", "/suppliers", "/purchases", "/sales", "/accounting", "/employees", "/payroll", "/onboarding"];
