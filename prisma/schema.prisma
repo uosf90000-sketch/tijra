@@ -21,6 +21,19 @@ enum BusinessType {
   BOTH
 }
 
+enum BusinessActivity {
+  GROCERY
+  ELECTRONICS
+  PHARMACY
+  RESTAURANT
+  CAFE
+  FASHION
+  BEAUTY
+  HARDWARE
+  OFFICE
+  OTHER
+}
+
 enum MarketplaceOrderStatus {
   PLACED
   ACCEPTED
@@ -98,6 +111,7 @@ model Business {
   city                       String?
   currency                   String             @default("SAR")
   businessType               BusinessType       @default(RETAILER)
+  businessActivity           BusinessActivity   @default(GROCERY)
   createdAt                  DateTime           @default(now())
   updatedAt                  DateTime           @updatedAt
   memberships                Membership[]
@@ -113,6 +127,8 @@ model Business {
   marketplaceListings        MarketplaceListing[] @relation("MarketplaceSellerListings")
   marketplaceOrdersAsBuyer   MarketplaceOrder[] @relation("MarketplaceBuyer")
   marketplaceOrdersAsSeller  MarketplaceOrder[] @relation("MarketplaceSeller")
+  favoriteSuppliers          FavoriteSupplier[] @relation("FavoriteBuyer")
+  favoritedBy                FavoriteSupplier[] @relation("FavoriteSeller")
 }
 
 model Membership {
@@ -127,6 +143,18 @@ model Membership {
   @@index([businessId, role])
 }
 
+model FavoriteSupplier {
+  id               String   @id @default(cuid())
+  buyerBusinessId  String
+  sellerBusinessId String
+  createdAt        DateTime @default(now())
+  buyer            Business @relation("FavoriteBuyer", fields: [buyerBusinessId], references: [id], onDelete: Cascade)
+  seller           Business @relation("FavoriteSeller", fields: [sellerBusinessId], references: [id], onDelete: Cascade)
+
+  @@unique([buyerBusinessId, sellerBusinessId])
+  @@index([sellerBusinessId])
+}
+
 model MarketplaceListing {
   id               String                 @id @default(cuid())
   sellerBusinessId String
@@ -134,6 +162,7 @@ model MarketplaceListing {
   sku              String?
   barcode          String?
   category         String?
+  activity         BusinessActivity       @default(GROCERY)
   unit             String                 @default("piece")
   price            Decimal                @db.Decimal(12, 2)
   quantity         Decimal                @default(0) @db.Decimal(14, 3)
@@ -145,6 +174,7 @@ model MarketplaceListing {
   orderItems       MarketplaceOrderItem[]
 
   @@index([sellerBusinessId, active])
+  @@index([activity, active])
   @@index([barcode, active])
   @@index([name, active])
 }
