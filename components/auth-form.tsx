@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight, Building2, Store, UsersRound } from "lucide-react";
+import { ArrowLeftRight, Boxes, Building2, Store, TrendingUp, UsersRound } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { TijraLogo } from "@/components/tijra-logo";
 import styles from "./auth-form.module.css";
@@ -23,9 +23,9 @@ const activities = [
 ] as const;
 
 const accountTypes = [
-  ["RETAILER", "تاجر تجزئة", "أشتري من الموردين وأدير المتجر", Store],
-  ["SUPPLIER", "مورد", "أعرض البضاعة وأستقبل الطلبات", Building2],
-  ["BOTH", "الاثنان", "أبيع وأشتري داخل تِجرا", UsersRound],
+  ["RETAILER", "تاجر تجزئة", "أبحث عن منتجات وأريد شراء", Store],
+  ["SUPPLIER", "مورد", "أعرض منتجاتي وأبحث عن عملاء", Building2],
+  ["BOTH", "الاثنان", "أنا مورد وأيضًا تاجر تجزئة", UsersRound],
 ] as const;
 
 const messages: Record<string, string> = {
@@ -89,33 +89,38 @@ export function AuthForm({ mode }: { mode: Mode }) {
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
-        <TijraLogo inverse size={62} className={styles.brandLogo} />
+        <div className={styles.worldDots} aria-hidden="true" />
+        <div className={styles.networkStage} aria-hidden="true">
+          <div className={`${styles.networkNode} ${styles.nodeWarehouse}`}><Building2 size={25} /><span>المورد</span></div>
+          <div className={`${styles.networkNode} ${styles.nodeGrowth}`}><TrendingUp size={23} /><span>نمو الأعمال</span></div>
+          <div className={`${styles.networkNode} ${styles.nodePeople}`}><UsersRound size={24} /><span>شبكة موثوقة</span></div>
+          <div className={`${styles.networkNode} ${styles.nodeStock}`}><Boxes size={24} /><span>المنتجات</span></div>
+          <div className={`${styles.networkNode} ${styles.nodeRetail}`}><Store size={25} /><span>التاجر</span></div>
+          <div className={styles.centerLink}><TijraLogo compact size={118} /></div>
+          <span className={`${styles.connectionBeam} ${styles.beamOne}`} />
+          <span className={`${styles.connectionBeam} ${styles.beamTwo}`} />
+          <span className={`${styles.connectionBeam} ${styles.beamThree}`} />
+          <span className={`${styles.connectionBeam} ${styles.beamFour}`} />
+          <span className={`${styles.connectionBeam} ${styles.beamFive}`} />
+        </div>
 
         <div className={styles.heroCopy}>
-          <span className={styles.heroEyebrow}>منصة B2B للتجارة الذكية</span>
-          <h1>الربط الذكي بين المورد وتاجر التجزئة.</h1>
-          <p>المورد يعرض البضاعة والسعر والمخزون، والتاجر يقارن ويطلب ويحدّث مخزونه ومحاسبته من مكان واحد.</p>
-
-          <div className={styles.connectionVisual} aria-hidden="true">
-            <div className={styles.connectionRole}><Building2 size={19} /><span>المورد</span></div>
-            <div className={styles.connectionLine}><ArrowLeftRight size={18} /></div>
-            <div className={styles.connectionRole}><Store size={19} /><span>التاجر</span></div>
-          </div>
-
+          <h1>تجارة أكثر اتصالًا</h1>
+          <p>تِجرا تربط الموردين وتجار التجزئة في شبكة واحدة للشراء والبيع والنمو معًا.</p>
           <div className={styles.points}>
-            <div className={styles.point}><span className={styles.dot} /> سوق الموردين حسب نشاطك</div>
-            <div className={styles.point}><span className={styles.dot} /> السعر الأذكى يقارن العروض تلقائيًا</div>
-            <div className={styles.point}><span className={styles.dot} /> المخزون والمحاسبة والرواتب في نظام واحد</div>
+            <div className={styles.point}><UsersRound size={17} /><strong>شبكة موثوقة</strong><span>شركاء وفرص حقيقية</span></div>
+            <div className={styles.point}><ArrowLeftRight size={17} /><strong>عمليات أذكى</strong><span>إدارة أسهل وأسرع</span></div>
+            <div className={styles.point}><TrendingUp size={17} /><strong>نمو مستدام</strong><span>فرص أكثر ونتائج أكبر</span></div>
           </div>
         </div>
-        <div className={styles.fine}>TIJRA · المورد ↔ التاجر · تجارة مستمرة</div>
       </section>
 
       <section className={styles.formSide}>
         <div className={styles.card}>
-          <span className={styles.eyebrow}>{register ? "ابدأ مع تِجرا" : "مرحبًا بعودتك"}</span>
-          <h2>{register ? "أنشئ حساب منشأتك" : "تسجيل الدخول"}</h2>
-          <p className={styles.sub}>{register ? "اختر دورك ونشاطك، وسنجهز لك السوق واللوحة المناسبة تلقائيًا." : "ادخل إلى سوقك ومخزونك وتقارير تجارتك."}</p>
+          <div className={styles.cardLogo}><TijraLogo size={68} /></div>
+          <span className={styles.languagePill}>العربية · SA</span>
+          <h2>{register ? "أنشئ حسابك في تِجرا" : "مرحبًا بك في تِجرا"}</h2>
+          <p className={styles.sub}>{register ? "اختر دورك ونشاطك، وسنجهز لك التجربة المناسبة." : "سجّل الدخول لاستكشاف فرص أعمالك."}</p>
 
           <form className={styles.form} onSubmit={submit}>
             {register && (
@@ -154,14 +159,14 @@ export function AuthForm({ mode }: { mode: Mode }) {
               </>
             )}
 
-            <div className={styles.field}><label htmlFor="email">البريد الإلكتروني</label><input id="email" name="email" type="email" required autoComplete="email" dir="ltr" /></div>
+            <div className={styles.field}><label htmlFor="email">البريد الإلكتروني</label><input id="email" name="email" type="email" required autoComplete="email" dir="ltr" placeholder="example@tijra.com" /></div>
             <div className={styles.field}><label htmlFor="password">كلمة المرور</label><input id="password" name="password" type="password" required minLength={register ? 8 : 1} autoComplete={register ? "new-password" : "current-password"} dir="ltr" /></div>
             {error && <div className={styles.error}>{error}</div>}
-            <button className={styles.button} disabled={loading}>{loading ? "جاري الحفظ..." : register ? "إنشاء الحساب والمتابعة" : "دخول إلى تِجرا"}</button>
+            <button className={styles.button} disabled={loading}>{loading ? "جاري الحفظ..." : register ? "إنشاء الحساب والمتابعة" : "تسجيل الدخول"}</button>
           </form>
 
           <p className={styles.switch}>
-            {register ? <>عندك حساب؟ <Link href="/login">سجّل الدخول</Link></> : <>أول مرة تستخدم تِجرا؟ <Link href="/register">أنشئ حسابًا</Link></>}
+            {register ? <>عندك حساب؟ <Link href="/login">سجّل الدخول</Link></> : <>ليس لديك حساب؟ <Link href="/register">إنشاء حساب جديد</Link></>}
           </p>
         </div>
       </section>
