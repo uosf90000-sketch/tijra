@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSessionContext } from "@/lib/auth";
+import { requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 
 const orderSchema = z.object({
@@ -9,8 +9,9 @@ const orderSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const context = await getSessionContext();
-  if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const auth = await requireApiPermission("PURCHASES");
+  if (auth.response) return auth.response;
+  const context = auth.context;
   if (!['RETAILER', 'BOTH'].includes(context.business.businessType)) {
     return NextResponse.json({ error: "RETAILER_ACCOUNT_REQUIRED" }, { status: 403 });
   }
