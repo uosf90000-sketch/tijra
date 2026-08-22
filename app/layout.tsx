@@ -11,6 +11,7 @@ import "./showcase.css";
 import "./barcode.css";
 import "./retailer-gates.css";
 import "./employee-access.css";
+import "./approved-ui.css";
 
 export const metadata: Metadata = {
   title: {
