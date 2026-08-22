@@ -12,6 +12,7 @@ import "./barcode.css";
 import "./retailer-gates.css";
 import "./employee-access.css";
 import "./approved-ui.css";
+import "./statistics-dashboard.css";
 
 export const metadata: Metadata = {
   title: {
