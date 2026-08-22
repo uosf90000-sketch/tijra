@@ -4,6 +4,7 @@ import { ArrowLeft, ClipboardList, PackageSearch, ShoppingBasket, Star, Store, T
 import { FavoriteSupplierButton } from "@/components/favorite-supplier-button";
 import { MarketplaceBuyButton } from "@/components/marketplace-buy-button";
 import { PageHeader } from "@/components/page-header";
+import { firstPermissionHref, hasAppPermission } from "@/lib/access";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
@@ -27,6 +28,7 @@ const activityLabels: Record<string, string> = {
 export default async function MarketplacePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (context.membership.role === "STAFF" && !hasAppPermission(context.membership, "PURCHASES")) redirect(firstPermissionHref(context.membership));
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const canBuy = ["RETAILER", "BOTH"].includes(context.business.businessType);
