@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireApiRoles } from "@/lib/api-auth";
+import { requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 
 const itemSchema = z.object({
@@ -23,7 +23,7 @@ const orderSchema = z.object({
 });
 
 export async function GET() {
-  const auth = await requireApiRoles(["OWNER", "MANAGER", "ACCOUNTANT"]);
+  const auth = await requireApiPermission("PURCHASES");
   if (auth.response) return auth.response;
 
   const orders = await db.purchaseOrder.findMany({
@@ -36,7 +36,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireApiRoles(["OWNER", "MANAGER"]);
+  const auth = await requireApiPermission("PURCHASES");
   if (auth.response) return auth.response;
   const parsed = orderSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
