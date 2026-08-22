@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireApiRoles } from "@/lib/api-auth";
+import { requireApiAnyPermission, requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 
 const productSchema = z.object({
@@ -18,7 +18,7 @@ const productSchema = z.object({
 });
 
 export async function GET() {
-  const auth = await requireApiRoles(["OWNER", "MANAGER", "CASHIER", "ACCOUNTANT"]);
+  const auth = await requireApiAnyPermission(["CASHIER", "INVENTORY", "PURCHASES", "ACCOUNTING"]);
   if (auth.response) return auth.response;
 
   const products = await db.product.findMany({
@@ -30,7 +30,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireApiRoles(["OWNER", "MANAGER"]);
+  const auth = await requireApiPermission("INVENTORY");
   if (auth.response) return auth.response;
 
   const parsed = productSchema.safeParse(await request.json());
