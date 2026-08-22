@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, ClipboardList, PackageSearch, ShoppingBasket, Star, Store, Tags } from "lucide-react";
+import { ArrowLeft, ClipboardList, MapPin, PackageSearch, ShoppingBasket, Star, Store, Tags } from "lucide-react";
 import { FavoriteSupplierButton } from "@/components/favorite-supplier-button";
 import { MarketplaceBuyButton } from "@/components/marketplace-buy-button";
 import { PageHeader } from "@/components/page-header";
 import { firstPermissionHref, hasAppPermission } from "@/lib/access";
 import { getSessionContext } from "@/lib/auth";
+import { normalizeCityKey } from "@/lib/city";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
 
@@ -25,14 +26,67 @@ const activityLabels: Record<string, string> = {
   OTHER: "النشاط العام",
 };
 
-export default async function MarketplacePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+type CityOption = { key: string; label: string; variants: string[] };
+
+export default async function MarketplacePage({ searchParams }: { searchParams: Promise<{ q?: string; city?: string }> }) {
   const context = await getSessionContext();
   if (!context) redirect("/login");
   if (context.membership.role === "STAFF" && !hasAppPermission(context.membership, "PURCHASES")) redirect(firstPermissionHref(context.membership));
+
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const canBuy = ["RETAILER", "BOTH"].includes(context.business.businessType);
   const canSell = ["SUPPLIER", "BOTH"].includes(context.business.businessType);
+
+  const supplierCityRows = canBuy
+    ? await db.business.findMany({
+        where: {
+          id: { not: context.business.id },
+          businessType: { in: ["SUPPLIER", "BOTH"] },
+          city: { not: null },
+          marketplaceListings: { some: { active: true, quantity: { gt: 0 } } },
+        },
+        select: { city: true },
+        orderBy: { city: "asc" },
+      })
+    : [];
+
+  const cityMap = new Map<string, CityOption>();
+  for (const row of supplierCityRows) {
+    const city = row.city?.trim();
+    if (!city) continue;
+    const key = normalizeCityKey(city);
+    if (!key) continue;
+    const existing = cityMap.get(key);
+    if (existing) {
+      if (!existing.variants.includes(city)) existing.variants.push(city);
+    } else {
+      cityMap.set(key, { key, label: city, variants: [city] });
+    }
+  }
+
+  const ownCity = context.business.city?.trim() ?? "";
+  const ownCityKey = normalizeCityKey(ownCity);
+  if (canBuy && ownCityKey && !cityMap.has(ownCityKey)) {
+    cityMap.set(ownCityKey, { key: ownCityKey, label: ownCity, variants: [] });
+  }
+
+  const requestedCity = params.city?.trim() ?? "";
+  const selectedCityKey = !canBuy
+    ? "all"
+    : requestedCity === "all"
+      ? "all"
+      : requestedCity
+        ? normalizeCityKey(requestedCity)
+        : ownCityKey || "all";
+
+  const cityOptions = [...cityMap.values()].sort((a, b) => a.label.localeCompare(b.label, "ar"));
+  const selectedCity = selectedCityKey === "all" ? null : cityMap.get(selectedCityKey) ?? null;
+  const selectedCityLabel = selectedCityKey === "all" ? "كل المدن" : selectedCity?.label || ownCity || requestedCity || "المدينة المحددة";
+  const selectedCityVariants = selectedCity?.variants ?? [];
+  const cityFilter = canBuy && selectedCityKey !== "all"
+    ? { seller: { city: { in: selectedCityVariants.length ? selectedCityVariants : ["__TIJRA_NO_CITY_MATCH__"] } } }
+    : {};
 
   const [rawListings, favoriteRows] = await Promise.all([
     db.marketplaceListing.findMany({
@@ -40,6 +94,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         active: true,
         quantity: { gt: 0 },
         sellerBusinessId: { not: context.business.id },
+        ...cityFilter,
         ...(!q && canBuy ? { activity: context.business.businessActivity } : {}),
         ...(q ? { OR: [
           { name: { contains: q, mode: "insensitive" } },
@@ -92,29 +147,54 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
     .sort((a, b) => Number(b.favorite) - Number(a.favorite) || b.products - a.products || a.bestPrice - b.bestPrice)
     .slice(0, 4);
 
+  const cityParam = selectedCityKey === "all" ? "all" : selectedCityKey;
+  const locationDescription = selectedCityKey === "all" ? "من جميع المدن" : `من ${selectedCityLabel}`;
+
   return (
     <>
       <PageHeader
         eyebrow="TIJRA MARKET"
         title="السوق"
-        description={q ? "نتائج البحث من جميع أقسام السوق." : `منتجات ${activityLabels[context.business.businessActivity] ?? "نشاطك"} أولًا، مع أولوية لمورديك المفضلين.`}
+        description={q
+          ? `نتائج البحث ${locationDescription}.`
+          : `منتجات ${activityLabels[context.business.businessActivity] ?? "نشاطك"} ${locationDescription} أولًا، مع أولوية لمورديك المفضلين.`}
         actions={<>{canBuy && <Link className="button secondary" href="/marketplace/orders"><ClipboardList size={17} /> طلباتي</Link>}{canSell && <Link className="button secondary" href="/marketplace/seller"><Store size={17} /> لوحة المورد</Link>}</>}
       />
 
       <section className="marketHero panel">
-        <div><span className="eyebrow"><ShoppingBasket size={14} /> سوق B2B مباشر</span><h2>ابحث، قارن، واطلب من المورد الأنسب</h2><p>تِجرا يرتب الموردين والمنتجات حسب نشاطك، ويظهر لك السعر الأفضل لنفس الصنف عندما تتوفر أكثر من مقارنة.</p></div>
-        <Link className="button secondary" href="/alerts"><Tags size={17} /> السعر الأذكى</Link>
+        <div>
+          <span className="eyebrow"><ShoppingBasket size={14} /> سوق B2B مباشر</span>
+          <h2>ابحث، قارن، واطلب من المورد الأنسب</h2>
+          <p>اختر مدينتك لعرض الموردين القريبين فقط، أو اختر «كل المدن». تِجرا يقارن أفضل الأسعار داخل النطاق الذي اخترته.</p>
+        </div>
+        <div className="marketHeroActions">
+          {canBuy && <span className="marketLocationBadge"><MapPin size={14} /> {selectedCityLabel}</span>}
+          <Link className="button secondary" href="/alerts"><Tags size={17} /> السعر الأذكى</Link>
+        </div>
       </section>
 
       <form className="marketSearch" action="/marketplace">
-        <PackageSearch size={19} />
-        <input name="q" defaultValue={q} placeholder="ابحث عن منتج، باركود أو اسم مورد..." />
-        <button className="button primary">بحث</button>
+        {canBuy && (
+          <label className="marketCityFilter">
+            <MapPin size={18} />
+            <span className="srOnly">مدينة المورد</span>
+            <select name="city" defaultValue={cityParam} aria-label="اختر مدينة المورد">
+              <option value="all">كل المدن</option>
+              {cityOptions.map((city) => <option key={city.key} value={city.key}>{city.label}</option>)}
+            </select>
+          </label>
+        )}
+        <label className="marketQueryField">
+          <PackageSearch size={19} />
+          <span className="srOnly">بحث السوق</span>
+          <input name="q" defaultValue={q} placeholder="ابحث عن منتج، باركود أو اسم مورد..." />
+        </label>
+        <button className="button primary">تطبيق</button>
       </form>
 
       {topSuppliers.length > 0 && (
         <section className="supplierShowcase" aria-label="الموردون المميزون">
-          <div className="supplierShowcaseHead"><div><span className="eyebrow"><Star size={13} /> الموردون المميزون</span><h2>ابدأ من المورد</h2></div><span>{supplierMap.size} مورد متاح</span></div>
+          <div className="supplierShowcaseHead"><div><span className="eyebrow"><Star size={13} /> الموردون المميزون</span><h2>{selectedCityKey === "all" ? "ابدأ من المورد" : `موردون في ${selectedCityLabel}`}</h2></div><span>{supplierMap.size} مورد متاح</span></div>
           <div className="supplierShowcaseGrid">
             {topSuppliers.map((supplier, index) => (
               <article className="supplierShowcaseCard" key={supplier.id}>
@@ -124,7 +204,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
                   <span>{supplier.city} · {supplier.products} منتج</span>
                   <small>أسعار تبدأ من {formatSar(supplier.bestPrice)}</small>
                 </div>
-                <Link href={`/marketplace?q=${encodeURIComponent(supplier.name)}`} className="supplierShowcaseAction" aria-label={`عرض منتجات ${supplier.name}`}><ArrowLeft size={16} /></Link>
+                <Link href={`/marketplace?q=${encodeURIComponent(supplier.name)}&city=${encodeURIComponent(cityParam)}`} className="supplierShowcaseAction" aria-label={`عرض منتجات ${supplier.name}`}><ArrowLeft size={16} /></Link>
                 <span className="supplierRank">{index + 1}</span>
               </article>
             ))}
@@ -132,7 +212,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         </section>
       )}
 
-      <section className="marketSectionTitle"><div><span className="eyebrow">المنتجات</span><h2>{q ? "نتائج البحث" : "منتجات مقترحة لمنشأتك"}</h2></div><span>{listings.length} عرض</span></section>
+      <section className="marketSectionTitle"><div><span className="eyebrow">المنتجات</span><h2>{q ? "نتائج البحث" : "منتجات مقترحة لمنشأتك"}</h2></div><span>{listings.length} عرض · {selectedCityLabel}</span></section>
 
       <section className="marketGrid">
         {listings.map((listing) => {
@@ -152,7 +232,14 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
             </article>
           );
         })}
-        {!listings.length && <article className="panel smartPriceEmpty"><div className="softIcon brand"><PackageSearch size={21} /></div><h2>{q ? "لا توجد منتجات مطابقة" : "لا توجد منتجات مناسبة لنشاطك الآن"}</h2><p>{q ? "جرّب كلمة بحث أخرى." : "عندما ينشر الموردون منتجات ضمن نشاط منشأتك ستظهر هنا تلقائيًا."}</p></article>}
+        {!listings.length && (
+          <article className="panel smartPriceEmpty">
+            <div className="softIcon brand"><PackageSearch size={21} /></div>
+            <h2>{q ? "لا توجد منتجات مطابقة" : selectedCityKey === "all" ? "لا توجد منتجات مناسبة لنشاطك الآن" : `لا يوجد موردون مناسبون في ${selectedCityLabel} الآن`}</h2>
+            <p>{q ? "جرّب كلمة بحث أخرى أو غيّر المدينة." : selectedCityKey === "all" ? "عندما ينشر الموردون منتجات ضمن نشاط منشأتك ستظهر هنا تلقائيًا." : "يمكنك توسيع البحث إلى جميع المدن ومقارنة الموردين المتاحين."}</p>
+            {selectedCityKey !== "all" && <Link className="button secondary" href={`/marketplace?city=all${q ? `&q=${encodeURIComponent(q)}` : ""}`}>عرض كل المدن</Link>}
+          </article>
+        )}
       </section>
     </>
   );
