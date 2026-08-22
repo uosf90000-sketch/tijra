@@ -18,7 +18,7 @@ const productSchema = z.object({
 });
 
 export async function GET() {
-  const auth = await requireApiAnyPermission(["CASHIER", "INVENTORY", "PURCHASES", "ACCOUNTING"]);
+  const auth = await requireApiAnyPermission(["INVENTORY", "PURCHASES"]);
   if (auth.response) return auth.response;
 
   const products = await db.product.findMany({
