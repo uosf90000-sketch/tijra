@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireApiRoles } from "@/lib/api-auth";
+import { requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { createSupplierOrderToken } from "@/lib/supplier-link";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireApiRoles(["OWNER", "MANAGER"]);
+  const auth = await requireApiPermission("PURCHASES");
   if (auth.response) return auth.response;
   const { id } = await params;
 
