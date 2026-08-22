@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { requireApiRoles } from "@/lib/api-auth";
+import { requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 
 export async function POST() {
-  const auth = await requireApiRoles(["OWNER", "MANAGER"]);
+  const auth = await requireApiPermission("PURCHASES");
   if (auth.response) return auth.response;
   const businessId = auth.context.business.id;
 
