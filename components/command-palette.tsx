@@ -32,7 +32,7 @@ const commands = [
   { href: "/payroll", label: "الرواتب", hint: "المسيرات والاعتماد", icon: WalletCards },
 ];
 
-export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function CommandPalette({ open, onClose, allowedHrefs }: { open: boolean; onClose: () => void; allowedHrefs?: string[] }) {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -57,10 +57,11 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   }, [open]);
 
   const filtered = useMemo(() => {
+    const available = allowedHrefs ? commands.filter((item) => allowedHrefs.includes(item.href)) : commands;
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return commands;
-    return commands.filter((item) => `${item.label} ${item.hint}`.toLowerCase().includes(normalized));
-  }, [query]);
+    if (!normalized) return available;
+    return available.filter((item) => `${item.label} ${item.hint}`.toLowerCase().includes(normalized));
+  }, [query, allowedHrefs]);
 
   if (!open) return null;
 
@@ -69,7 +70,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       <section className="commandPalette" role="dialog" aria-modal="true" aria-label="بحث سريع" onMouseDown={(event) => event.stopPropagation()}>
         <div className="commandSearch">
           <Search size={19} />
-          <input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ابحث عن سوق، منتج، طلب أو مخزون..." aria-label="بحث سريع" />
+          <input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ابحث داخل الأقسام المسموح بها..." aria-label="بحث سريع" />
           <button type="button" className="commandClose" onClick={onClose} aria-label="إغلاق"><X size={18} /></button>
         </div>
         <div className="commandMeta"><span>انتقال سريع</span><kbd>ESC</kbd></div>
@@ -81,7 +82,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
               <span className="commandArrow">←</span>
             </Link>
           ))}
-          {!filtered.length && <div className="commandEmpty">ما لقينا نتيجة. جرّب كلمة ثانية.</div>}
+          {!filtered.length && <div className="commandEmpty">لا توجد نتيجة ضمن صلاحيات هذا الحساب.</div>}
         </div>
       </section>
     </div>
