@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSessionContext } from "@/lib/auth";
+import { hasAppPermission } from "@/lib/access";
+import { requireApiAnyPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 
 const schema = z.object({ action: z.enum(["ACCEPT", "CANCEL", "RECEIVE"]) });
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const context = await getSessionContext();
-  if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const auth = await requireApiAnyPermission(["PURCHASES", "INVENTORY"]);
+  if (auth.response) return auth.response;
+  const context = auth.context;
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
   const { id } = await params;
@@ -20,16 +22,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       });
       if (!order) throw new Error("ORDER_NOT_FOUND");
 
+      const isSeller = order.sellerBusinessId === context.business.id;
+      const isBuyer = order.buyerBusinessId === context.business.id;
+
       if (parsed.data.action === "ACCEPT") {
-        if (order.sellerBusinessId !== context.business.id) throw new Error("FORBIDDEN");
+        if (!isSeller || !hasAppPermission(context.membership, "INVENTORY")) throw new Error("FORBIDDEN");
         if (order.status !== "PLACED") throw new Error("INVALID_STATUS");
         return tx.marketplaceOrder.update({ where: { id }, data: { status: "ACCEPTED", acceptedAt: new Date() } });
       }
 
       if (parsed.data.action === "CANCEL") {
-        const isSeller = order.sellerBusinessId === context.business.id;
-        const isBuyer = order.buyerBusinessId === context.business.id;
         if (!isSeller && !isBuyer) throw new Error("FORBIDDEN");
+        if (isSeller && !hasAppPermission(context.membership, "INVENTORY")) throw new Error("FORBIDDEN");
+        if (isBuyer && !hasAppPermission(context.membership, "PURCHASES")) throw new Error("FORBIDDEN");
         if (!['PLACED', 'ACCEPTED'].includes(order.status)) throw new Error("INVALID_STATUS");
         for (const item of order.items) {
           await tx.marketplaceListing.update({ where: { id: item.listingId }, data: { quantity: { increment: item.quantity } } });
@@ -37,7 +42,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         return tx.marketplaceOrder.update({ where: { id }, data: { status: "CANCELLED" } });
       }
 
-      if (order.buyerBusinessId !== context.business.id) throw new Error("FORBIDDEN");
+      if (!isBuyer || !hasAppPermission(context.membership, "PURCHASES")) throw new Error("FORBIDDEN");
       if (order.status !== "ACCEPTED") throw new Error("INVALID_STATUS");
 
       for (const item of order.items) {

@@ -13,6 +13,14 @@ enum UserRole {
   CASHIER
   ACCOUNTANT
   SUPPLIER
+  STAFF
+}
+
+enum AppPermission {
+  CASHIER
+  INVENTORY
+  PURCHASES
+  ACCOUNTING
 }
 
 enum BusinessType {
@@ -89,6 +97,7 @@ model User {
   updatedAt    DateTime     @updatedAt
   memberships  Membership[]
   sessions     Session[]
+  employees    Employee[]
 }
 
 model Session {
@@ -104,16 +113,16 @@ model Session {
 }
 
 model Business {
-  id                         String             @id @default(cuid())
+  id                         String               @id @default(cuid())
   name                       String
   commercialName             String?
   taxNumber                  String?
   city                       String?
-  currency                   String             @default("SAR")
-  businessType               BusinessType       @default(RETAILER)
-  businessActivity           BusinessActivity   @default(GROCERY)
-  createdAt                  DateTime           @default(now())
-  updatedAt                  DateTime           @updatedAt
+  currency                   String               @default("SAR")
+  businessType               BusinessType         @default(RETAILER)
+  businessActivity           BusinessActivity     @default(GROCERY)
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
   memberships                Membership[]
   products                   Product[]
   suppliers                  Supplier[]
@@ -125,19 +134,20 @@ model Business {
   employees                  Employee[]
   payrollRuns                PayrollRun[]
   marketplaceListings        MarketplaceListing[] @relation("MarketplaceSellerListings")
-  marketplaceOrdersAsBuyer   MarketplaceOrder[] @relation("MarketplaceBuyer")
-  marketplaceOrdersAsSeller  MarketplaceOrder[] @relation("MarketplaceSeller")
-  favoriteSuppliers          FavoriteSupplier[] @relation("FavoriteBuyer")
-  favoritedBy                FavoriteSupplier[] @relation("FavoriteSeller")
+  marketplaceOrdersAsBuyer   MarketplaceOrder[]   @relation("MarketplaceBuyer")
+  marketplaceOrdersAsSeller  MarketplaceOrder[]   @relation("MarketplaceSeller")
+  favoriteSuppliers          FavoriteSupplier[]   @relation("FavoriteBuyer")
+  favoritedBy                FavoriteSupplier[]   @relation("FavoriteSeller")
 }
 
 model Membership {
-  id         String   @id @default(cuid())
-  userId     String
-  businessId String
-  role       UserRole
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  id          String          @id @default(cuid())
+  userId      String
+  businessId  String
+  role        UserRole
+  permissions AppPermission[] @default([])
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business    Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@unique([userId, businessId])
   @@index([businessId, role])
@@ -400,6 +410,7 @@ model Expense {
 model Employee {
   id               String        @id @default(cuid())
   businessId       String
+  userId           String?
   name             String
   phone            String?
   jobTitle         String?
@@ -410,9 +421,12 @@ model Employee {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   business         Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user             User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   payrollItems     PayrollItem[]
 
+  @@unique([businessId, userId])
   @@index([businessId, active])
+  @@index([userId])
 }
 
 model PayrollRun {

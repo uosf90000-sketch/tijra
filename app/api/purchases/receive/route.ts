@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireApiRoles } from "@/lib/api-auth";
+import { requireApiPermission } from "@/lib/api-auth";
 import { receivePurchaseOrder } from "@/lib/stock-operations";
 
 const receiptSchema = z.object({
@@ -22,7 +22,7 @@ const receiptSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const auth = await requireApiRoles(["OWNER", "MANAGER"]);
+  const auth = await requireApiPermission("PURCHASES");
   if (auth.response) return auth.response;
 
   const parsed = receiptSchema.safeParse(await request.json());

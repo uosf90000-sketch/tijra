@@ -98,6 +98,7 @@ export async function getSessionContext() {
     membership: {
       id: membership.id,
       role: membership.role,
+      permissions: membership.permissions,
       businessId: membership.businessId,
     },
     business: membership.business,

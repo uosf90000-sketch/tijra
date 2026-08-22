@@ -16,6 +16,7 @@ import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { ProgressBar } from "@/components/progress-bar";
 import { StatusPill } from "@/components/status-pill";
+import { firstPermissionHref } from "@/lib/access";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
@@ -32,6 +33,7 @@ function startOfDay(date: Date) {
 export default async function DashboardPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (context.membership.role === "STAFF") redirect(firstPermissionHref(context.membership));
   const businessId = context.business.id;
   const now = new Date();
   const today = startOfDay(now);

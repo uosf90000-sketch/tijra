@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createWorker } from "tesseract.js";
-import { requireApiRoles } from "@/lib/api-auth";
+import { requireApiAnyPermission } from "@/lib/api-auth";
 import { parseInvoiceText } from "@/lib/invoice-parser";
 
 export const runtime = "nodejs";
@@ -10,7 +10,7 @@ const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const allowedExtensions = /\.(jpe?g|png|webp)$/i;
 
 export async function POST(request: Request) {
-  const auth = await requireApiRoles(["OWNER", "MANAGER", "ACCOUNTANT"]);
+  const auth = await requireApiAnyPermission(["PURCHASES", "ACCOUNTING"]);
   if (auth.response) return auth.response;
 
   const formData = await request.formData();
