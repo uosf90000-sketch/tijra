@@ -226,6 +226,7 @@ model Product {
   name                 String
   sku                  String?
   barcode              String?
+  imageUrl             String?
   category             String?
   unit                 String                @default("piece")
   salePrice            Decimal               @db.Decimal(12, 2)
