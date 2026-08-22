@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireApiRoles } from "@/lib/api-auth";
+import { requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 
 const expenseSchema = z.object({
@@ -11,7 +11,7 @@ const expenseSchema = z.object({
 });
 
 export async function GET() {
-  const auth = await requireApiRoles(["OWNER", "MANAGER", "ACCOUNTANT"]);
+  const auth = await requireApiPermission("ACCOUNTING");
   if (auth.response) return auth.response;
   const expenses = await db.expense.findMany({
     where: { businessId: auth.context.business.id },
@@ -22,7 +22,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireApiRoles(["OWNER", "MANAGER", "ACCOUNTANT"]);
+  const auth = await requireApiPermission("ACCOUNTING");
   if (auth.response) return auth.response;
   const parsed = expenseSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
