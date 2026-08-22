@@ -10,6 +10,7 @@ export function BarcodeInput({ name = "barcode" }: { name?: string }) {
   const [value, setValue] = useState("");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<ScannerControls | null>(null);
 
@@ -18,6 +19,18 @@ export function BarcodeInput({ name = "barcode" }: { name?: string }) {
     controlsRef.current = null;
     setOpen(false);
   }
+
+  useEffect(() => {
+    const form = inputRef.current?.form;
+    if (!form) return;
+    const reset = () => {
+      setValue("");
+      setError("");
+      closeScanner();
+    };
+    form.addEventListener("reset", reset);
+    return () => form.removeEventListener("reset", reset);
+  }, []);
 
   useEffect(() => {
     if (!open || !videoRef.current) return;
@@ -75,6 +88,7 @@ export function BarcodeInput({ name = "barcode" }: { name?: string }) {
       <span>الباركود</span>
       <div className="barcodeInputRow">
         <input
+          ref={inputRef}
           name={name}
           inputMode="numeric"
           value={value}
