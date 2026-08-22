@@ -63,7 +63,7 @@ export function MarketplaceListingForm() {
   return (
     <form className="marketForm" onSubmit={submit}>
       <div className="marketFormGrid">
-        <label>اسم المنتج<input name="name" required minLength={2} /></label>
+        <label>اسم المنتج الكامل<input name="name" required minLength={2} placeholder="مثال: بيبسي 330 مل × 24" /></label>
         <label>قسم السوق<select name="activity" defaultValue="GROCERY" required>{activities.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label>التصنيف الفرعي<input name="category" placeholder="مثال: مشروبات غازية" /></label>
         <BarcodeInput />
@@ -73,6 +73,7 @@ export function MarketplaceListingForm() {
         <label>الحد الأدنى للطلب<input name="minOrderQty" type="number" step="0.001" min="0.001" defaultValue="1" required /></label>
         <label>الوحدة<select name="unit" defaultValue="piece" required><option value="piece">حبة / قطعة</option><option value="pack">باك</option><option value="carton">كرتون</option><option value="bag">كيس</option><option value="box">صندوق</option><option value="kg">كيلو</option><option value="liter">لتر</option></select></label>
       </div>
+      <div className="infoNote">اسم المنتج هو أساس البحث والمقارنة. اكتب العلامة + الحجم + العبوة بوضوح. الباركود اختياري ويستخدم للتأكد من التطابق.</div>
       <button className="button primary" disabled={loading}>{loading ? "جاري النشر..." : "نشر المنتج في السوق"}</button>
       {message && <div className="infoNote">{message}</div>}
     </form>
