@@ -110,7 +110,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           ...nameSearchFilters,
           { category: { contains: q, mode: "insensitive" as const } },
           { seller: { name: { contains: q, mode: "insensitive" as const } } },
-          ...(\d/.test(q) ? [{ barcode: { contains: q } }] : []),
+          ...(/\d/.test(q) ? [{ barcode: { contains: q } }] : []),
         ] } : {}),
       },
       include: { seller: true },
