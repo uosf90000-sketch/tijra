@@ -1,258 +1,230 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-  ArrowLeft,
-  BellRing,
   Boxes,
-  CircleDollarSign,
-  PackageSearch,
+  Calculator,
+  ClipboardList,
+  LockKeyhole,
+  ScanBarcode,
+  ShoppingBag,
   ShoppingBasket,
-  Sparkles,
-  TrendingUp,
-  TriangleAlert,
+  ShoppingCart,
+  Store,
+  Tags,
   UsersRound,
 } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
-import { ProgressBar } from "@/components/progress-bar";
-import { StatusPill } from "@/components/status-pill";
 import { firstPermissionHref } from "@/lib/access";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
-import { buildSmartPriceAlerts } from "@/lib/price-intelligence";
 
 export const dynamic = "force-dynamic";
 
-function startOfDay(date: Date) {
-  const copy = new Date(date);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
+const orderStatus: Record<string, string> = {
+  PLACED: "بانتظار المورد",
+  ACCEPTED: "مقبول",
+  RECEIVED: "مستلم",
+  CANCELLED: "ملغي",
+};
+
+function monthStart() {
+  const date = new Date();
+  date.setDate(1);
+  date.setHours(0, 0, 0, 0);
+  return date;
 }
 
-export default async function DashboardPage() {
-  const context = await getSessionContext();
-  if (!context) redirect("/login");
-  if (context.membership.role === "STAFF") redirect(firstPermissionHref(context.membership));
-  const businessId = context.business.id;
-  const now = new Date();
-  const today = startOfDay(now);
-  const weekStart = new Date(today);
-  weekStart.setDate(weekStart.getDate() - 6);
-
-  const [todaySales, products, weekSalesRows, employees, latestPayroll, supplierOffers] = await Promise.all([
-    db.sale.aggregate({
-      where: { businessId, soldAt: { gte: today } },
-      _sum: { total: true, costTotal: true },
+async function RetailerDashboard({ businessId, firstName, city }: { businessId: string; firstName: string; city?: string | null }) {
+  const start = monthStart();
+  const [monthOrders, recentOrders, favoriteRows, marketOfferCount] = await Promise.all([
+    db.marketplaceOrder.findMany({
+      where: { buyerBusinessId: businessId, createdAt: { gte: start } },
+      select: { status: true, expectedTotal: true },
     }),
-    db.product.findMany({
-      where: { businessId, active: true },
-      include: { supplierItems: { include: { supplier: true }, orderBy: { price: "asc" }, take: 1 } },
-      orderBy: { name: "asc" },
+    db.marketplaceOrder.findMany({
+      where: { buyerBusinessId: businessId },
+      include: { seller: true, items: { include: { listing: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 6,
     }),
-    db.sale.findMany({ where: { businessId, soldAt: { gte: weekStart } }, select: { soldAt: true, total: true } }),
-    db.employee.findMany({ where: { businessId, active: true }, select: { baseSalary: true, defaultAllowance: true } }),
-    db.payrollRun.findFirst({ where: { businessId }, include: { items: true }, orderBy: { periodEnd: "desc" } }),
-    db.supplierProduct.findMany({
-      where: { supplier: { businessId }, product: { active: true } },
-      include: { supplier: true, product: true },
-      orderBy: [{ productId: "asc" }, { price: "asc" }],
-      take: 1000,
+    db.favoriteSupplier.findMany({
+      where: { buyerBusinessId: businessId },
+      include: { seller: { include: { marketplaceListings: { where: { active: true, quantity: { gt: 0 } }, take: 1 } } } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
+    db.marketplaceListing.count({
+      where: {
+        active: true,
+        quantity: { gt: 0 },
+        sellerBusinessId: { not: businessId },
+        ...(city ? { seller: { city } } : {}),
+      },
     }),
   ]);
 
-  const salesToday = Number(todaySales._sum.total ?? 0);
-  const costToday = Number(todaySales._sum.costTotal ?? 0);
-  const grossProfit = Math.max(0, salesToday - costToday);
-  const stockValue = products.reduce((sum, item) => sum + Number(item.quantity) * Number(item.averageCost), 0);
-
-  const lowItems = products
-    .filter((item) => Number(item.quantity) <= Number(item.reorderPoint))
-    .map((item) => {
-      const quantity = Number(item.quantity);
-      const reorderPoint = Number(item.reorderPoint);
-      return {
-        ...item,
-        quantityNumber: quantity,
-        reorderPointNumber: reorderPoint,
-        status: quantity <= Math.max(1, reorderPoint * 0.5) ? "critical" : "low",
-      };
-    })
-    .slice(0, 6);
-
-  const purchaseSuggestions = lowItems
-    .map((item) => {
-      const offer = item.supplierItems[0];
-      const target = Math.max(item.reorderPointNumber * 2, item.reorderPointNumber + 1);
-      const suggested = Math.max(0, Math.ceil(target - item.quantityNumber));
-      return offer && suggested > 0 ? {
-        product: item.name,
-        supplier: offer.supplier.name,
-        suggested,
-        unit: item.unit,
-        unitPrice: Number(offer.price),
-      } : null;
-    })
-    .filter((item): item is NonNullable<typeof item> => Boolean(item));
-
-  const suggestedTotal = purchaseSuggestions.reduce((sum, item) => sum + item.suggested * item.unitPrice, 0);
-
-  const smartPriceAlerts = buildSmartPriceAlerts(supplierOffers.map((offer) => ({
-    productId: offer.productId,
-    productName: offer.product.name,
-    unit: offer.product.unit,
-    supplierId: offer.supplierId,
-    supplierName: offer.supplier.name,
-    unitPrice: Number(offer.price),
-    minOrderQty: offer.minOrderQty == null ? null : Number(offer.minOrderQty),
-    onHand: Number(offer.product.quantity),
-    reorderPoint: Number(offer.product.reorderPoint),
-    lastQuotedAt: offer.lastQuotedAt,
-  })));
-  const topSmartPrice = smartPriceAlerts[0];
-  const totalSmartSaving = smartPriceAlerts.reduce((sum, alert) => sum + alert.estimatedOrderSaving, 0);
-
-  const daySlots = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(weekStart);
-    date.setDate(weekStart.getDate() + index);
-    return { date, key: date.toISOString().slice(0, 10), value: 0 };
-  });
-  for (const row of weekSalesRows) {
-    const key = row.soldAt.toISOString().slice(0, 10);
-    const slot = daySlots.find((item) => item.key === key);
-    if (slot) slot.value += Number(row.total);
-  }
-  const weeklySales = daySlots.map((slot) => ({
-    day: new Intl.DateTimeFormat("ar-SA", { weekday: "short" }).format(slot.date),
-    value: slot.value,
-  }));
-  const maxSales = Math.max(1, ...weeklySales.map((item) => item.value));
-  const weekTotal = weeklySales.reduce((sum, item) => sum + item.value, 0);
-
-  const payrollTotal = latestPayroll
-    ? latestPayroll.items.reduce((sum, item) => sum + Number(item.netSalary), 0)
-    : employees.reduce((sum, item) => sum + Number(item.baseSalary) + Number(item.defaultAllowance), 0);
-
-  const pageDate = new Intl.DateTimeFormat("ar-SA", { dateStyle: "full" }).format(now);
+  const received = monthOrders.filter((item) => item.status === "RECEIVED");
+  const active = monthOrders.filter((item) => item.status === "PLACED" || item.status === "ACCEPTED");
+  const receivedTotal = received.reduce((sum, item) => sum + Number(item.expectedTotal), 0);
+  const activeTotal = active.reduce((sum, item) => sum + Number(item.expectedTotal), 0);
 
   return (
     <>
       <PageHeader
-        eyebrow={pageDate}
-        title={`أهلًا ${context.user.name.split(" ")[0]} 👋`}
-        description="هذه أهم الأرقام والتنبيهات من بيانات منشأتك الفعلية."
-        actions={<Link className="button primary" href="/purchases"><Sparkles size={18} /> جهّز مشتريات اليوم</Link>}
+        eyebrow="لوحة التاجر"
+        title={`مرحبًا ${firstName} 👋`}
+        description="إليك ملخص مشترياتك والموردين وفرص الشراء الذكي اليوم."
+        actions={<Link className="button primary" href="/marketplace"><ShoppingBag size={17} /> تسوق الآن</Link>}
       />
 
-      <section className="metricsGrid" aria-label="ملخص اليوم">
-        <MetricCard label="مبيعات اليوم" value={formatSar(salesToday)} note="من عمليات البيع المسجلة" icon={TrendingUp} />
-        <MetricCard label="الربح الإجمالي" value={formatSar(grossProfit)} note={salesToday > 0 ? `هامش ${Math.round((grossProfit / salesToday) * 100)}%` : "لا توجد مبيعات اليوم"} icon={CircleDollarSign} tone="blue" />
-        <MetricCard label="قيمة المخزون" value={formatSar(stockValue)} note={`${products.length} صنفًا فعليًا`} icon={Boxes} tone="violet" />
-        <MetricCard label="مشتريات مقترحة" value={formatSar(suggestedTotal)} note={`${purchaseSuggestions.length} أصناف لها سعر مورد`} icon={ShoppingBasket} tone="amber" />
+      <section className="metricsGrid four">
+        <MetricCard label="مشتريات الشهر" value={formatSar(receivedTotal)} note={`${received.length} طلبات مستلمة`} icon={ShoppingBasket} />
+        <MetricCard label="الطلبات الحالية" value={`${active.length}`} note={activeTotal ? `بقيمة ${formatSar(activeTotal)}` : "لا توجد طلبات جارية"} icon={ClipboardList} tone="amber" />
+        <MetricCard label="الموردون المفضلون" value={`${favoriteRows.length}`} note="للوصول السريع والمقارنة" icon={Store} tone="blue" />
+        <MetricCard label="عروض متاحة" value={`${marketOfferCount}`} note={city ? `من ${city} حسب الفلتر` : "في سوق تِجرا"} icon={Tags} tone="violet" />
       </section>
 
-      {topSmartPrice && (
-        <section className="smartPriceHero panel" aria-label="أفضل فرصة توفير">
-          <div className="smartPriceHeroCopy">
-            <span className="smartPriceKicker"><BellRing size={15} /> السعر الأذكى</span>
-            <h2>وجدنا موردًا أرخص لـ {topSmartPrice.productName}</h2>
-            <p>
-              {topSmartPrice.comparedSupplierName} بسعر {formatSar(topSmartPrice.comparedPrice)}، بينما {topSmartPrice.bestSupplierName} بسعر {formatSar(topSmartPrice.bestPrice)}. وفر {formatSar(topSmartPrice.savingPerUnit)} لكل {topSmartPrice.unit} ({Math.round(topSmartPrice.savingPercent)}%).
-            </p>
-            <div className="smartPriceHeroActions">
-              <Link className="button primary" href="/alerts">عرض فرص التوفير</Link>
-              <Link className="button secondary" href="/suppliers">مقارنة الموردين</Link>
-            </div>
-          </div>
-          <div className="smartPriceHeroSaving">
-            <span>توفير محتمل</span>
-            <strong>{formatSar(totalSmartSaving)}</strong>
-            <small>على الكميات المقترحة</small>
-          </div>
-        </section>
-      )}
+      <section className="roleHero">
+        <div><h2>السعر الأذكى يعمل لصالحك ✨</h2><p>ابحث باسم المنتج، قارن الموردين داخل مدينتك أو كل المدن، واختر أفضل سعر لنفس العبوة والوحدة.</p></div>
+        <div className="roleHeroIcon"><Tags size={25} /></div>
+      </section>
 
-      <section className="dashboardGrid">
-        <article className="panel aiRecommendation">
-          <div className="panelHeader">
-            <div><span className="eyebrow"><Sparkles size={14} /> اقتراح تِجرا</span><h2>{purchaseSuggestions.length ? "طلبية اليوم جاهزة للمراجعة" : "لا توجد طلبية عاجلة الآن"}</h2></div>
-            <div className="softIcon brand"><Sparkles size={21} /></div>
-          </div>
-          <p className="panelLead">
-            {purchaseSuggestions.length
-              ? `حسب نقاط إعادة الطلب والأسعار المسجلة، توجد ${purchaseSuggestions.length} أصناف بقيمة تقريبية ${formatSar(suggestedTotal)}.`
-              : "أضف أسعار الموردين ونقاط إعادة الطلب حتى تبني تِجرا اقتراحات شراء دقيقة تلقائيًا."}
-          </p>
-
-          <div className="suggestionPreview">
-            {purchaseSuggestions.slice(0, 4).map((item) => (
-              <div className="suggestionRow" key={`${item.product}-${item.supplier}`}>
-                <div className="productDot" />
-                <div className="grow"><strong>{item.product}</strong><span>{item.supplier}</span></div>
-                <div className="alignEnd"><strong>{item.suggested} {item.unit}</strong><span>{formatSar(item.suggested * item.unitPrice)}</span></div>
+      <section className="roleDashboardGrid">
+        <article className="panel">
+          <div className="panelHeader"><div><span className="eyebrow">آخر الحركة</span><h2>طلباتك الأخيرة</h2></div><Link className="textLink" href="/marketplace/orders">عرض الكل</Link></div>
+          <div className="roleTable">
+            {recentOrders.map((order) => (
+              <div className="roleTableRow" key={order.id}>
+                <div><strong>{order.seller.name}</strong><span>{order.items.map((item) => item.listing.name).slice(0, 2).join("، ")}</span></div>
+                <div><strong>{formatSar(Number(order.expectedTotal))}</strong><span>{orderStatus[order.status] ?? order.status}</span></div>
+                <div><span>{new Intl.DateTimeFormat("ar-SA", { dateStyle: "short" }).format(order.createdAt)}</span></div>
               </div>
             ))}
-            {!purchaseSuggestions.length && <div className="noticeBox"><PackageSearch size={18} /><div><strong>أكمل بيانات الموردين</strong><span>أضف سعرًا واحدًا على الأقل لكل صنف تريد مقارنته.</span></div></div>}
-          </div>
-
-          <div className="panelActions">
-            <Link className="button primary" href="/purchases">فتح المشتريات</Link>
-            <Link className="button secondary" href="/suppliers">إدارة الموردين</Link>
+            {!recentOrders.length && <div className="infoNote">لم تطلب من السوق بعد.</div>}
           </div>
         </article>
 
         <article className="panel">
-          <div className="panelHeader">
-            <div><span className="eyebrow amber"><TriangleAlert size={14} /> تنبيه المخزون</span><h2>أصناف تحتاج انتباهًا</h2></div>
-            <Link className="textLink" href="/inventory">عرض الكل <ArrowLeft size={15} /></Link>
-          </div>
-
-          <div className="alertList">
-            {lowItems.map((item) => (
-              <div className="alertRow" key={item.id}>
-                <div className="grow">
-                  <div className="rowTitle"><strong>{item.name}</strong><StatusPill status={item.status} /></div>
-                  <span>{item.quantityNumber} {item.unit} · نقطة إعادة الطلب {item.reorderPointNumber}</span>
-                  <ProgressBar value={item.quantityNumber} max={Math.max(item.reorderPointNumber * 2, 1)} tone={item.status === "critical" ? "red" : "amber"} />
-                </div>
+          <div className="panelHeader"><div><span className="eyebrow">موردون مفضلون</span><h2>ابدأ من المورد</h2></div><Store size={19} /></div>
+          <div className="roleTable">
+            {favoriteRows.map((row) => (
+              <div className="roleTableRow" key={row.id}>
+                <div><strong>{row.seller.name}</strong><span>{row.seller.city || "السعودية"}</span></div>
+                <div><strong>{row.seller.marketplaceListings.length ? "متوفر" : "لا عروض"}</strong><span>في السوق</span></div>
+                <div><Link className="textLink" href={`/marketplace?q=${encodeURIComponent(row.seller.name)}`}>عرض</Link></div>
               </div>
             ))}
-            {!lowItems.length && <div className="noticeBox"><PackageSearch size={18} /><div><strong>لا توجد نواقص مسجلة</strong><span>ستظهر هنا الأصناف التي تصل إلى نقطة إعادة الطلب.</span></div></div>}
+            {!favoriteRows.length && <div className="infoNote">أضف الموردين المفضلين من السوق لتظهر هنا.</div>}
           </div>
         </article>
       </section>
 
-      <section className="dashboardGrid lower">
-        <article className="panel chartPanel">
-          <div className="panelHeader">
-            <div><span className="eyebrow">آخر 7 أيام</span><h2>اتجاه المبيعات</h2></div>
-            <div className="miniSummary"><strong>{formatSar(weekTotal)}</strong><span>إجمالي الأسبوع</span></div>
-          </div>
-          <div className="barChart" aria-label="مبيعات آخر سبعة أيام">
-            {weeklySales.map((item, index) => (
-              <div className="barColumn" key={`${item.day}-${index}`}>
-                <span className="barValue">{item.value >= 1000 ? `${Math.round(item.value / 100) / 10}k` : Math.round(item.value)}</span>
-                <div className="barTrack"><div className="bar" style={{ height: `${Math.max(6, (item.value / maxSales) * 100)}%` }} /></div>
-                <span>{item.day}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panelHeader">
-            <div><span className="eyebrow violet"><UsersRound size={14} /> الرواتب</span><h2>{latestPayroll ? "آخر مسير" : "الرواتب المتوقعة"}</h2></div>
-            <StatusPill status={latestPayroll?.status.toLowerCase() ?? "draft"} />
-          </div>
-          <div className="payrollSnapshot">
-            <div><span>صافي الرواتب</span><strong>{formatSar(payrollTotal)}</strong></div>
-            <div><span>الموظفون</span><strong>{employees.length}</strong></div>
-            <div><span>حالة المسير</span><strong>{latestPayroll?.status === "PAID" ? "مدفوع" : latestPayroll?.status === "APPROVED" ? "معتمد" : "مسودة"}</strong></div>
-          </div>
-          <div className="noticeBox"><PackageSearch size={18} /><div><strong>الرواتب منفصلة عن التمويل</strong><span>تِجرا يحسب ويدير المسير فقط ولا يقدم تمويلًا أو إقراضًا.</span></div></div>
-          <Link className="button secondary full" href="/payroll">فتح مسير الرواتب</Link>
-        </article>
+      <section className="panel" style={{ marginTop: 12, padding: 19 }}>
+        <div className="panelHeader"><div><span className="eyebrow">اختصارات</span><h2>كل ما يحتاجه التاجر</h2></div></div>
+        <div className="roleActionGrid" style={{ marginTop: 14 }}>
+          <Link className="roleActionCard" href="/marketplace"><ShoppingBag size={20} /><div><strong>السوق</strong><span>منتجات وموردون حسب مدينتك</span></div></Link>
+          <Link className="roleActionCard" href="/alerts"><Tags size={20} /><div><strong>السعر الأذكى</strong><span>مقارنة أفضل العروض والتوفير</span></div></Link>
+          <Link className="roleActionCard" href="/accounting"><Calculator size={20} /><div><strong>الملخص المالي</strong><span>مشترياتك والتزاماتك المؤكدة</span></div></Link>
+          <Link className="roleActionCard locked" href="/inventory"><Boxes size={20} /><div><strong>المخزون</strong><span>خدمة زجاجية حتى تجهيز قارئ المتجر</span></div></Link>
+          <Link className="roleActionCard locked" href="/sales"><ShoppingCart size={20} /><div><strong>الكاشير</strong><span>خدمة زجاجية حتى تجهيز POS والباركود</span></div></Link>
+          <Link className="roleActionCard" href="/employees"><UsersRound size={20} /><div><strong>الموظفون</strong><span>المستخدمون والصلاحيات والرواتب</span></div></Link>
+        </div>
       </section>
     </>
   );
+}
+
+async function SupplierDashboard({ businessId, firstName }: { businessId: string; firstName: string }) {
+  const start = monthStart();
+  const [listings, monthOrders, recentOrders] = await Promise.all([
+    db.marketplaceListing.findMany({ where: { sellerBusinessId: businessId }, orderBy: { updatedAt: "desc" }, take: 120 }),
+    db.marketplaceOrder.findMany({ where: { sellerBusinessId: businessId, createdAt: { gte: start } }, select: { status: true, expectedTotal: true, buyerBusinessId: true } }),
+    db.marketplaceOrder.findMany({
+      where: { sellerBusinessId: businessId },
+      include: { buyer: true, items: { include: { listing: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 7,
+    }),
+  ]);
+
+  const received = monthOrders.filter((item) => item.status === "RECEIVED");
+  const open = monthOrders.filter((item) => item.status === "PLACED" || item.status === "ACCEPTED");
+  const salesTotal = received.reduce((sum, item) => sum + Number(item.expectedTotal), 0);
+  const stockValue = listings.reduce((sum, item) => sum + Number(item.quantity) * Number(item.price), 0);
+  const customerCount = new Set(monthOrders.map((item) => item.buyerBusinessId)).size;
+  const lowStock = listings.filter((item) => Number(item.quantity) <= Math.max(5, Number(item.minOrderQty))).length;
+
+  return (
+    <>
+      <PageHeader
+        eyebrow="لوحة المورد"
+        title={`مرحبًا ${firstName} 👋`}
+        description="إليك ملخص المنتجات والمخزون والطلبات الواردة من التجار."
+        actions={<Link className="button primary" href="/marketplace/seller"><Store size={17} /> إدارة المنتجات</Link>}
+      />
+
+      <section className="metricsGrid four">
+        <MetricCard label="مبيعات الشهر داخل تِجرا" value={formatSar(salesTotal)} note={`${received.length} طلبات مستلمة`} icon={ShoppingCart} />
+        <MetricCard label="طلبات التجار النشطة" value={`${open.length}`} note="بانتظار القبول أو الاستلام" icon={ClipboardList} tone="amber" />
+        <MetricCard label="قيمة مخزون العرض" value={formatSar(stockValue)} note={`${listings.length} منتجًا معروضًا`} icon={Boxes} tone="blue" />
+        <MetricCard label="تنبيهات المخزون" value={`${lowStock}`} note={`${customerCount} تجار تعاملوا معك هذا الشهر`} icon={Tags} tone="violet" />
+      </section>
+
+      <section className="roleHero">
+        <div><h2>حدّث مخزونك بأقل خطوات</h2><p>أي بيع خارج تِجرا: امسح الباركود، أدخل الكمية، والمخزون الذي يراه التجار يتحدث فورًا.</p></div>
+        <div className="roleHeroIcon"><ScanBarcode size={25} /></div>
+      </section>
+
+      <section className="roleDashboardGrid">
+        <article className="panel">
+          <div className="panelHeader"><div><span className="eyebrow">طلبات التجار</span><h2>أحدث الطلبات الواردة</h2></div><Link className="textLink" href="/marketplace/seller#orders">عرض الكل</Link></div>
+          <div className="roleTable">
+            {recentOrders.map((order) => (
+              <div className="roleTableRow" key={order.id}>
+                <div><strong>{order.buyer.name}</strong><span>{order.items.map((item) => item.listing.name).slice(0, 2).join("، ")}</span></div>
+                <div><strong>{formatSar(Number(order.expectedTotal))}</strong><span>{orderStatus[order.status] ?? order.status}</span></div>
+                <div><span>{new Intl.DateTimeFormat("ar-SA", { dateStyle: "short" }).format(order.createdAt)}</span></div>
+              </div>
+            ))}
+            {!recentOrders.length && <div className="infoNote">لا توجد طلبات واردة حتى الآن.</div>}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panelHeader"><div><span className="eyebrow">اختصارات المورد</span><h2>شغّل متجرك</h2></div></div>
+          <div className="roleActionGrid" style={{ marginTop: 12 }}>
+            <Link className="roleActionCard" href="/marketplace/seller"><Store size={20} /><div><strong>المنتجات</strong><span>إضافة وتعديل السعر والكمية</span></div></Link>
+            <Link className="roleActionCard" href="/inventory"><Boxes size={20} /><div><strong>المخزون</strong><span>الكميات والقيمة والحالة</span></div></Link>
+            <Link className="roleActionCard" href="/marketplace/seller#external-sale"><ScanBarcode size={20} /><div><strong>بيع خارجي</strong><span>مسح باركود وخصم سريع</span></div></Link>
+          </div>
+        </article>
+      </section>
+
+      <section className="panel" style={{ marginTop: 12, padding: 19 }}>
+        <div className="panelHeader"><div><span className="eyebrow">إدارة المورد</span><h2>الأقسام الأساسية</h2></div></div>
+        <div className="roleActionGrid" style={{ marginTop: 14 }}>
+          <Link className="roleActionCard" href="/marketplace/seller#customers"><UsersRound size={20} /><div><strong>التجار والعملاء</strong><span>من يطلب منك داخل تِجرا</span></div></Link>
+          <Link className="roleActionCard" href="/accounting"><Calculator size={20} /><div><strong>التقارير</strong><span>ملخصات البيع والتشغيل</span></div></Link>
+          <Link className="roleActionCard" href="/employees"><UsersRound size={20} /><div><strong>الموظفون</strong><span>الحسابات والصلاحيات</span></div></Link>
+        </div>
+      </section>
+    </>
+  );
+}
+
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
+  const context = await getSessionContext();
+  if (!context) redirect("/login");
+  if (context.membership.role === "STAFF") redirect(firstPermissionHref(context.membership));
+
+  const params = await searchParams;
+  const firstName = context.user.name.split(" ")[0];
+  const businessType = context.business.businessType;
+  const requestedMode = params.mode === "supplier" ? "supplier" : "retailer";
+
+  if (businessType === "SUPPLIER") return <SupplierDashboard businessId={context.business.id} firstName={firstName} />;
+  if (businessType === "BOTH" && requestedMode === "supplier") return <SupplierDashboard businessId={context.business.id} firstName={firstName} />;
+  return <RetailerDashboard businessId={context.business.id} firstName={firstName} city={context.business.city} />;
 }
