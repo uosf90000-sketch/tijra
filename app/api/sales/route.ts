@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireApiRoles } from "@/lib/api-auth";
+import { requireApiPermission } from "@/lib/api-auth";
 import { recordSale } from "@/lib/stock-operations";
 
 const saleSchema = z.object({
@@ -21,7 +21,7 @@ const saleSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const auth = await requireApiRoles(["OWNER", "MANAGER", "CASHIER"]);
+  const auth = await requireApiPermission("CASHIER");
   if (auth.response) return auth.response;
 
   const parsed = saleSchema.safeParse(await request.json());
