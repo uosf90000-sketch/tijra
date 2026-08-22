@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Boxes, CirclePlus, Clock3, ScanLine, ShoppingBasket, Store } from "lucide-react";
+import { Boxes, CirclePlus, Clock3, ScanLine, ShoppingBasket, Store, UsersRound } from "lucide-react";
 import { MarketplaceListingForm } from "@/components/marketplace-listing-form";
 import { MarketplaceOrderActions } from "@/components/marketplace-order-actions";
 import { MetricCard } from "@/components/metric-card";
@@ -50,6 +50,24 @@ export default async function MarketplaceSellerPage() {
     quantity: Number(item.quantity),
   }));
 
+  const customerMap = new Map<string, { id: string; name: string; city: string; orders: number; total: number }>();
+  for (const order of orders) {
+    const current = customerMap.get(order.buyerBusinessId);
+    if (current) {
+      current.orders += 1;
+      current.total += Number(order.expectedTotal);
+    } else {
+      customerMap.set(order.buyerBusinessId, {
+        id: order.buyerBusinessId,
+        name: order.buyer.name,
+        city: order.buyer.city || "غير محددة",
+        orders: 1,
+        total: Number(order.expectedTotal),
+      });
+    }
+  }
+  const customers = [...customerMap.values()].sort((a, b) => b.orders - a.orders || b.total - a.total).slice(0, 8);
+
   return (
     <>
       <PageHeader
@@ -65,7 +83,7 @@ export default async function MarketplaceSellerPage() {
         <MetricCard label="قيمة مخزون العرض" value={formatSar(stockValue)} note="بسعر البيع الحالي" icon={Store} tone="amber" />
       </section>
 
-      <section className="panel externalSalePanel">
+      <section id="external-sale" className="panel externalSalePanel">
         <div className="panelHeader">
           <div>
             <span className="eyebrow"><ScanLine size={14} /> تحديث سريع للمخزون</span>
@@ -77,13 +95,13 @@ export default async function MarketplaceSellerPage() {
       </section>
 
       <section className="marketSellerGrid">
-        <article className="panel" style={{ padding: 20 }}>
+        <article id="products" className="panel" style={{ padding: 20 }}>
           <div className="panelHeader"><div><span className="eyebrow"><CirclePlus size={14} /> إضافة بضاعة</span><h2>انشر منتجًا في السوق</h2></div></div>
           <p className="panelLead">اكتب اسم المنتج بوضوح مع الحجم والعبوة — مثل «بيبسي 330 مل × 24» — حتى يظهر بدقة في بحث التجار ومقارنة الأسعار.</p>
           <MarketplaceListingForm />
         </article>
 
-        <article className="panel" style={{ padding: 20 }}>
+        <article id="orders" className="panel" style={{ padding: 20 }}>
           <div className="panelHeader"><div><span className="eyebrow">الطلبات</span><h2>طلبات التجار</h2></div></div>
           <div className="alertList">
             {orders.map((order) => (
@@ -107,6 +125,14 @@ export default async function MarketplaceSellerPage() {
         <div className="tableScroll"><table className="dataTable"><thead><tr><th>المنتج</th><th>السعر</th><th>المتوفر</th><th>الحد الأدنى</th><th>آخر تحديث</th><th>الحالة</th></tr></thead><tbody>
           {listings.map((item) => <tr key={item.id}><td><strong>{item.name}</strong>{item.barcode && <span className="mutedText" style={{ display: "block" }}>{item.barcode}</span>}</td><td>{formatSar(Number(item.price))}</td><td>{Number(item.quantity).toLocaleString("ar-SA")} {item.unit}</td><td>{Number(item.minOrderQty).toLocaleString("ar-SA")}</td><td><span className="stockUpdatedAt"><Clock3 size={13} /> {stockUpdateFormatter.format(item.updatedAt)}</span></td><td>{item.active ? "معروض" : "متوقف"}</td></tr>)}
           {!listings.length && <tr><td colSpan={6}><div className="infoNote">أضف أول منتج ليظهر في سوق تِجرا.</div></td></tr>}
+        </tbody></table></div>
+      </section>
+
+      <section id="customers" className="panel tablePanel" style={{ marginTop: 12 }}>
+        <div className="panelHeader tableHeader"><div><span className="eyebrow"><UsersRound size={14} /> التجار والعملاء</span><h2>أكثر التجار تعاملًا معك</h2></div></div>
+        <div className="tableScroll"><table className="dataTable"><thead><tr><th>التاجر</th><th>المدينة</th><th>عدد الطلبات</th><th>إجمالي الطلبات</th></tr></thead><tbody>
+          {customers.map((customer) => <tr key={customer.id}><td><strong>{customer.name}</strong></td><td>{customer.city}</td><td>{customer.orders}</td><td>{formatSar(customer.total)}</td></tr>)}
+          {!customers.length && <tr><td colSpan={4}><div className="infoNote">سيظهر هنا التجار بعد وصول أول طلبات لك.</div></td></tr>}
         </tbody></table></div>
       </section>
     </>
