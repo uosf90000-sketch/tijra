@@ -89,7 +89,7 @@ export default async function InventoryPage() {
                 const margin = item.salePriceNumber - item.averageCostNumber;
                 return (
                   <tr key={item.id}>
-                    <td><div className="tablePrimary"><div className="productThumb">{item.name.slice(0, 1)}</div><div><strong>{item.name}</strong><span>{item.sku || "بدون SKU"} · {item.category || "غير مصنف"}</span></div></div></td>
+                    <td><div className="tablePrimary"><div className={`productThumb ${item.imageUrl ? "hasImage" : ""}`}>{item.imageUrl ? <img src={item.imageUrl} alt="" /> : item.name.slice(0, 1)}</div><div><strong>{item.name}</strong><span>{item.sku || "بدون SKU"} · {item.category || "غير مصنف"}</span></div></div></td>
                     <td><strong>{item.quantityNumber.toLocaleString("ar-SA")}</strong> <span className="mutedText">{item.unit}</span></td>
                     <td><StatusPill status={item.status} /></td>
                     <td className="coverageCell">
