@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireApiRoles } from "@/lib/api-auth";
+import { requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 
 const schema = z.object({
@@ -12,7 +12,7 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const auth = await requireApiRoles(["OWNER", "MANAGER"]);
+  const auth = await requireApiPermission("PURCHASES");
   if (auth.response) return auth.response;
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
