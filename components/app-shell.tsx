@@ -64,8 +64,9 @@ type Viewer = {
 };
 
 function NavLink({ href, label, icon: Icon, badge, pathname, onClick }: NavItem & { pathname: string; onClick?: () => void }) {
-  const cleanHref = href.split("#")[0];
-  const active = cleanHref === "/" ? pathname === "/" : cleanHref === "/marketplace/seller" ? pathname === cleanHref : pathname.startsWith(cleanHref);
+  const cleanHref = href.split("#")[0].split("?")[0];
+  const hasHash = href.includes("#");
+  const active = !hasHash && (cleanHref === "/" ? pathname === "/" : cleanHref === "/marketplace/seller" ? pathname === cleanHref : pathname.startsWith(cleanHref));
   return (
     <Link className={`navItem ${active ? "active" : ""} ${badge ? "lockedNavItem" : ""}`} href={href} onClick={onClick}>
       <span className="navIcon"><Icon size={18} strokeWidth={1.8} /></span>
@@ -123,17 +124,20 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
 
     const effectiveMode: TradeMode = businessType === "SUPPLIER" ? "supplier" : businessType === "RETAILER" ? "retailer" : tradeMode;
-    const operations = effectiveMode === "supplier" ? supplierOperations : retailerOperations;
+    const homeHref = businessType === "BOTH" && effectiveMode === "supplier" ? "/?mode=supplier" : "/";
+    const modeHome: NavItem = { ...home, href: homeHref };
+    const sourceOperations = effectiveMode === "supplier" ? supplierOperations : retailerOperations;
+    const operations = sourceOperations.map((item) => item.href === "/" ? modeHome : item);
     const management = effectiveMode === "supplier" ? supplierManagement : retailerManagement;
     const mobile = effectiveMode === "supplier"
-      ? [home, sellerProducts, sellerOrders, inventory, accounting]
-      : [home, market, orders, smartPrice, lockedInventory];
+      ? [modeHome, sellerProducts, sellerOrders, inventory, accounting]
+      : [modeHome, market, orders, smartPrice, lockedInventory];
 
     return {
       operations,
       management,
       mobile,
-      homeHref: "/",
+      homeHref,
       allowedHrefs: undefined,
       quick: effectiveMode === "supplier" ? sellerProducts : market,
       mode: effectiveMode,
@@ -155,7 +159,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         setViewer(data);
         if (data.business?.businessType === "BOTH") {
           const saved = window.localStorage.getItem("tijra-trade-mode");
-          setTradeMode(saved === "supplier" ? "supplier" : "retailer");
+          const mode = saved === "supplier" ? "supplier" : "retailer";
+          setTradeMode(mode);
+          if (mode === "supplier" && pathname === "/" && !window.location.search.includes("mode=supplier")) {
+            router.replace("/?mode=supplier");
+          }
         } else if (data.business?.businessType === "SUPPLIER") {
           setTradeMode("supplier");
         } else {
@@ -164,12 +172,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       })
       .catch(() => undefined);
     return () => { active = false; };
-  }, [publicPage]);
+  }, [publicPage, pathname, router]);
 
   function chooseMode(mode: TradeMode) {
     setTradeMode(mode);
     window.localStorage.setItem("tijra-trade-mode", mode);
-    router.push("/");
+    router.push(mode === "supplier" ? "/?mode=supplier" : "/?mode=retailer");
   }
 
   useEffect(() => {
@@ -270,7 +278,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {navigation.mobile.length ? <nav className="mobileBottomNav" aria-label="التنقل على الجوال">
           {navigation.mobile.map(({ href, label, icon: Icon, badge }) => {
-            const cleanHref = href.split("#")[0];
+            const cleanHref = href.split("#")[0].split("?")[0];
             const active = cleanHref === "/" ? pathname === "/" : pathname.startsWith(cleanHref);
             return <Link key={`${href}-${label}`} className={active ? "active" : ""} href={href}>{badge ? <span className="navSoonDot" /> : null}<Icon size={19} /><span>{label}</span></Link>;
           })}
