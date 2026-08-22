@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowDownLeft, ArrowUpRight, Banknote, CircleDollarSign, Plus, ReceiptText, WalletCards } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Banknote, Calculator, CircleDollarSign, ClipboardList, Plus, ReceiptText, ShoppingBag, WalletCards } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
+import { RetailerServiceGate } from "@/components/retailer-service-gate";
 import { StatusPill } from "@/components/status-pill";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -11,10 +12,89 @@ import { formatSar } from "@/lib/format";
 export const metadata = { title: "المحاسبة" };
 export const dynamic = "force-dynamic";
 
+const marketplaceStatusLabels: Record<string, string> = {
+  PLACED: "بانتظار المورد",
+  ACCEPTED: "مقبول",
+  RECEIVED: "مستلم",
+  CANCELLED: "ملغي",
+};
+
+async function RetailerFinancialSummary({ businessId }: { businessId: string }) {
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  const [monthOrders, recentOrders, favoriteSuppliers] = await Promise.all([
+    db.marketplaceOrder.findMany({
+      where: { buyerBusinessId: businessId, createdAt: { gte: monthStart } },
+      select: { status: true, expectedTotal: true },
+    }),
+    db.marketplaceOrder.findMany({
+      where: { buyerBusinessId: businessId },
+      include: { seller: true, items: { include: { listing: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+    }),
+    db.favoriteSupplier.count({ where: { buyerBusinessId: businessId } }),
+  ]);
+
+  const receivedOrders = monthOrders.filter((order) => order.status === "RECEIVED");
+  const activeOrders = monthOrders.filter((order) => order.status === "PLACED" || order.status === "ACCEPTED");
+  const receivedTotal = receivedOrders.reduce((sum, order) => sum + Number(order.expectedTotal), 0);
+  const activeTotal = activeOrders.reduce((sum, order) => sum + Number(order.expectedTotal), 0);
+
+  return (
+    <>
+      <PageHeader
+        eyebrow="ملخص التاجر"
+        title="الملخص المالي"
+        description="أرقام مشترياتك من سوق تِجرا فقط. لا نعرض ربحًا غير دقيق قبل تشغيل الجرد والكاشير وربط المبيعات الفعلية."
+        actions={<Link className="button primary" href="/marketplace"><ShoppingBag size={17} /> الذهاب للسوق</Link>}
+      />
+
+      <section className="metricsGrid four">
+        <MetricCard label="مشتريات مستلمة هذا الشهر" value={formatSar(receivedTotal)} note={`${receivedOrders.length} طلبات دخلت عندك`} icon={ShoppingBag} />
+        <MetricCard label="طلبات جارية" value={`${activeOrders.length}`} note={activeTotal ? `بقيمة ${formatSar(activeTotal)}` : "لا توجد التزامات جارية"} icon={ClipboardList} tone="blue" />
+        <MetricCard label="موردون مفضلون" value={`${favoriteSuppliers}`} note="للوصول السريع والمقارنة" icon={CircleDollarSign} tone="amber" />
+        <MetricCard label="المحاسبة الكاملة" value="قريبًا" note="بعد ربط الجرد والكاشير" icon={Calculator} tone="violet" />
+      </section>
+
+      <section className="retailerFinanceHero">
+        <span className="eyebrow">الحركة الأخيرة</span>
+        <h2>مشترياتك من الموردين</h2>
+        <p>هنا نعرض فقط الحركة التي نستطيع إثباتها من طلباتك داخل تِجرا. التوصيل والتحصيل يبقيان بينك وبين المورد.</p>
+        <div className="retailerFinanceRows">
+          {recentOrders.map((order) => (
+            <div className="retailerFinanceRow" key={order.id}>
+              <div>
+                <strong>{order.seller.name}</strong>
+                <span>{order.items.map((item) => `${item.listing.name} × ${Number(item.quantity).toLocaleString("ar-SA")}`).join("، ")}</span>
+              </div>
+              <div className="alignEnd">
+                <strong className="amount">{formatSar(Number(order.expectedTotal))}</strong>
+                <span>{marketplaceStatusLabels[order.status] ?? order.status}</span>
+              </div>
+            </div>
+          ))}
+          {!recentOrders.length && <div className="infoNote">لم تسجل مشتريات من السوق حتى الآن.</div>}
+        </div>
+        <div className="panelActions" style={{ marginTop: 14 }}><Link className="button secondary" href="/marketplace/orders">عرض كل الطلبات</Link><Link className="button secondary" href="/alerts">فرص السعر الأذكى</Link></div>
+      </section>
+
+      <RetailerServiceGate service="accounting" compact />
+    </>
+  );
+}
+
 export default async function AccountingPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
   const businessId = context.business.id;
+
+  if (context.business.businessType === "RETAILER") {
+    return <RetailerFinancialSummary businessId={businessId} />;
+  }
+
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);

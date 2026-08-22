@@ -3,6 +3,7 @@ import { Banknote, ReceiptText, TrendingUp } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { PosTerminal } from "@/components/pos-terminal";
+import { RetailerServiceGate } from "@/components/retailer-service-gate";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
@@ -15,6 +16,20 @@ const paymentLabels: Record<string, string> = { CASH: "نقدي", CARD: "بطا�
 export default async function SalesPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+
+  if (context.business.businessType === "RETAILER") {
+    return (
+      <>
+        <PageHeader
+          eyebrow="نظام المتجر"
+          title="الكاشير ونقطة البيع"
+          description="نؤجل تشغيل الكاشير للتاجر حتى تكون تجربة مسح المنتجات سريعة بقارئ باركود مناسب للمحل."
+        />
+        <RetailerServiceGate service="sales" />
+      </>
+    );
+  }
+
   const businessId = context.business.id;
   const today = new Date();
   today.setHours(0, 0, 0, 0);

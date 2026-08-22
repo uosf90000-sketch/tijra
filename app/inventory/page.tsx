@@ -4,6 +4,7 @@ import { Boxes, PackagePlus, Search, SlidersHorizontal, TriangleAlert } from "lu
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { ProgressBar } from "@/components/progress-bar";
+import { RetailerServiceGate } from "@/components/retailer-service-gate";
 import { StatusPill } from "@/components/status-pill";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -15,6 +16,20 @@ export const dynamic = "force-dynamic";
 export default async function InventoryPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+
+  if (context.business.businessType === "RETAILER") {
+    return (
+      <>
+        <PageHeader
+          eyebrow="نظام المتجر"
+          title="الجرد الذكي"
+          description="السوق والطلبات يعملان الآن. الجرد المتقدم سنفتحه للتاجر مع تجربة قارئ باركود سريعة ومناسبة للمحل."
+        />
+        <RetailerServiceGate service="inventory" />
+      </>
+    );
+  }
+
   const since = new Date();
   since.setDate(since.getDate() - 30);
 

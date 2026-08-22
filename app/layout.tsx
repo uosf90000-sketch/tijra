@@ -9,6 +9,7 @@ import "./marketplace.css";
 import "./brand.css";
 import "./showcase.css";
 import "./barcode.css";
+import "./retailer-gates.css";
 
 export const metadata: Metadata = {
   title: {
