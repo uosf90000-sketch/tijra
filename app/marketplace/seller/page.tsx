@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Boxes, CirclePlus, ShoppingBasket, Store } from "lucide-react";
+import { Boxes, CirclePlus, Clock3, ScanLine, ShoppingBasket, Store } from "lucide-react";
 import { MarketplaceListingForm } from "@/components/marketplace-listing-form";
 import { MarketplaceOrderActions } from "@/components/marketplace-order-actions";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
+import { SupplierExternalSaleForm } from "@/components/supplier-external-sale-form";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
@@ -19,10 +20,15 @@ const statusLabels: Record<string, string> = {
   CANCELLED: "ملغي",
 };
 
+const stockUpdateFormatter = new Intl.DateTimeFormat("ar-SA", {
+  dateStyle: "short",
+  timeStyle: "short",
+});
+
 export default async function MarketplaceSellerPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
-  if (!['SUPPLIER', 'BOTH'].includes(context.business.businessType)) redirect("/marketplace");
+  if (!["SUPPLIER", "BOTH"].includes(context.business.businessType)) redirect("/marketplace");
 
   const [listings, orders] = await Promise.all([
     db.marketplaceListing.findMany({ where: { sellerBusinessId: context.business.id }, orderBy: { updatedAt: "desc" }, take: 100 }),
@@ -36,6 +42,13 @@ export default async function MarketplaceSellerPage() {
 
   const stockValue = listings.reduce((sum, item) => sum + Number(item.quantity) * Number(item.price), 0);
   const openOrders = orders.filter((order) => order.status === "PLACED" || order.status === "ACCEPTED");
+  const listingOptions = listings.map((item) => ({
+    id: item.id,
+    name: item.name,
+    barcode: item.barcode,
+    unit: item.unit,
+    quantity: Number(item.quantity),
+  }));
 
   return (
     <>
@@ -52,10 +65,21 @@ export default async function MarketplaceSellerPage() {
         <MetricCard label="قيمة مخزون العرض" value={formatSar(stockValue)} note="بسعر البيع الحالي" icon={Store} tone="amber" />
       </section>
 
+      <section className="panel externalSalePanel">
+        <div className="panelHeader">
+          <div>
+            <span className="eyebrow"><ScanLine size={14} /> تحديث سريع للمخزون</span>
+            <h2>بيع خارجي سريع</h2>
+          </div>
+        </div>
+        <p className="panelLead">إذا بعت لعميل خارج تِجرا، امسح باركود المنتج وحدد الكمية. نخصمها فورًا من الكمية التي يراها التجار في السوق.</p>
+        <SupplierExternalSaleForm listings={listingOptions} />
+      </section>
+
       <section className="marketSellerGrid">
         <article className="panel" style={{ padding: 20 }}>
           <div className="panelHeader"><div><span className="eyebrow"><CirclePlus size={14} /> إضافة بضاعة</span><h2>انشر منتجًا في السوق</h2></div></div>
-          <p className="panelLead">المنتج يظهر مباشرة لتجار التجزئة مع السعر والكمية والحد الأدنى للطلب.</p>
+          <p className="panelLead">اكتب اسم المنتج بوضوح مع الحجم والعبوة — مثل «بيبسي 330 مل × 24» — حتى يظهر بدقة في بحث التجار ومقارنة الأسعار.</p>
           <MarketplaceListingForm />
         </article>
 
@@ -80,9 +104,9 @@ export default async function MarketplaceSellerPage() {
 
       <section className="panel tablePanel" style={{ marginTop: 12 }}>
         <div className="panelHeader tableHeader"><div><span className="eyebrow">مخزون المورد</span><h2>منتجاتك المعروضة</h2></div></div>
-        <div className="tableScroll"><table className="dataTable"><thead><tr><th>المنتج</th><th>السعر</th><th>المتوفر</th><th>الحد الأدنى</th><th>الحالة</th></tr></thead><tbody>
-          {listings.map((item) => <tr key={item.id}><td><strong>{item.name}</strong></td><td>{formatSar(Number(item.price))}</td><td>{Number(item.quantity).toLocaleString("ar-SA")} {item.unit}</td><td>{Number(item.minOrderQty).toLocaleString("ar-SA")}</td><td>{item.active ? "معروض" : "متوقف"}</td></tr>)}
-          {!listings.length && <tr><td colSpan={5}><div className="infoNote">أضف أول منتج ليظهر في سوق تِجرا.</div></td></tr>}
+        <div className="tableScroll"><table className="dataTable"><thead><tr><th>المنتج</th><th>السعر</th><th>المتوفر</th><th>الحد الأدنى</th><th>آخر تحديث</th><th>الحالة</th></tr></thead><tbody>
+          {listings.map((item) => <tr key={item.id}><td><strong>{item.name}</strong>{item.barcode && <span className="mutedText" style={{ display: "block" }}>{item.barcode}</span>}</td><td>{formatSar(Number(item.price))}</td><td>{Number(item.quantity).toLocaleString("ar-SA")} {item.unit}</td><td>{Number(item.minOrderQty).toLocaleString("ar-SA")}</td><td><span className="stockUpdatedAt"><Clock3 size={13} /> {stockUpdateFormatter.format(item.updatedAt)}</span></td><td>{item.active ? "معروض" : "متوقف"}</td></tr>)}
+          {!listings.length && <tr><td colSpan={6}><div className="infoNote">أضف أول منتج ليظهر في سوق تِجرا.</div></td></tr>}
         </tbody></table></div>
       </section>
     </>
