@@ -17,6 +17,7 @@ import "./smart-workflows.css";
 import "./recipe-pos.css";
 import "./commerce-ops.css";
 import "./navigation-cleanup.css";
+import "./staff-workspace.css";
 
 export const metadata: Metadata = {
   title: {
