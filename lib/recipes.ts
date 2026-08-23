@@ -12,6 +12,7 @@ export type RecipeState = {
   unit: string;
   canRemove: boolean;
   canExtra: boolean;
+  extraOnly?: boolean;
   extraPrice: number;
   yieldPercent: number;
 };
@@ -20,6 +21,7 @@ type RecipeNote = {
   unit?: string;
   canRemove?: boolean;
   canExtra?: boolean;
+  extraOnly?: boolean;
 };
 
 const MASS: Record<string, number> = {
@@ -71,9 +73,10 @@ export function decodeRecipeNote(note: string | null): Required<RecipeNote> {
       unit: parsed.unit || "حبة",
       canRemove: Boolean(parsed.canRemove),
       canExtra: Boolean(parsed.canExtra),
+      extraOnly: Boolean(parsed.extraOnly),
     };
   } catch {
-    return { unit: "حبة", canRemove: false, canExtra: false };
+    return { unit: "حبة", canRemove: false, canExtra: false, extraOnly: false };
   }
 }
 
@@ -84,14 +87,15 @@ export function requiredStockQuantity(component: RecipeState, saleQuantity = 1, 
 }
 
 export function recipeMaxServings(components: RecipeState[]) {
-  if (!components.length) return 0;
+  const required = components.filter((component) => !component.extraOnly);
+  if (!required.length) return components.length ? Number.POSITIVE_INFINITY : 0;
   let max = Number.POSITIVE_INFINITY;
-  for (const component of components) {
+  for (const component of required) {
     const perServing = requiredStockQuantity(component, 1, 1);
     if (perServing <= 0) continue;
     max = Math.min(max, component.ingredientQuantity / perServing);
   }
-  return Number.isFinite(max) ? Math.max(0, max) : 0;
+  return Number.isFinite(max) ? Math.max(0, max) : max;
 }
 
 export async function loadRecipesForBusiness(businessId: string, saleProductIds?: string[]) {
@@ -127,10 +131,11 @@ export async function loadRecipesForBusiness(businessId: string, saleProductIds?
       ingredientUnit: ingredient.unit,
       ingredientQuantity: Number(ingredient.quantity),
       ingredientAverageCost: Number(ingredient.averageCost),
-      quantity: Number(row.quantity),
+      quantity: Number(row.quantity) * (config.extraOnly ? 2 : 1),
       unit: config.unit,
       canRemove: config.canRemove,
       canExtra: config.canExtra,
+      extraOnly: config.extraOnly,
       extraPrice: Number(row.previousQuantity ?? 0),
       yieldPercent: Number(row.newQuantity ?? 100),
     });
