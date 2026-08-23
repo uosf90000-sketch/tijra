@@ -74,10 +74,7 @@ export default async function SalesPage() {
   const posProducts = products.map((item) => {
     const recipe = recipeMap.get(item.id) ?? [];
     const config = configMap.get(item.id) ?? {};
-    const activityDefault = context.business.businessActivity === "ELECTRONICS" ? "SERIAL"
-      : context.business.businessActivity === "RESTAURANT" || context.business.businessActivity === "CAFE" ? (recipe.length ? "RECIPE" : "STANDARD")
-      : "STANDARD";
-    const saleMode = config.saleMode || (recipe.length ? "RECIPE" : activityDefault);
+    const saleMode = config.saleMode || (recipe.length ? "RECIPE" : "STANDARD");
     const serials = serialMap.get(item.id) ?? [];
     const availableQuantity = saleMode === "SERVICE" ? 100000000
       : recipe.length ? Math.floor(recipeMaxServings(recipe))
