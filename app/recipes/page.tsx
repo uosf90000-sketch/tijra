@@ -9,12 +9,13 @@ import { loadRecipesForBusiness } from "@/lib/recipes";
 export const metadata = { title: "المكونات والإضافات" };
 export const dynamic = "force-dynamic";
 
-export default async function RecipesPage() {
+export default async function RecipesPage({ searchParams }: { searchParams: Promise<{ product?: string }> }) {
   const context = await getSessionContext();
   if (!context) redirect("/login");
   if (context.membership.role !== "OWNER") redirect("/");
   if (!isFoodActivity(context.business.businessActivity)) redirect("/products");
 
+  const params = await searchParams;
   const products = await db.product.findMany({
     where: { businessId: context.business.id, active: true },
     select: { id: true, name: true, unit: true, imageUrl: true, salePrice: true },
@@ -34,6 +35,7 @@ export default async function RecipesPage() {
     canExtra: row.canExtra,
     extraPrice: row.extraPrice,
   }));
+  const initialProductId = products.some((item) => item.id === params.product) ? params.product : undefined;
 
   return (
     <>
@@ -45,6 +47,7 @@ export default async function RecipesPage() {
       <RecipeManager
         products={products.map((item) => ({ ...item, salePrice: Number(item.salePrice) }))}
         rows={rows}
+        initialProductId={initialProductId}
       />
     </>
   );
