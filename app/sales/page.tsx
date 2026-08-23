@@ -1,9 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Banknote, ReceiptText, TrendingUp } from "lucide-react";
+import { BarChart3, Banknote, ReceiptText, TrendingUp } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { PosTerminal } from "@/components/pos-terminal";
-import { RetailerServiceGate } from "@/components/retailer-service-gate";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
@@ -16,19 +16,6 @@ const paymentLabels: Record<string, string> = { CASH: "نقدي", CARD: "بطا�
 export default async function SalesPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
-
-  if (context.business.businessType === "RETAILER") {
-    return (
-      <>
-        <PageHeader
-          eyebrow="نظام المتجر"
-          title="الكاشير ونقطة البيع"
-          description="نؤجل تشغيل الكاشير للتاجر حتى تكون تجربة مسح المنتجات سريعة بقارئ باركود مناسب للمحل."
-        />
-        <RetailerServiceGate service="sales" />
-      </>
-    );
-  }
 
   const businessId = context.business.id;
   const today = new Date();
@@ -62,8 +49,9 @@ export default async function SalesPage() {
     <>
       <PageHeader
         eyebrow="نقطة البيع"
-        title="المبيعات"
-        description="كل عملية بيع تسجل الفاتورة وتخصم الكمية من المخزون داخل معاملة واحدة."
+        title="الكاشير"
+        description="امسح الباركود وسجّل البيع؛ الكمية تخصم من المخزون ويُحفظ الموظف المنفّذ تلقائيًا."
+        actions={<Link className="button secondary" href="/sales/analytics"><BarChart3 size={17} /> تحليلات المبيعات</Link>}
       />
 
       <section className="metricsGrid three">
