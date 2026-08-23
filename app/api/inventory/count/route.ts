@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
+import { adjustLocationStock, ensureDefaultLocation, listInventoryLocations, syncListingForProduct } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
 
 const schema = z.object({
   productId: z.string().trim().optional(),
   barcode: z.string().trim().max(80).optional(),
   countedQuantity: z.coerce.number().nonnegative().max(100000000),
+  locationId: z.string().optional(),
 }).refine((data) => Boolean(data.productId || data.barcode), { message: "PRODUCT_OR_BARCODE_REQUIRED" });
 
 export async function POST(request: Request) {
@@ -18,6 +20,11 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
 
   const { productId, barcode, countedQuantity } = parsed.data;
+  const defaultLocation = await ensureDefaultLocation(context.business.id);
+  const locationId = parsed.data.locationId || defaultLocation.id;
+  const locations = await listInventoryLocations(context.business.id);
+  const location = locations.find((item) => item.id === locationId && item.active);
+  if (!location) return NextResponse.json({ error: "LOCATION_NOT_FOUND" }, { status: 404 });
 
   try {
     const result = await db.$transaction(async (tx) => {
@@ -26,11 +33,23 @@ export async function POST(request: Request) {
         : await tx.product.findFirst({ where: { businessId: context.business.id, barcode: barcode || "__NO_BARCODE__", active: true } });
       if (!product) throw new Error("PRODUCT_NOT_FOUND");
 
-      const previousQuantity = Number(product.quantity);
-      const delta = countedQuantity - previousQuantity;
-      const updated = await tx.product.update({ where: { id: product.id }, data: { quantity: countedQuantity } });
+      const stockRow = await tx.inventoryAuditEvent.findFirst({
+        where: { businessId: context.business.id, action: "LOCATION_STOCK", listingId: locationId, orderId: product.id },
+      });
+      const previousLocationQuantity = Number(stockRow?.quantity ?? (location.isDefault ? product.quantity : 0));
+      const delta = countedQuantity - previousLocationQuantity;
 
       if (delta !== 0) {
+        await adjustLocationStock(tx, {
+          businessId: context.business.id,
+          locationId,
+          productId: product.id,
+          productName: product.name,
+          delta,
+        });
+        const newTotal = Math.max(0, Number(product.quantity) + delta);
+        await tx.product.update({ where: { id: product.id }, data: { quantity: newTotal } });
+        await syncListingForProduct(tx, { businessId: context.business.id, productId: product.id, delta });
         await tx.stockMovement.create({
           data: {
             businessId: context.business.id,
@@ -40,32 +59,35 @@ export async function POST(request: Request) {
             unitCost: product.averageCost,
             sourceType: "STOCK_COUNT",
             sourceId: product.id,
-            note: `تسوية جرد بواسطة ${context.user.name}`,
+            note: `تسوية جرد ${location.name} بواسطة ${context.user.name}`,
           },
         });
       }
 
+      const updated = await tx.product.findUnique({ where: { id: product.id } });
       const event = await tx.inventoryAuditEvent.create({
         data: {
           businessId: context.business.id,
           action: "STORE_COUNT",
+          listingId: product.id,
+          orderId: locationId,
           itemName: product.name,
           quantity: Math.abs(delta),
-          previousQuantity,
+          previousQuantity: previousLocationQuantity,
           newQuantity: countedQuantity,
           actorUserId: context.user.id,
           actorName: context.user.name,
           actorRole: context.membership.role,
-          note: delta === 0 ? "الجرد مطابق للمخزون" : `فرق جرد ${delta > 0 ? "+" : ""}${delta}`,
+          note: delta === 0 ? `جرد ${location.name} مطابق للمخزون` : `فرق جرد ${location.name} ${delta > 0 ? "+" : ""}${delta}`,
         },
       });
 
-      return { updated, event, delta };
+      return { updated, event, delta, location };
     });
 
-    return NextResponse.json({ product: result.updated, event: result.event, delta: result.delta });
+    return NextResponse.json({ product: result.updated, event: result.event, delta: result.delta, location: result.location });
   } catch (error) {
     const code = error instanceof Error ? error.message : "COUNT_FAILED";
-    return NextResponse.json({ error: code }, { status: code === "PRODUCT_NOT_FOUND" ? 404 : 500 });
+    return NextResponse.json({ error: code }, { status: code === "PRODUCT_NOT_FOUND" ? 404 : code.startsWith("INSUFFICIENT_LOCATION_STOCK") ? 409 : 500 });
   }
 }
