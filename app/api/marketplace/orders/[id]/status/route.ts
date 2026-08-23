@@ -28,16 +28,64 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (parsed.data.action === "ACCEPT") {
         if (!isSeller || !hasAppPermission(context.membership, "INVENTORY")) throw new Error("FORBIDDEN");
         if (order.status !== "PLACED") throw new Error("INVALID_STATUS");
-        return tx.marketplaceOrder.update({ where: { id }, data: { status: "ACCEPTED", acceptedAt: new Date() } });
+
+        const updatedOrder = await tx.marketplaceOrder.update({
+          where: { id },
+          data: { status: "ACCEPTED", acceptedAt: new Date() },
+        });
+
+        for (const item of order.items) {
+          await tx.inventoryAuditEvent.create({
+            data: {
+              businessId: context.business.id,
+              action: "OUTBOUND_ORDER",
+              listingId: item.listingId,
+              orderId: order.id,
+              itemName: item.listing.name,
+              quantity: Number(item.quantity),
+              previousQuantity: Number(item.listing.quantity),
+              newQuantity: Number(item.listing.quantity),
+              actorUserId: context.user.id,
+              actorName: context.user.name,
+              actorRole: context.membership.role,
+              note: "تم تجهيز/إخراج بضاعة لطلب تاجر. الكمية كانت محجوزة عند إنشاء الطلب.",
+            },
+          });
+        }
+
+        return updatedOrder;
       }
 
       if (parsed.data.action === "CANCEL") {
         if (!isSeller && !isBuyer) throw new Error("FORBIDDEN");
         if (isSeller && !hasAppPermission(context.membership, "INVENTORY")) throw new Error("FORBIDDEN");
         if (isBuyer && !hasAppPermission(context.membership, "PURCHASES")) throw new Error("FORBIDDEN");
-        if (!['PLACED', 'ACCEPTED'].includes(order.status)) throw new Error("INVALID_STATUS");
+        if (!["PLACED", "ACCEPTED"].includes(order.status)) throw new Error("INVALID_STATUS");
+
         for (const item of order.items) {
-          await tx.marketplaceListing.update({ where: { id: item.listingId }, data: { quantity: { increment: item.quantity } } });
+          const restored = await tx.marketplaceListing.update({
+            where: { id: item.listingId },
+            data: { quantity: { increment: item.quantity } },
+          });
+
+          if (isSeller) {
+            await tx.inventoryAuditEvent.create({
+              data: {
+                businessId: context.business.id,
+                action: "ORDER_CANCEL_RESTORE",
+                listingId: item.listingId,
+                orderId: order.id,
+                itemName: item.listing.name,
+                quantity: Number(item.quantity),
+                previousQuantity: Number(restored.quantity) - Number(item.quantity),
+                newQuantity: Number(restored.quantity),
+                actorUserId: context.user.id,
+                actorName: context.user.name,
+                actorRole: context.membership.role,
+                note: "إرجاع الكمية للمخزون بعد إلغاء الطلب",
+              },
+            });
+          }
         }
         return tx.marketplaceOrder.update({ where: { id }, data: { status: "CANCELLED" } });
       }
