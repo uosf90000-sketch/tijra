@@ -83,14 +83,16 @@ export default async function SalesPage() {
   const costTotal = Number(todayAggregate._sum.costTotal ?? 0);
   const grossProfit = salesTotal - costTotal;
   const count = todayAggregate._count._all;
+  const cashierProducts = foodBusiness ? products.filter((item) => Number(item.salePrice) > 0) : products;
 
-  const posProducts = products.map((item) => {
+  const posProducts = cashierProducts.map((item) => {
     const recipe = recipeMap.get(item.id) ?? [];
     const config = configMap.get(item.id) ?? {};
     const saleMode = config.saleMode || (recipe.length ? "RECIPE" : "STANDARD");
     const serials = serialMap.get(item.id) ?? [];
+    const maxServings = recipe.length ? recipeMaxServings(recipe) : 0;
     const availableQuantity = saleMode === "SERVICE" ? 100000000
-      : recipe.length ? Math.floor(recipeMaxServings(recipe))
+      : recipe.length ? (Number.isFinite(maxServings) ? Math.floor(maxServings) : 100000000)
       : saleMode === "SERIAL" && serials.length ? Math.min(Number(item.quantity), serials.length)
       : Number(item.quantity);
     return {
@@ -122,6 +124,7 @@ export default async function SalesPage() {
         unit: component.unit,
         canRemove: component.canRemove,
         canExtra: component.canExtra,
+        extraOnly: Boolean(component.extraOnly),
         extraPrice: component.extraPrice,
         yieldPercent: component.yieldPercent,
       })),
