@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BarChart3, Banknote, ChefHat, ReceiptText, TrendingUp } from "lucide-react";
+import { BarChart3, Banknote, ChefHat, Clock3, ReceiptText, TrendingUp } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { PosTerminal } from "@/components/pos-terminal";
+import { ensureDefaultLocation, listUnitConversions, safeJson } from "@/lib/commerce-ops";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
@@ -21,6 +22,7 @@ export default async function SalesPage() {
   const businessId = context.business.id;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const defaultLocation = await ensureDefaultLocation(businessId);
 
   const [products, recentSales, todayAggregate, recipeMap] = await Promise.all([
     db.product.findMany({
@@ -42,6 +44,28 @@ export default async function SalesPage() {
     loadRecipesForBusiness(businessId),
   ]);
 
+  const productIds = products.map((item) => item.id);
+  const [conversions, configRows, serialRows] = await Promise.all([
+    listUnitConversions(businessId, productIds),
+    db.inventoryAuditEvent.findMany({ where: { businessId, action: "PRODUCT_CONFIG", listingId: { in: productIds } } }),
+    db.inventoryAuditEvent.findMany({ where: { businessId, action: "PRODUCT_SERIAL", listingId: { in: productIds }, quantity: { gt: 0 } }, orderBy: { itemName: "asc" } }),
+  ]);
+
+  const conversionMap = new Map<string, typeof conversions>();
+  for (const conversion of conversions) {
+    const current = conversionMap.get(conversion.productId) ?? [];
+    current.push(conversion);
+    conversionMap.set(conversion.productId, current);
+  }
+  const configMap = new Map(configRows.map((row) => [row.listingId, safeJson<{ saleMode?: "STANDARD" | "WEIGHT" | "SERIAL" | "RECIPE" | "SERVICE"; size?: string | null; color?: string | null; variantGroup?: string | null }>(row.note, {})]));
+  const serialMap = new Map<string, string[]>();
+  for (const row of serialRows) {
+    if (!row.listingId || !row.itemName) continue;
+    const current = serialMap.get(row.listingId) ?? [];
+    current.push(row.itemName);
+    serialMap.set(row.listingId, current);
+  }
+
   const salesTotal = Number(todayAggregate._sum.total ?? 0);
   const costTotal = Number(todayAggregate._sum.costTotal ?? 0);
   const grossProfit = salesTotal - costTotal;
@@ -49,7 +73,16 @@ export default async function SalesPage() {
 
   const posProducts = products.map((item) => {
     const recipe = recipeMap.get(item.id) ?? [];
-    const availableQuantity = recipe.length ? Math.floor(recipeMaxServings(recipe)) : Number(item.quantity);
+    const config = configMap.get(item.id) ?? {};
+    const activityDefault = context.business.businessActivity === "ELECTRONICS" ? "SERIAL"
+      : context.business.businessActivity === "RESTAURANT" || context.business.businessActivity === "CAFE" ? (recipe.length ? "RECIPE" : "STANDARD")
+      : "STANDARD";
+    const saleMode = config.saleMode || (recipe.length ? "RECIPE" : activityDefault);
+    const serials = serialMap.get(item.id) ?? [];
+    const availableQuantity = saleMode === "SERVICE" ? 100000000
+      : recipe.length ? Math.floor(recipeMaxServings(recipe))
+      : saleMode === "SERIAL" && serials.length ? Math.min(Number(item.quantity), serials.length)
+      : Number(item.quantity);
     return {
       id: item.id,
       name: item.name,
@@ -58,6 +91,18 @@ export default async function SalesPage() {
       quantity: Number(item.quantity),
       availableQuantity,
       unit: item.unit,
+      saleMode,
+      size: config.size || null,
+      color: config.color || null,
+      variantGroup: config.variantGroup || null,
+      serials,
+      conversions: (conversionMap.get(item.id) ?? []).map((conversion) => ({
+        id: conversion.id,
+        name: conversion.name,
+        factor: conversion.factor,
+        barcode: conversion.barcode,
+        salePrice: conversion.salePrice,
+      })),
       recipe: recipe.map((component) => ({
         id: component.id,
         ingredientName: component.ingredientName,
@@ -76,8 +121,8 @@ export default async function SalesPage() {
       <PageHeader
         eyebrow="نقطة البيع"
         title="الكاشير"
-        description="بيع قطعة أو وزن أو منتج بوصفة؛ تِجرا يخصم المخزون والمكونات تلقائيًا ويحفظ الموظف المنفّذ."
-        actions={<div className="pageActionGroup"><Link className="button secondary" href="/recipes"><ChefHat size={17} /> الوصفات</Link><Link className="button secondary" href="/sales/analytics"><BarChart3 size={17} /> التحليلات</Link></div>}
+        description="قطعة، وزن، كرتون، وصفة، خدمة أو جهاز برقم Serial/IMEI — وكل بيع ينعكس فورًا على المخزون والحركة."
+        actions={<div className="pageActionGroup"><Link className="button secondary" href="/sales/shifts"><Clock3 size={17} /> الورديات</Link><Link className="button secondary" href="/recipes"><ChefHat size={17} /> الوصفات</Link><Link className="button secondary" href="/sales/analytics"><BarChart3 size={17} /> التحليلات</Link></div>}
       />
 
       <section className="metricsGrid three">
@@ -86,7 +131,7 @@ export default async function SalesPage() {
         <MetricCard label="متوسط الفاتورة" value={formatSar(count ? salesTotal / count : 0)} note="لعمليات اليوم" icon={ReceiptText} tone="violet" />
       </section>
 
-      <PosTerminal products={posProducts} />
+      <PosTerminal products={posProducts} locationId={defaultLocation.id} businessActivity={context.business.businessActivity} />
 
       <section className="panel tablePanel">
         <div className="panelHeader tableHeader"><div><span className="eyebrow">السجل</span><h2>آخر الفواتير</h2></div></div>
