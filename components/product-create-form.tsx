@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { BarcodeInput } from "@/components/barcode-input";
 import { ProductImageInput } from "@/components/product-image-input";
+import { isFoodActivity } from "@/lib/business-experience";
 
-export function ProductCreateForm() {
+export function ProductCreateForm({ businessActivity }: { businessActivity: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const foodBusiness = isFoodActivity(businessActivity);
+  const partsBusiness = businessActivity === "HARDWARE" || businessActivity === "ELECTRONICS";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,37 +41,42 @@ export function ProductCreateForm() {
 
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setError(result.error === "SKU_ALREADY_EXISTS" ? "رمز SKU مستخدم لصنف آخر." : "تعذر إضافة الصنف. راجع البيانات.");
+      setError(result.error === "SKU_ALREADY_EXISTS" ? "رقم القطعة / SKU مستخدم لصنف آخر." : "تعذر إضافة المنتج. راجع البيانات.");
       setLoading(false);
       return;
     }
 
-    router.replace("/inventory");
+    const productId = result.product?.id;
+    router.replace(foodBusiness && productId ? `/recipes?product=${encodeURIComponent(productId)}` : "/products");
     router.refresh();
   }
 
   return (
-    <form className="panel onboardingForm" onSubmit={submit}>
+    <form className="panel onboardingForm activityProductForm" onSubmit={submit}>
       <div className="formSection">
-        <div><h2>بيانات الصنف</h2><p>استخدم الوحدة التي تعد بها المخزون فعليًا. المكونات تدعم التحويل بين غرام/كيلو ومل/لتر.</p></div>
+        <div>
+          <h2>{foodBusiness ? "المنتج في قائمة الكاشير" : partsBusiness ? "بيانات القطعة" : "بيانات المنتج"}</h2>
+          <p>{foodBusiness ? "الصورة والاسم والسعر تظهر للكاشير. بعد الحفظ تربط المكونات والإضافات." : partsBusiness ? "رقم القطعة هو أسرع طريقة للكاشير للعثور عليها ومعرفة المتوفر." : "أضف البيانات التي يحتاجها البيع والمخزون فقط."}</p>
+        </div>
       </div>
 
       <ProductImageInput />
 
       <div className="formGrid">
-        <label className="field full"><span>اسم الصنف</span><input name="name" required minLength={2} placeholder="مثال: دجاج شاورما / تفاح أحمر / شاحن جوال" /></label>
-        <label className="field"><span>SKU</span><input name="sku" placeholder="اختياري" dir="ltr" /></label>
-        <div className="field"><BarcodeInput /></div>
-        <label className="field"><span>التصنيف</span><input name="category" placeholder="مكونات، خضار، إلكترونيات..." /></label>
-        <label className="field"><span>وحدة المخزون / البيع</span><select name="unit" defaultValue="حبة"><option value="حبة">حبة / قطعة</option><option value="غرام">غرام</option><option value="كيلو">كيلو</option><option value="مل">مل</option><option value="لتر">لتر</option><option value="شريحة">شريحة</option><option value="رغيف">رغيف</option><option value="باك">باك</option><option value="كرتون">كرتون</option><option value="كيس">كيس</option><option value="صندوق">صندوق</option></select></label>
-        <label className="field"><span>سعر البيع</span><input name="salePrice" required type="number" min="0" step="0.01" inputMode="decimal" /><small>للمكوّن غير المباع مباشرة يمكن أن يكون 0.</small></label>
-        <label className="field"><span>متوسط التكلفة لكل وحدة مخزون</span><input name="averageCost" type="number" min="0" step="0.0001" defaultValue="0" inputMode="decimal" /></label>
-        <label className="field"><span>الرصيد الحالي</span><input name="quantity" type="number" min="0" step="0.001" defaultValue="0" inputMode="decimal" /></label>
-        <label className="field"><span>نقطة إعادة الطلب</span><input name="reorderPoint" type="number" min="0" step="0.001" defaultValue="0" inputMode="decimal" /></label>
-        <label className="field"><span>التغطية المستهدفة بالأيام</span><input name="targetCoverageDays" type="number" min="1" max="60" defaultValue="7" inputMode="numeric" /></label>
+        <label className="field full"><span>اسم المنتج</span><input name="name" required minLength={2} placeholder={foodBusiness ? "مثال: قهوة اليوم" : partsBusiness ? "مثال: فلتر زيت كامري" : "مثال: مياه 330 مل"} /></label>
+        <label className={`field ${partsBusiness ? "full" : ""}`}><span>{partsBusiness ? "رقم القطعة" : "SKU"}</span><input name="sku" required={partsBusiness} placeholder={partsBusiness ? "مثال: 90915-YZZE1" : "اختياري"} dir="ltr" /></label>
+        {!foodBusiness ? <div className="field"><BarcodeInput /></div> : null}
+        <label className="field"><span>التصنيف</span><input name="category" placeholder={foodBusiness ? "قهوة، مشروبات، وجبات..." : partsBusiness ? "فلاتر، فرامل، كهرباء..." : "اختياري"} /></label>
+        <label className="field"><span>وحدة البيع</span><select name="unit" defaultValue="حبة"><option value="حبة">حبة / قطعة</option><option value="غرام">غرام</option><option value="كيلو">كيلو</option><option value="مل">مل</option><option value="لتر">لتر</option><option value="شريحة">شريحة</option><option value="رغيف">رغيف</option><option value="باك">باك</option><option value="كرتون">كرتون</option><option value="كيس">كيس</option><option value="صندوق">صندوق</option></select></label>
+        <label className="field"><span>سعر البيع</span><input name="salePrice" required type="number" min="0" step="0.01" inputMode="decimal" /></label>
+        {!foodBusiness ? <label className="field"><span>متوسط التكلفة</span><input name="averageCost" type="number" min="0" step="0.0001" defaultValue="0" inputMode="decimal" /></label> : <input type="hidden" name="averageCost" value="0" />}
+        {!foodBusiness ? <label className="field"><span>الرصيد الحالي</span><input name="quantity" type="number" min="0" step="0.001" defaultValue="0" inputMode="decimal" /></label> : <input type="hidden" name="quantity" value="0" />}
+        {!foodBusiness ? <label className="field"><span>نقطة إعادة الطلب</span><input name="reorderPoint" type="number" min="0" step="0.001" defaultValue="0" inputMode="decimal" /></label> : <input type="hidden" name="reorderPoint" value="0" />}
+        <input type="hidden" name="targetCoverageDays" value="7" />
       </div>
+      {foodBusiness ? <div className="infoNote">بعد الحفظ نفتح لك المنتج مباشرة لإضافة مثل: 18 غرام بن، 220 مل حليب، أو إضافات مثل شوت إضافي.</div> : null}
       {error && <div className="infoNote" style={{ color: "#9b3028", background: "#fff0ef" }}>{error}</div>}
-      <div className="formActions"><button className="button primary" disabled={loading}><Save size={17} /> {loading ? "جاري الحفظ..." : "حفظ الصنف"}</button></div>
+      <div className="formActions"><button className="button primary" disabled={loading}><Save size={17} /> {loading ? "جاري الحفظ..." : foodBusiness ? "حفظ والانتقال للمكونات" : "حفظ المنتج"}</button></div>
     </form>
   );
 }
