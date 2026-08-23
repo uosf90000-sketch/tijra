@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
 import { ensureDefaultLocation } from "@/lib/commerce-ops";
+import { db } from "@/lib/db";
+import { decodeRecipeNote } from "@/lib/recipes";
 import { recordSale } from "@/lib/stock-operations";
 
 const saleSchema = z.object({
@@ -31,10 +33,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
   }
 
+  const productIds = Array.from(new Set(parsed.data.items.map((item) => item.productId)));
+  const optionalRows = productIds.length ? await db.inventoryAuditEvent.findMany({
+    where: {
+      businessId: auth.context.business.id,
+      action: "RECIPE_COMPONENT",
+      listingId: { in: productIds },
+    },
+    select: { id: true, listingId: true, note: true },
+  }) : [];
+
+  const optionalByProduct = new Map<string, string[]>();
+  for (const row of optionalRows) {
+    if (!row.listingId || !decodeRecipeNote(row.note).extraOnly) continue;
+    const current = optionalByProduct.get(row.listingId) ?? [];
+    current.push(row.id);
+    optionalByProduct.set(row.listingId, current);
+  }
+
+  const normalizedItems = parsed.data.items.map((item) => {
+    const optionalIds = new Set(optionalByProduct.get(item.productId) ?? []);
+    if (!optionalIds.size) return item;
+
+    const supplied = new Map((item.adjustments ?? []).map((adjustment) => [adjustment.componentId, adjustment.multiplier]));
+    const adjustments = (item.adjustments ?? [])
+      .filter((adjustment) => !optionalIds.has(adjustment.componentId))
+      .map((adjustment) => ({ ...adjustment }));
+
+    for (const componentId of optionalIds) {
+      adjustments.push({ componentId, multiplier: supplied.get(componentId) === 2 ? 2 as const : 0 as const });
+    }
+    return { ...item, adjustments };
+  });
+
   const defaultLocation = await ensureDefaultLocation(auth.context.business.id);
   try {
     const sale = await recordSale({
       ...parsed.data,
+      items: normalizedItems,
       locationId: parsed.data.locationId || defaultLocation.id,
       businessId: auth.context.business.id,
       actorUserId: auth.context.user.id,
