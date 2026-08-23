@@ -14,6 +14,7 @@ import "./employee-access.css";
 import "./approved-ui.css";
 import "./statistics-dashboard.css";
 import "./smart-workflows.css";
+import "./recipe-pos.css";
 
 export const metadata: Metadata = {
   title: {
