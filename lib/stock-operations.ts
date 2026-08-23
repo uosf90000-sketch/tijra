@@ -1,9 +1,11 @@
 import { db } from "@/lib/db";
+import { decodeRecipeNote, requiredStockQuantity, type RecipeState } from "@/lib/recipes";
 
 export type SaleLineInput = {
   productId: string;
   quantity: number;
   unitPrice: number;
+  adjustments?: Array<{ componentId: string; multiplier: 0 | 1 | 2 }>;
 };
 
 export type RecordSaleInput = {
@@ -16,24 +18,103 @@ export type RecordSaleInput = {
   items: SaleLineInput[];
 };
 
+type RecipeConsumption = RecipeState & { multiplier: number; stockQuantity: number };
+
+type SalePlan = {
+  input: SaleLineInput;
+  product: { id: string; name: string; unit: string; quantity: unknown; averageCost: unknown };
+  unitPrice: number;
+  unitCost: number;
+  recipe: RecipeConsumption[];
+};
+
 export async function recordSale(input: RecordSaleInput) {
   return db.$transaction(async (tx) => {
-    const productIds = input.items.map((item) => item.productId);
+    const productIds = Array.from(new Set(input.items.map((item) => item.productId)));
     const products = await tx.product.findMany({
       where: { businessId: input.businessId, id: { in: productIds }, active: true },
     });
-
     const productMap = new Map(products.map((product) => [product.id, product]));
+    if (productMap.size !== productIds.length) throw new Error("PRODUCT_NOT_FOUND");
 
-    if (productMap.size !== productIds.length) {
-      throw new Error("PRODUCT_NOT_FOUND");
+    const recipeRows = await tx.inventoryAuditEvent.findMany({
+      where: { businessId: input.businessId, action: "RECIPE_COMPONENT", listingId: { in: productIds } },
+      orderBy: { occurredAt: "asc" },
+    });
+    const ingredientIds = Array.from(new Set(recipeRows.map((row) => row.orderId).filter((value): value is string => Boolean(value))));
+    const ingredients = ingredientIds.length
+      ? await tx.product.findMany({ where: { businessId: input.businessId, id: { in: ingredientIds }, active: true } })
+      : [];
+    const ingredientMap = new Map(ingredients.map((item) => [item.id, item]));
+    const recipeMap = new Map<string, RecipeState[]>();
+
+    for (const row of recipeRows) {
+      if (!row.listingId || !row.orderId || row.quantity == null) continue;
+      const ingredient = ingredientMap.get(row.orderId);
+      if (!ingredient) continue;
+      const config = decodeRecipeNote(row.note);
+      const component: RecipeState = {
+        id: row.id,
+        saleProductId: row.listingId,
+        ingredientProductId: row.orderId,
+        ingredientName: ingredient.name,
+        ingredientUnit: ingredient.unit,
+        ingredientQuantity: Number(ingredient.quantity),
+        ingredientAverageCost: Number(ingredient.averageCost),
+        quantity: Number(row.quantity),
+        unit: config.unit,
+        canRemove: config.canRemove,
+        canExtra: config.canExtra,
+        extraPrice: Number(row.previousQuantity ?? 0),
+        yieldPercent: Number(row.newQuantity ?? 100),
+      };
+      const current = recipeMap.get(row.listingId) ?? [];
+      current.push(component);
+      recipeMap.set(row.listingId, current);
     }
 
-    const total = input.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-    const costTotal = input.items.reduce((sum, item) => {
-      const product = productMap.get(item.productId);
-      return sum + item.quantity * Number(product?.averageCost ?? 0);
-    }, 0);
+    const plans: SalePlan[] = input.items.map((item) => {
+      const product = productMap.get(item.productId)!;
+      const recipe = recipeMap.get(item.productId) ?? [];
+      if (!recipe.length) {
+        return {
+          input: item,
+          product,
+          unitPrice: item.unitPrice,
+          unitCost: Number(product.averageCost),
+          recipe: [],
+        };
+      }
+
+      const adjustmentMap = new Map((item.adjustments ?? []).map((adjustment) => [adjustment.componentId, adjustment.multiplier]));
+      for (const adjustment of item.adjustments ?? []) {
+        const component = recipe.find((row) => row.id === adjustment.componentId);
+        if (!component) throw new Error("INVALID_RECIPE_ADJUSTMENT");
+        if (adjustment.multiplier === 0 && !component.canRemove) throw new Error("RECIPE_COMPONENT_REQUIRED");
+        if (adjustment.multiplier === 2 && !component.canExtra) throw new Error("RECIPE_EXTRA_NOT_ALLOWED");
+      }
+
+      let effectivePrice = item.unitPrice;
+      let totalCost = 0;
+      const consumption = recipe.map((component) => {
+        const multiplier = adjustmentMap.get(component.id) ?? 1;
+        const stockQuantity = requiredStockQuantity(component, item.quantity, multiplier);
+        if (multiplier > 1) effectivePrice += component.extraPrice * (multiplier - 1);
+        totalCost += stockQuantity * component.ingredientAverageCost;
+        return { ...component, multiplier, stockQuantity };
+      });
+
+      return {
+        input: item,
+        product,
+        unitPrice: effectivePrice,
+        unitCost: item.quantity > 0 ? totalCost / item.quantity : 0,
+        recipe: consumption,
+      };
+    });
+
+    const total = plans.reduce((sum, plan) => sum + plan.input.quantity * plan.unitPrice, 0);
+    const costTotal = plans.reduce((sum, plan) => sum + plan.input.quantity * plan.unitCost, 0);
 
     const sale = await tx.sale.create({
       data: {
@@ -43,46 +124,89 @@ export async function recordSale(input: RecordSaleInput) {
         total,
         costTotal,
         items: {
-          create: input.items.map((item) => {
-            const product = productMap.get(item.productId)!;
-            return {
-              productId: item.productId,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              unitCost: product.averageCost,
-            };
-          }),
+          create: plans.map((plan) => ({
+            productId: plan.input.productId,
+            quantity: plan.input.quantity,
+            unitPrice: plan.unitPrice,
+            unitCost: plan.unitCost,
+          })),
         },
       },
       include: { items: true },
     });
 
-    for (const item of input.items) {
-      const product = productMap.get(item.productId)!;
-      const updated = await tx.product.updateMany({
-        where: {
-          id: item.productId,
-          businessId: input.businessId,
-          quantity: { gte: item.quantity },
-        },
-        data: { quantity: { decrement: item.quantity } },
-      });
+    for (const plan of plans) {
+      if (!plan.recipe.length) {
+        const updated = await tx.product.updateMany({
+          where: {
+            id: plan.input.productId,
+            businessId: input.businessId,
+            quantity: { gte: plan.input.quantity },
+          },
+          data: { quantity: { decrement: plan.input.quantity } },
+        });
+        if (updated.count !== 1) throw new Error(`INSUFFICIENT_STOCK:${plan.product.name}`);
 
-      if (updated.count !== 1) {
-        throw new Error(`INSUFFICIENT_STOCK:${product.name}`);
+        await tx.stockMovement.create({
+          data: {
+            businessId: input.businessId,
+            productId: plan.input.productId,
+            type: "SALE",
+            quantity: -plan.input.quantity,
+            unitCost: plan.product.averageCost as never,
+            sourceType: "Sale",
+            sourceId: sale.id,
+          },
+        });
+        continue;
       }
 
-      await tx.stockMovement.create({
-        data: {
-          businessId: input.businessId,
-          productId: item.productId,
-          type: "SALE",
-          quantity: -item.quantity,
-          unitCost: product.averageCost,
-          sourceType: "Sale",
-          sourceId: sale.id,
-        },
-      });
+      const consumed: string[] = [];
+      for (const component of plan.recipe) {
+        if (component.stockQuantity <= 0) {
+          consumed.push(`${component.ingredientName}: بدون`);
+          continue;
+        }
+        const updated = await tx.product.updateMany({
+          where: {
+            id: component.ingredientProductId,
+            businessId: input.businessId,
+            quantity: { gte: component.stockQuantity },
+          },
+          data: { quantity: { decrement: component.stockQuantity } },
+        });
+        if (updated.count !== 1) throw new Error(`INSUFFICIENT_STOCK:${component.ingredientName}`);
+
+        await tx.stockMovement.create({
+          data: {
+            businessId: input.businessId,
+            productId: component.ingredientProductId,
+            type: "SALE",
+            quantity: -component.stockQuantity,
+            unitCost: component.ingredientAverageCost,
+            sourceType: "RecipeSale",
+            sourceId: sale.id,
+            note: `${plan.product.name} · ${component.multiplier === 0 ? "بدون" : component.multiplier > 1 ? "إضافي" : "وصفة أساسية"}`,
+          },
+        });
+        consumed.push(`${component.ingredientName}: ${component.stockQuantity.toFixed(3)} ${component.ingredientUnit}${component.multiplier > 1 ? " (إضافي)" : ""}`);
+      }
+
+      if (input.actorName) {
+        await tx.inventoryAuditEvent.create({
+          data: {
+            businessId: input.businessId,
+            action: "RECIPE_SALE",
+            listingId: plan.product.id,
+            itemName: plan.product.name,
+            quantity: plan.input.quantity,
+            actorUserId: input.actorUserId,
+            actorName: input.actorName,
+            actorRole: input.actorRole,
+            note: consumed.join(" · "),
+          },
+        });
+      }
     }
 
     if (input.actorName) {
