@@ -1,9 +1,10 @@
 "use client";
 
 import { BrowserMultiFormatReader } from "@zxing/browser";
-import { Banknote, Barcode, Camera, ChefHat, CreditCard, ScanLine, ShoppingCart, Trash2, X } from "lucide-react";
+import { Banknote, Barcode, Camera, CreditCard, Hash, ImageIcon, ScanLine, Search, ShoppingCart, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { businessActivityLabels, posExperienceFor } from "@/lib/business-experience";
 import { formatSar } from "@/lib/format";
 
 type RecipeComponent = {
@@ -23,7 +24,9 @@ type SaleMode = "STANDARD" | "WEIGHT" | "SERIAL" | "RECIPE" | "SERVICE";
 type Product = {
   id: string;
   name: string;
+  sku: string | null;
   barcode: string | null;
+  imageUrl: string | null;
   salePrice: number;
   quantity: number;
   availableQuantity: number;
@@ -67,6 +70,8 @@ function parseSerials(value: string) {
 
 export function PosTerminal({ products, locationId, businessActivity }: { products: Product[]; locationId: string; businessActivity: string }) {
   const router = useRouter();
+  const experience = posExperienceFor(businessActivity);
+  const activityLabel = businessActivityLabels[businessActivity] ?? "نشاطك";
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,9 +92,14 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
 
   const filtered = useMemo(() => {
     const value = query.trim().toLowerCase();
-    if (!value) return products.slice(0, 16);
-    return products.filter((item) => item.name.toLowerCase().includes(value) || item.barcode?.includes(value) || item.conversions.some((unit) => unit.barcode?.includes(value))).slice(0, 16);
-  }, [products, query]);
+    if (!value) return experience === "PART_LOOKUP" ? [] : products.slice(0, experience === "MENU" ? 40 : 16);
+    return products.filter((item) =>
+      item.name.toLowerCase().includes(value)
+      || item.sku?.toLowerCase().includes(value)
+      || item.barcode?.includes(value)
+      || item.conversions.some((unit) => unit.barcode?.includes(value))
+    ).slice(0, experience === "MENU" ? 40 : 16);
+  }, [products, query, experience]);
 
   function availableDisplayQty(product: Product, factor: number) {
     if (product.saleMode === "SERVICE") return 100000000;
@@ -100,12 +110,12 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
     setMessage("");
     const factor = conversion?.factor ?? 1;
     if (product.recipe.length && factor !== 1) {
-      setMessage("الوصفات تباع بوحدتها الأساسية حتى تبقى المكونات دقيقة.");
+      setMessage("هذا المنتج يباع بوحدته الأساسية.");
       return;
     }
     const limit = availableDisplayQty(product, factor);
     if (limit <= 0) {
-      setMessage(product.recipe.length ? `مكونات ${product.name} لا تكفي لطلب جديد.` : `لا يوجد مخزون من ${product.name}.`);
+      setMessage(experience === "MENU" ? `${product.name} غير متاح حاليًا.` : `لا يوجد مخزون من ${product.name}.`);
       return;
     }
     const cartKey = `${product.id}:${conversion?.id || "base"}`;
@@ -130,11 +140,27 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
   function handleScannedCode(code: string) {
     const target = scanTargets.get(code);
     if (!target) {
-      setMessage(`الباركود ${code} غير مسجل. أضف المنتج أو وحدة البيع أولًا.`);
+      setMessage(`الباركود ${code} غير مسجل.`);
       return;
     }
     add(target.product, target.conversion);
     if (navigator.vibrate) navigator.vibrate(60);
+  }
+
+  function handleSearchEnter() {
+    const code = query.trim();
+    if (!code) return;
+    if (experience === "BARCODE") {
+      handleScannedCode(code);
+      setQuery("");
+      return;
+    }
+    const normalized = code.toLowerCase();
+    const exact = products.find((item) => item.sku?.toLowerCase() === normalized || item.barcode === code || item.name.toLowerCase() === normalized);
+    if (exact) {
+      add(exact);
+      if (experience !== "PART_LOOKUP") setQuery("");
+    }
   }
 
   useEffect(() => {
@@ -226,35 +252,52 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
       } else if (String(result.error || "").startsWith("SERIAL") || result.error === "DUPLICATE_SERIALS") {
         setMessage("راجع أرقام Serial / IMEI؛ أحدها غير متاح أو العدد غير مطابق.");
       } else if (result.error?.startsWith?.("INCOMPATIBLE_RECIPE_UNITS")) {
-        setMessage("وحدة أحد مكونات الوصفة لا تتوافق مع وحدة المخزون. راجع الوصفة.");
+        setMessage("إعداد المنتج يحتاج مراجعة من المالك.");
       } else {
         setMessage("تعذر تسجيل عملية البيع.");
       }
       return;
     }
     setCart([]);
-    setMessage("تم تسجيل البيع وتحديث المخزون وسجل الحركة تلقائيًا ✅");
+    setMessage("تم تسجيل البيع وتحديث المخزون تلقائيًا ✅");
     router.refresh();
   }
 
+  const catalogTitle = experience === "MENU" ? "اختر المنتج من الصور" : experience === "PART_LOOKUP" ? "اكتب رقم القطعة واعرف المتوفر" : experience === "BARCODE" ? "امسح المنتج وأكمل البيع" : "ابحث عن المنتج وأضفه للسلة";
+  const inputPlaceholder = experience === "MENU" ? "ابحث عن وجبة أو مشروب..." : experience === "PART_LOOKUP" ? "اكتب رقم القطعة أو اسمها..." : experience === "BARCODE" ? "امسح الباركود أو اكتب الكود..." : "ابحث بالاسم أو الكود...";
+  const SearchIcon = experience === "PART_LOOKUP" ? Hash : experience === "BARCODE" ? Barcode : Search;
+  const showCamera = experience === "BARCODE" || experience === "CATALOG";
+
   return (
-    <section className="posGrid">
+    <section className={`posGrid adaptivePos posMode-${experience.toLowerCase()}`}>
       <article className="panel posCatalog">
-        <div className="panelHeader"><div><span className="eyebrow">بيع سريع · {businessActivity}</span><h2>اختر الصنف أو امسح بالكاميرا</h2></div><button type="button" className="button secondary compact" onClick={() => setScannerOpen(true)}><Camera size={17} /> مسح بالكاميرا</button></div>
-        <div className="barcodeField"><Barcode size={21} /><input aria-label="بحث أو باركود" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); const code = query.trim(); if (code) { handleScannedCode(code); setQuery(""); } } }} placeholder="قارئ باركود، رقم الكود، أو اسم الصنف..." /></div>
-        <div className="quickProducts">
-          {filtered.map((product) => (
-            <div className="quickProductCard" key={product.id}>
-              <button className={`quickProduct ${product.recipe.length ? "recipeProduct" : ""}`} onClick={() => add(product)} disabled={product.availableQuantity <= 0 && product.saleMode !== "SERVICE"}>
-                <div className="productThumb large">{product.recipe.length ? <ChefHat size={20} /> : product.name.slice(0, 1)}</div>
-                <strong>{product.name}</strong>
-                <span>{formatSar(product.salePrice)} · {product.saleMode === "SERVICE" ? "خدمة" : product.recipe.length ? `يكفي تقريبًا ${product.availableQuantity.toLocaleString("ar-SA")} طلب` : `متاح ${product.quantity.toLocaleString("ar-SA")} ${product.unit}`}</span>
-                {product.saleMode === "SERIAL" ? <small>{product.serials.length} رقم Serial/IMEI متاح</small> : product.size || product.color ? <small>{[product.size, product.color].filter(Boolean).join(" · ")}</small> : null}
-              </button>
-              {product.conversions.length ? <div className="unitQuickRow">{product.conversions.slice(0, 4).map((conversion) => <button type="button" key={conversion.id} onClick={() => add(product, conversion)}>{conversion.name} · {formatSar(conversion.salePrice ?? product.salePrice * conversion.factor)}</button>)}</div> : null}
-            </div>
-          ))}
-          {!filtered.length && <div className="infoNote">لا توجد أصناف مطابقة.</div>}
+        <div className="panelHeader adaptivePosHeader">
+          <div><span className="eyebrow">{activityLabel}</span><h2>{catalogTitle}</h2></div>
+          {showCamera ? <button type="button" className="button secondary compact" onClick={() => setScannerOpen(true)}><Camera size={17} /> مسح بالكاميرا</button> : null}
+        </div>
+        <div className={`barcodeField adaptiveSearch ${experience === "PART_LOOKUP" ? "partSearch" : ""}`}><SearchIcon size={21} /><input aria-label="بحث المنتج" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); handleSearchEnter(); } }} placeholder={inputPlaceholder} /></div>
+
+        {experience === "PART_LOOKUP" && !query.trim() ? <div className="partLookupHint"><Hash size={22} /><div><strong>ابدأ برقم القطعة</strong><span>مثال: 90915-YZZE1 — يظهر لك المنتج والكمية المتوفرة مباشرة.</span></div></div> : null}
+
+        <div className={`quickProducts ${experience === "MENU" ? "menuProductGrid" : experience === "PART_LOOKUP" ? "partsProductGrid" : ""}`}>
+          {filtered.map((product) => {
+            const unavailable = product.availableQuantity <= 0 && product.saleMode !== "SERVICE";
+            return (
+              <div className="quickProductCard" key={product.id}>
+                <button className={`quickProduct ${experience === "MENU" ? "menuProductCard" : ""} ${experience === "PART_LOOKUP" ? "partProductCard" : ""}`} onClick={() => add(product)} disabled={unavailable}>
+                  {experience === "MENU" ? <div className="menuProductThumb">{product.imageUrl ? <img src={product.imageUrl} alt="" /> : <ImageIcon size={27} />}</div> : <div className="productThumb large">{product.imageUrl ? <img src={product.imageUrl} alt="" /> : product.name.slice(0, 1)}</div>}
+                  <div className="adaptiveProductText">
+                    {experience === "PART_LOOKUP" && product.sku ? <small className="partNumber">رقم القطعة · {product.sku}</small> : null}
+                    <strong>{product.name}</strong>
+                    <span>{formatSar(product.salePrice)}{experience === "MENU" ? (unavailable ? " · غير متاح" : "") : experience === "PART_LOOKUP" ? ` · متوفر ${product.quantity.toLocaleString("ar-SA")} ${product.unit}` : product.saleMode === "SERVICE" ? " · خدمة" : ` · متاح ${product.quantity.toLocaleString("ar-SA")} ${product.unit}`}</span>
+                    {product.saleMode === "SERIAL" ? <small>{product.serials.length} رقم Serial/IMEI متاح</small> : product.size || product.color ? <small>{[product.size, product.color].filter(Boolean).join(" · ")}</small> : null}
+                  </div>
+                </button>
+                {product.conversions.length ? <div className="unitQuickRow">{product.conversions.slice(0, 4).map((conversion) => <button type="button" key={conversion.id} onClick={() => add(product, conversion)}>{conversion.name} · {formatSar(conversion.salePrice ?? product.salePrice * conversion.factor)}</button>)}</div> : null}
+              </div>
+            );
+          })}
+          {!filtered.length && query.trim() ? <div className="infoNote">لا توجد منتجات مطابقة.</div> : null}
         </div>
       </article>
 
@@ -264,15 +307,16 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
           {cart.map((item) => {
             const unitPrice = lineUnitPrice(item);
             const continuous = (item.saleMode === "WEIGHT" || isContinuousUnit(item.displayUnit)) && !item.recipe.length;
+            const visibleModifiers = item.recipe.filter((component) => component.canRemove || component.canExtra);
             return (
               <div className="cartRow recipeCartRow" key={item.cartKey}>
-                <div className="grow"><strong>{item.name}</strong><span>{formatSar(unitPrice)} لكل {item.displayUnit}{item.factor !== 1 ? ` · يخصم ${item.factor.toLocaleString("ar-SA")} ${item.unit}` : ""}</span>
-                  {item.recipe.length ? <div className="recipeModifiers">
-                    {item.recipe.filter((component) => component.canRemove || component.canExtra).map((component) => {
+                <div className="grow"><strong>{item.name}</strong><span>{formatSar(unitPrice)} لكل {item.displayUnit}</span>
+                  {visibleModifiers.length ? <div className="recipeModifiers cashierExtras">
+                    {visibleModifiers.map((component) => {
                       const value = item.adjustments[component.id] ?? 1;
                       return <div className="modifierGroup" key={component.id}><span>{component.ingredientName}</span>
                         {component.canRemove ? <button type="button" className={value === 0 ? "active danger" : ""} onClick={() => toggleAdjustment(item.cartKey, component, 0)}>بدون</button> : null}
-                        {component.canExtra ? <button type="button" className={value === 2 ? "active" : ""} onClick={() => toggleAdjustment(item.cartKey, component, 2)}>إضافي{component.extraPrice ? ` +${component.extraPrice.toLocaleString("ar-SA")}` : ""}</button> : null}
+                        {component.canExtra ? <button type="button" className={value === 2 ? "active" : ""} onClick={() => toggleAdjustment(item.cartKey, component, 2)}>إضافة{component.extraPrice ? ` +${component.extraPrice.toLocaleString("ar-SA")}` : ""}</button> : null}
                       </div>;
                     })}
                   </div> : null}
@@ -284,7 +328,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
               </div>
             );
           })}
-          {!cart.length && <div className="infoNote">السلة فارغة. تقدر تبيع 5 حبات، 1.5 كجم، كرتون كامل، خدمة، أو وصفة من نفس الكاشير.</div>}
+          {!cart.length && <div className="infoNote">{experience === "MENU" ? "اختر المنتج من القائمة لإضافته للطلب." : experience === "PART_LOOKUP" ? "ابحث برقم القطعة ثم اخترها لإضافتها." : "امسح المنتج أو ابحث عنه لإضافته للسلة."}</div>}
         </div>
         <div className="cartTotals"><div className="grandTotal"><span>الإجمالي</span><strong>{formatSar(total)}</strong></div></div>
         {message && <div className="infoNote">{message}</div>}
