@@ -11,13 +11,12 @@ const saleSchema = z.object({
       productId: z.string().min(1),
       quantity: z.number().positive(),
       unitPrice: z.number().nonnegative(),
+      adjustments: z.array(z.object({
+        componentId: z.string().min(1),
+        multiplier: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+      })).max(100).optional(),
     }),
   ).min(1).max(200),
-}).superRefine((data, ctx) => {
-  const ids = data.items.map((item) => item.productId);
-  if (new Set(ids).size !== ids.length) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["items"], message: "Duplicate products are not allowed" });
-  }
 });
 
 export async function POST(request: Request) {
@@ -40,7 +39,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ sale }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "SALE_FAILED";
-    const status = message.startsWith("INSUFFICIENT_STOCK") ? 409 : message === "PRODUCT_NOT_FOUND" ? 404 : 500;
+    const status = message.startsWith("INSUFFICIENT_STOCK") ? 409
+      : message === "PRODUCT_NOT_FOUND" ? 404
+      : message.startsWith("INCOMPATIBLE_RECIPE_UNITS") || message.startsWith("INVALID_RECIPE") || message.startsWith("RECIPE_") ? 409
+      : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }
