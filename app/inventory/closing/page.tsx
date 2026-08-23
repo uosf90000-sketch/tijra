@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { DayClosingForm } from "@/components/day-closing-form";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { loadRecipesForBusiness } from "@/lib/recipes";
 
 export const metadata = { title: "إقفال نهاية اليوم" };
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ export default async function InventoryClosingPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
 
-  const [products, closes] = await Promise.all([
+  const [products, closes, recipeMap] = await Promise.all([
     db.product.findMany({
       where: { businessId: context.business.id, active: true },
       select: { id: true, name: true, unit: true, quantity: true },
@@ -22,16 +23,18 @@ export default async function InventoryClosingPage() {
       orderBy: { occurredAt: "desc" },
       take: 10,
     }),
+    loadRecipesForBusiness(context.business.id),
   ]);
+  const stockProducts = products.filter((item) => !recipeMap.has(item.id));
 
   return (
     <>
       <PageHeader
         eyebrow="نهاية الوردية"
         title="إقفال وجرد نهاية اليوم"
-        description="تِجرا يعرض الكمية النظرية بعد المبيعات والهدر. أدخل الموجود فعليًا ليظهر الفرق وتتم مزامنة المخزون."
+        description="تِجرا يعرض الكمية النظرية للمواد الفعلية بعد المبيعات والهدر. منتجات الوصفات لا تُعد مرتين؛ الذي يُعد هو الدجاج والصوص والخبز والمكونات نفسها."
       />
-      <DayClosingForm products={products.map((item) => ({ id: item.id, name: item.name, unit: item.unit, theoretical: Number(item.quantity) }))} />
+      <DayClosingForm products={stockProducts.map((item) => ({ id: item.id, name: item.name, unit: item.unit, theoretical: Number(item.quantity) }))} />
 
       <section className="panel tablePanel recipeTablePanel">
         <div className="panelHeader tableHeader"><div><span className="eyebrow">السجل</span><h2>آخر الإقفالات</h2></div></div>
