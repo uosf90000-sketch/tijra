@@ -20,6 +20,7 @@ import "./navigation-cleanup.css";
 import "./staff-workspace.css";
 import "./simple-market.css";
 import "./owner-six-door.css";
+import "./smart-owner-home.css";
 
 export const metadata: Metadata = {
   title: {
