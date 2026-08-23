@@ -35,23 +35,24 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
 
+  const data = parsed.data;
   const businessId = auth.context.business.id;
   const actor = actorFromContext(auth.context);
   const defaultLocation = await ensureDefaultLocation(businessId);
 
   try {
-    if (parsed.data.action === "OPEN") {
+    if (data.action === "OPEN") {
       const shift = await createShift({
         businessId,
-        locationId: parsed.data.locationId || defaultLocation.id,
-        openingCash: parsed.data.openingCash,
+        locationId: data.locationId || defaultLocation.id,
+        openingCash: data.openingCash,
         actor,
       });
       return NextResponse.json({ shift }, { status: 201 });
     }
 
     const shifts = await listShifts(businessId, 100);
-    const shift = shifts.find((item) => item.id === parsed.data.shiftId);
+    const shift = shifts.find((item) => item.id === data.shiftId);
     if (!shift) return NextResponse.json({ error: "SHIFT_NOT_FOUND" }, { status: 404 });
     if (shift.status === "CLOSED") return NextResponse.json({ error: "SHIFT_ALREADY_CLOSED" }, { status: 409 });
 
@@ -63,9 +64,9 @@ export async function POST(request: Request) {
     const closed = await closeShift({
       businessId,
       shiftId: shift.id,
-      actualCash: parsed.data.actualCash,
+      actualCash: data.actualCash,
       expectedCash,
-      note: parsed.data.note,
+      note: data.note,
       actor,
     });
     return NextResponse.json({
@@ -74,8 +75,8 @@ export async function POST(request: Request) {
         openingCash: shift.openingCash,
         cashSales: Number(cashSales._sum.total ?? 0),
         expectedCash,
-        actualCash: parsed.data.actualCash,
-        difference: parsed.data.actualCash - expectedCash,
+        actualCash: data.actualCash,
+        difference: data.actualCash - expectedCash,
       },
     });
   } catch (error) {
