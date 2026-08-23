@@ -20,6 +20,7 @@ export default async function SalesPage() {
   if (!context) redirect("/login");
 
   const businessId = context.business.id;
+  const isOwner = context.membership.role === "OWNER";
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const defaultLocation = await ensureDefaultLocation(businessId);
@@ -119,14 +120,18 @@ export default async function SalesPage() {
         eyebrow="نقطة البيع"
         title="الكاشير"
         description="قطعة، وزن، كرتون، وصفة، خدمة أو جهاز برقم Serial/IMEI — وكل بيع ينعكس فورًا على المخزون والحركة."
-        actions={<div className="pageActionGroup"><Link className="button secondary" href="/sales/shifts"><Clock3 size={17} /> الورديات</Link><Link className="button secondary" href="/recipes"><ChefHat size={17} /> الوصفات</Link><Link className="button secondary" href="/sales/analytics"><BarChart3 size={17} /> التحليلات</Link></div>}
+        actions={<div className="pageActionGroup">
+          <Link className="button secondary" href="/sales/shifts"><Clock3 size={17} /> الورديات</Link>
+          {isOwner ? <Link className="button secondary" href="/recipes"><ChefHat size={17} /> إعداد الوصفات</Link> : null}
+          {isOwner ? <Link className="button secondary" href="/sales/analytics"><BarChart3 size={17} /> التحليلات</Link> : null}
+        </div>}
       />
 
-      <section className="metricsGrid three">
+      {isOwner ? <section className="metricsGrid three ownerOnlyMetrics">
         <MetricCard label="مبيعات اليوم" value={formatSar(salesTotal)} note={`${count} فواتير`} icon={TrendingUp} />
         <MetricCard label="مجمل الربح اليوم" value={formatSar(grossProfit)} note="يشمل تكلفة مكونات الوصفات" icon={Banknote} tone="blue" />
         <MetricCard label="متوسط الفاتورة" value={formatSar(count ? salesTotal / count : 0)} note="لعمليات اليوم" icon={ReceiptText} tone="violet" />
-      </section>
+      </section> : null}
 
       <PosTerminal products={posProducts} locationId={defaultLocation.id} businessActivity={context.business.businessActivity} />
 
@@ -142,8 +147,8 @@ export default async function SalesPage() {
                   <td>{new Intl.DateTimeFormat("ar-SA", { dateStyle: "short", timeStyle: "short" }).format(sale.soldAt)}</td>
                   <td>{sale.items.length}</td>
                   <td>{formatSar(Number(sale.total))}</td>
-                  <td>{formatSar(Number(sale.costTotal))}</td>
-                  <td className="positive">{formatSar(Number(sale.total) - Number(sale.costTotal))}</td>
+                  <td>{isOwner ? formatSar(Number(sale.costTotal)) : "—"}</td>
+                  <td className="positive">{isOwner ? formatSar(Number(sale.total) - Number(sale.costTotal)) : "—"}</td>
                   <td>{paymentLabels[sale.paymentMethod] ?? sale.paymentMethod}</td>
                 </tr>
               ))}
