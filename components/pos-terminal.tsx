@@ -152,16 +152,17 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
   function handleSearchEnter() {
     const code = query.trim();
     if (!code) return;
-    if (experience === "BARCODE") {
+    if (experience === "BARCODE" || (experience === "PART_LOOKUP" && scanTargets.has(code))) {
       handleScannedCode(code);
       setQuery("");
       return;
     }
+    if (experience === "PART_LOOKUP") return;
     const normalized = code.toLowerCase();
     const exact = products.find((item) => item.sku?.toLowerCase() === normalized || item.barcode === code || item.name.toLowerCase() === normalized);
     if (exact) {
       add(exact);
-      if (experience !== "PART_LOOKUP") setQuery("");
+      setQuery("");
     }
   }
 
@@ -266,10 +267,10 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
     router.refresh();
   }
 
-  const catalogTitle = experience === "MENU" ? "اختر المنتج من الصور" : experience === "PART_LOOKUP" ? "اكتب رقم القطعة واعرف المتوفر" : experience === "BARCODE" ? "امسح المنتج وأكمل البيع" : "ابحث عن المنتج وأضفه للسلة";
-  const inputPlaceholder = experience === "MENU" ? "ابحث عن وجبة أو مشروب..." : experience === "PART_LOOKUP" ? "اكتب رقم القطعة أو اسمها..." : experience === "BARCODE" ? "امسح الباركود أو اكتب الكود..." : "ابحث بالاسم أو الكود...";
+  const catalogTitle = experience === "MENU" ? "اختر المنتج من الصور" : experience === "PART_LOOKUP" ? "ابحث برقم القطعة ثم امسح الباركود للبيع" : experience === "BARCODE" ? "امسح المنتج وأكمل البيع" : "ابحث عن المنتج وأضفه للسلة";
+  const inputPlaceholder = experience === "MENU" ? "ابحث عن وجبة أو مشروب..." : experience === "PART_LOOKUP" ? "رقم القطعة أو اسمها، أو اكتب الباركود للبيع..." : experience === "BARCODE" ? "امسح الباركود أو اكتب الكود..." : "ابحث بالاسم أو الكود...";
   const SearchIcon = experience === "PART_LOOKUP" ? Hash : experience === "BARCODE" ? Barcode : Search;
-  const showCamera = experience === "BARCODE" || experience === "CATALOG";
+  const showCamera = experience === "BARCODE" || experience === "PART_LOOKUP" || experience === "CATALOG";
 
   return (
     <section className={`posGrid adaptivePos posMode-${experience.toLowerCase()}`}>
@@ -280,7 +281,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
         </div>
         <div className={`barcodeField adaptiveSearch ${experience === "PART_LOOKUP" ? "partSearch" : ""}`}><SearchIcon size={21} /><input aria-label="بحث المنتج" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); handleSearchEnter(); } }} placeholder={inputPlaceholder} /></div>
 
-        {experience === "PART_LOOKUP" && !query.trim() ? <div className="partLookupHint"><Hash size={22} /><div><strong>ابدأ برقم القطعة</strong><span>مثال: 90915-YZZE1 — يظهر لك المنتج والكمية المتوفرة مباشرة.</span></div></div> : null}
+        {experience === "PART_LOOKUP" && !query.trim() ? <div className="partLookupHint"><Hash size={22} /><div><strong>ابحث أولًا برقم القطعة</strong><span>تأكد من الاسم والكمية المتوفرة، وبعدها امسح باركود القطعة لإضافتها للسلة مثل كاشير البقالة.</span></div></div> : null}
 
         <div className={`quickProducts ${experience === "MENU" ? "menuProductGrid" : experience === "PART_LOOKUP" ? "partsProductGrid" : ""}`}>
           {filtered.map((product) => {
@@ -293,7 +294,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
                     {experience === "PART_LOOKUP" && product.sku ? <small className="partNumber">رقم القطعة · {product.sku}</small> : null}
                     <strong>{product.name}</strong>
                     <span>{formatSar(product.salePrice)}{experience === "MENU" ? (unavailable ? " · غير متاح" : "") : experience === "PART_LOOKUP" ? ` · متوفر ${product.quantity.toLocaleString("ar-SA")} ${product.unit}` : product.saleMode === "SERVICE" ? " · خدمة" : ` · متاح ${product.quantity.toLocaleString("ar-SA")} ${product.unit}`}</span>
-                    {product.saleMode === "SERIAL" ? <small>{product.serials.length} رقم Serial/IMEI متاح</small> : product.size || product.color ? <small>{[product.size, product.color].filter(Boolean).join(" · ")}</small> : null}
+                    {experience === "PART_LOOKUP" ? <small>{product.barcode ? "جاهز للبيع بالباركود" : "لا يوجد باركود مسجل لهذا الصنف"}</small> : product.saleMode === "SERIAL" ? <small>{product.serials.length} رقم Serial/IMEI متاح</small> : product.size || product.color ? <small>{[product.size, product.color].filter(Boolean).join(" · ")}</small> : null}
                   </div>
                 </button>
                 {product.conversions.length ? <div className="unitQuickRow">{product.conversions.slice(0, 4).map((conversion) => <button type="button" key={conversion.id} onClick={() => add(product, conversion)}>{conversion.name} · {formatSar(conversion.salePrice ?? product.salePrice * conversion.factor)}</button>)}</div> : null}
@@ -331,7 +332,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
               </div>
             );
           })}
-          {!cart.length && <div className="infoNote">{experience === "MENU" ? "اختر المنتج من القائمة لإضافته للطلب." : experience === "PART_LOOKUP" ? "ابحث برقم القطعة ثم اخترها لإضافتها." : "امسح المنتج أو ابحث عنه لإضافته للسلة."}</div>}
+          {!cart.length && <div className="infoNote">{experience === "MENU" ? "اختر المنتج من القائمة لإضافته للطلب." : experience === "PART_LOOKUP" ? "ابحث برقم القطعة للتأكد من المتوفر، ثم امسح الباركود لإضافتها للسلة." : "امسح المنتج أو ابحث عنه لإضافته للسلة."}</div>}
         </div>
         <div className="cartTotals"><div className="grandTotal"><span>الإجمالي</span><strong>{formatSar(total)}</strong></div></div>
         {message && <div className="infoNote">{message}</div>}
