@@ -13,6 +13,7 @@ export type RecipeState = {
   canRemove: boolean;
   canExtra: boolean;
   extraOnly?: boolean;
+  replacesComponentId?: string | null;
   extraPrice: number;
   yieldPercent: number;
 };
@@ -22,6 +23,7 @@ type RecipeNote = {
   canRemove?: boolean;
   canExtra?: boolean;
   extraOnly?: boolean;
+  replacesComponentId?: string | null;
 };
 
 const MASS: Record<string, number> = {
@@ -74,9 +76,10 @@ export function decodeRecipeNote(note: string | null): Required<RecipeNote> {
       canRemove: Boolean(parsed.canRemove),
       canExtra: Boolean(parsed.canExtra),
       extraOnly: Boolean(parsed.extraOnly),
+      replacesComponentId: parsed.replacesComponentId || null,
     };
   } catch {
-    return { unit: "حبة", canRemove: false, canExtra: false, extraOnly: false };
+    return { unit: "حبة", canRemove: false, canExtra: false, extraOnly: false, replacesComponentId: null };
   }
 }
 
@@ -136,6 +139,7 @@ export async function loadRecipesForBusiness(businessId: string, saleProductIds?
       canRemove: config.canRemove,
       canExtra: config.canExtra,
       extraOnly: config.extraOnly,
+      replacesComponentId: config.replacesComponentId,
       extraPrice: Number(row.previousQuantity ?? 0),
       yieldPercent: Number(row.newQuantity ?? 100),
     });
