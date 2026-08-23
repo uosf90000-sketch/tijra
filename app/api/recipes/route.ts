@@ -17,9 +17,16 @@ const recipeSchema = z.object({
   yieldPercent: z.coerce.number().min(1).max(100).default(100),
 });
 
+function requireOwner(role: string) {
+  return role === "OWNER" ? null : NextResponse.json({ error: "OWNER_REQUIRED" }, { status: 403 });
+}
+
 export async function POST(request: Request) {
   const auth = await requireApiPermission("INVENTORY");
   if (auth.response) return auth.response;
+  const ownerError = requireOwner(auth.context.membership.role);
+  if (ownerError) return ownerError;
+
   const parsed = recipeSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
 
@@ -104,6 +111,9 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const auth = await requireApiPermission("INVENTORY");
   if (auth.response) return auth.response;
+  const ownerError = requireOwner(auth.context.membership.role);
+  if (ownerError) return ownerError;
+
   const url = new URL(request.url);
   const saleProductId = url.searchParams.get("saleProductId") || "";
   const ingredientProductId = url.searchParams.get("ingredientProductId") || "";

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { hasAppPermission } from "@/lib/access";
 import { requireApiAnyPermission } from "@/lib/api-auth";
+import { adjustLocationStock, ensureDefaultLocation, syncProductForListing } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
 
 const schema = z.object({ action: z.enum(["ACCEPT", "CANCEL", "RECEIVE"]) });
@@ -13,6 +14,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
   const { id } = await params;
+  const receiptLocation = parsed.data.action === "RECEIVE" ? await ensureDefaultLocation(context.business.id) : null;
 
   try {
     const result = await db.$transaction(async (tx) => {
@@ -48,7 +50,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
               actorUserId: context.user.id,
               actorName: context.user.name,
               actorRole: context.membership.role,
-              note: "تم تجهيز/إخراج بضاعة لطلب تاجر. الكمية كانت محجوزة عند إنشاء الطلب.",
+              note: "تم اعتماد الطلب. الكمية كانت محجوزة عند إنشاء الطلب.",
             },
           });
         }
@@ -67,6 +69,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             where: { id: item.listingId },
             data: { quantity: { increment: item.quantity } },
           });
+          const internalProduct = await syncProductForListing(tx, { businessId: order.sellerBusinessId, listing: item.listing, delta: Number(item.quantity) });
+          if (internalProduct) {
+            await tx.stockMovement.create({
+              data: {
+                businessId: order.sellerBusinessId,
+                productId: internalProduct.id,
+                type: "ADJUSTMENT_IN",
+                quantity: Number(item.quantity),
+                unitCost: internalProduct.averageCost,
+                sourceType: "MARKETPLACE_ORDER_CANCEL",
+                sourceId: order.id,
+                note: "فك حجز البضاعة بعد إلغاء طلب التاجر",
+              },
+            });
+          }
 
           if (isSeller) {
             await tx.inventoryAuditEvent.create({
@@ -92,6 +109,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
       if (!isBuyer || !hasAppPermission(context.membership, "PURCHASES")) throw new Error("FORBIDDEN");
       if (order.status !== "ACCEPTED") throw new Error("INVALID_STATUS");
+      if (!receiptLocation) throw new Error("RECEIPT_LOCATION_NOT_FOUND");
 
       for (const item of order.items) {
         const listing = item.listing;
@@ -107,6 +125,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           const newQty = oldQty + qty;
           const weightedCost = newQty > 0 ? ((oldQty * oldCost) + (qty * unitCost)) / newQty : unitCost;
           await tx.product.update({ where: { id: existing.id }, data: { quantity: newQty, averageCost: weightedCost } });
+          await adjustLocationStock(tx, { businessId: context.business.id, locationId: receiptLocation.id, productId: existing.id, productName: existing.name, delta: qty });
           await tx.stockMovement.create({
             data: {
               businessId: context.business.id,
@@ -117,6 +136,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
               sourceType: "MARKETPLACE_ORDER",
               sourceId: order.id,
               note: `استلام من سوق تِجرا - ${listing.name}`,
+            },
+          });
+          await tx.inventoryAuditEvent.create({
+            data: {
+              businessId: context.business.id,
+              action: "SMART_RECEIPT",
+              listingId: existing.id,
+              orderId: order.id,
+              itemName: existing.name,
+              quantity: qty,
+              previousQuantity: qty,
+              newQuantity: qty,
+              actorUserId: context.user.id,
+              actorName: context.user.name,
+              actorRole: context.membership.role,
+              note: `استلام طلب سوق إلى ${receiptLocation.name}`,
             },
           });
         } else {
@@ -134,6 +169,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
               reorderPoint: 0,
             },
           });
+          await adjustLocationStock(tx, { businessId: context.business.id, locationId: receiptLocation.id, productId: product.id, productName: product.name, delta: qty });
           await tx.stockMovement.create({
             data: {
               businessId: context.business.id,
@@ -144,6 +180,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
               sourceType: "MARKETPLACE_ORDER",
               sourceId: order.id,
               note: `استلام من سوق تِجرا - ${listing.name}`,
+            },
+          });
+          await tx.inventoryAuditEvent.create({
+            data: {
+              businessId: context.business.id,
+              action: "SMART_RECEIPT",
+              listingId: product.id,
+              orderId: order.id,
+              itemName: product.name,
+              quantity: qty,
+              previousQuantity: qty,
+              newQuantity: qty,
+              actorUserId: context.user.id,
+              actorName: context.user.name,
+              actorRole: context.membership.role,
+              note: `إنشاء الصنف واستلامه إلى ${receiptLocation.name}`,
             },
           });
         }

@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function RecipesPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (context.membership.role !== "OWNER") redirect("/");
 
   const products = await db.product.findMany({
     where: { businessId: context.business.id, active: true },
@@ -37,9 +38,9 @@ export default async function RecipesPage() {
   return (
     <>
       <PageHeader
-        eyebrow="الكاشير الذكي"
+        eyebrow="إعدادات المالك"
         title="الوصفات والمكونات"
-        description="عرّف ما يستهلكه كل منتج مباع. تِجرا يخصم المكونات تلقائيًا ويحسب الفاقد والتكلفة النظرية."
+        description="المالك يحدد ما يستهلكه كل منتج مباع، والكاشير يطبق الوصفة تلقائيًا أثناء البيع بدون صلاحية لتعديلها."
       />
 
       <section className="recipeExplainerGrid">
