@@ -6,8 +6,8 @@ export function isFoodActivity(activity: string) {
 
 export function posExperienceFor(activity: string): PosExperience {
   if (isFoodActivity(activity)) return "MENU";
-  if (activity === "HARDWARE" || activity === "ELECTRONICS") return "PART_LOOKUP";
-  if (["GROCERY", "PHARMACY", "BEAUTY", "OFFICE"].includes(activity)) return "BARCODE";
+  if (activity === "HARDWARE") return "PART_LOOKUP";
+  if (["GROCERY", "PHARMACY", "BEAUTY", "OFFICE", "ELECTRONICS"].includes(activity)) return "BARCODE";
   return "CATALOG";
 }
 
