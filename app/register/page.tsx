@@ -1,7 +1,7 @@
-import { AuthForm } from "@/components/auth-form";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "حساب جديد | تِجرا" };
+export const metadata = { title: "إنشاء حساب | تِجرا" };
 
 export default function RegisterPage() {
-  return <AuthForm mode="register" />;
+  redirect("/login?mode=register");
 }
