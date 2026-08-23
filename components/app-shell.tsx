@@ -35,7 +35,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CommandPalette } from "@/components/command-palette";
 import { TijraLogo } from "@/components/tijra-logo";
 
@@ -73,7 +73,7 @@ const activityCenter: NavItem = { href: "/activity", label: "مركز النشا
 const controlCenter: NavItem = { href: "/control-center", label: "مركز الرقابة", icon: Bell };
 const staffInventory: NavItem = { href: "/staff/inventory", label: "إدخال وإخراج المخزون", icon: ScanBarcode };
 const productsHub: NavItem = { href: "/products", label: "المنتجات", icon: PackageSearch };
-const managementHub: NavItem = { href: "/management", label: "الإدارة", icon: UsersRound };
+const managementHub: NavItem = { href: "/management", label: "الإدارة والمحاسبة", icon: UsersRound };
 
 const sellerProducts: NavItem = { href: "/marketplace/seller", label: "المنتجات", icon: Store };
 const importProducts: NavItem = { href: "/supplier/import", label: "استيراد Excel / CSV", icon: FileSpreadsheet };
@@ -128,11 +128,11 @@ function NavLink({ href, label, icon: Icon, badge, pathname, onClick }: NavItem 
   );
 }
 
-function NavSectionBlock({ section, pathname, onNavigate }: { section: NavSection; pathname: string; onNavigate: () => void }) {
+function NavSectionBlock({ section, pathname, onNavigate, onOpen }: { section: NavSection; pathname: string; onNavigate: () => void; onOpen?: (element: HTMLDetailsElement) => void }) {
   if (!section.items.length) return null;
   const active = section.items.some((item) => isItemActive(item, pathname));
   return (
-    <details className="navSection" open={active || undefined}>
+    <details className="navSection" open={active || undefined} onToggle={(event) => { if (event.currentTarget.open) onOpen?.(event.currentTarget); }}>
       <summary><span>{section.label}</span><ChevronDown size={16} /></summary>
       <div className="navSectionItems">
         {section.items.map((item) => <NavLink key={`${item.href}-${item.label}`} {...item} pathname={pathname} onClick={onNavigate} />)}
@@ -141,16 +141,7 @@ function NavSectionBlock({ section, pathname, onNavigate }: { section: NavSectio
   );
 }
 
-function retailerSections(isOwner: boolean): NavSection[] {
-  if (isOwner) {
-    return [
-      { label: "البيع", items: [{ ...sales, label: "البيع" }] },
-      { label: "المخزون", items: [inventory] },
-      { label: "المنتجات", items: [productsHub] },
-      { label: "المشتريات والسوق", items: [market] },
-      { label: "الإدارة", items: [managementHub] },
-    ];
-  }
+function retailerSections(): NavSection[] {
   return [
     { label: "البيع", items: [sales, shifts] },
     { label: "المخزون والتشغيل", items: [inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, waste, dayClosing] },
@@ -190,6 +181,7 @@ type Viewer = {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const sideNavRef = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [viewer, setViewer] = useState<Viewer | null>(null);
@@ -199,6 +191,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigation = useMemo(() => {
     if (!viewer) return {
       sections: [] as NavSection[],
+      directItems: [] as NavItem[],
       homeItem: null as NavItem | null,
       homeHref: "/",
       allowedHrefs: undefined as string[] | undefined,
@@ -217,6 +210,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       const preferred = permissions.has("CASHIER") ? sales : permissions.has("INVENTORY") ? staffInventory : permissions.has("PURCHASES") ? orders : permissions.has("ACCOUNTING") ? accounting : null;
       return {
         sections,
+        directItems: [] as NavItem[],
         homeItem: null,
         homeHref: preferred?.href ?? "/no-access",
         allowedHrefs: Array.from(new Set(all.map((item) => cleanHref(item.href)))),
@@ -228,10 +222,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     const effectiveMode: TradeMode = businessType === "SUPPLIER" ? "supplier" : businessType === "RETAILER" ? "retailer" : tradeMode;
     const homeHref = businessType === "BOTH" && effectiveMode === "supplier" ? "/?mode=supplier" : "/";
     const homeItem = { ...home, href: homeHref };
-    const sections = effectiveMode === "supplier" ? supplierSections(isOwner) : retailerSections(isOwner);
+    const ownerRetailer = isOwner && effectiveMode === "retailer";
+    const directItems: NavItem[] = ownerRetailer ? [sales, inventory, productsHub, market, managementHub] : [];
+    const sections = ownerRetailer ? [] : effectiveMode === "supplier" ? supplierSections(isOwner) : retailerSections();
 
     return {
       sections,
+      directItems,
       homeItem,
       homeHref,
       allowedHrefs: undefined,
@@ -275,10 +272,52 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (pathname === "/" || !allowed.includes(pathname)) router.replace(navigation.homeHref);
   }, [viewer, publicPage, pathname, router, navigation.allowedHrefs, navigation.homeHref]);
 
+  useEffect(() => {
+    if (!open || publicPage || isStaff || !window.matchMedia("(max-width: 1100px)").matches) return;
+    const scrollY = window.scrollY;
+    const htmlOverflow = document.documentElement.style.overflow;
+    const bodyPosition = document.body.style.position;
+    const bodyTop = document.body.style.top;
+    const bodyLeft = document.body.style.left;
+    const bodyRight = document.body.style.right;
+    const bodyWidth = document.body.style.width;
+
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.width = "100%";
+
+    return () => {
+      document.documentElement.style.overflow = htmlOverflow;
+      document.body.style.position = bodyPosition;
+      document.body.style.top = bodyTop;
+      document.body.style.left = bodyLeft;
+      document.body.style.right = bodyRight;
+      document.body.style.width = bodyWidth;
+      window.scrollTo(0, scrollY);
+    };
+  }, [open, publicPage, isStaff]);
+
   function chooseMode(mode: TradeMode) {
     setTradeMode(mode);
     window.localStorage.setItem("tijra-trade-mode", mode);
     router.push(mode === "supplier" ? "/?mode=supplier" : "/?mode=retailer");
+  }
+
+  function handleSectionOpen(opened: HTMLDetailsElement) {
+    const nav = sideNavRef.current;
+    if (!nav) return;
+    nav.querySelectorAll<HTMLDetailsElement>("details.navSection[open]").forEach((section) => {
+      if (section !== opened) section.open = false;
+    });
+    requestAnimationFrame(() => {
+      const navRect = nav.getBoundingClientRect();
+      const sectionRect = opened.getBoundingClientRect();
+      const targetTop = Math.max(0, nav.scrollTop + sectionRect.top - navRect.top - 8);
+      nav.scrollTo({ top: targetTop, behavior: "smooth" });
+    });
   }
 
   useEffect(() => {
@@ -330,6 +369,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const quickLabel = navigation.quick?.href === "/sales" ? "فتح الكاشير" : navigation.quick?.href === "/inventory" ? "فتح المخزون" : navigation.quick?.href === "/accounting" ? "فتح التقارير" : navigation.mode === "supplier" ? "إضافة منتج" : "فتح السوق";
   const QuickIcon = navigation.quick?.icon ?? ShoppingBag;
   const alertsHref = navigation.mode === "supplier" ? "/supplier/alerts" : "/smart-alerts";
+  const directOwnerNav = navigation.directItems.length > 0;
 
   return (
     <div className={`appFrame role-${navigation.mode}`}>
@@ -355,9 +395,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         )}
 
-        <nav className="sideNav compactSideNav" aria-label="التنقل الرئيسي">
+        <nav ref={sideNavRef} className={`sideNav compactSideNav ${directOwnerNav ? "ownerDirectNav" : ""}`} aria-label="التنقل الرئيسي">
           {navigation.homeItem ? <div className="navHomeItem"><NavLink {...navigation.homeItem} pathname={pathname} onClick={() => setOpen(false)} /></div> : null}
-          {navigation.sections.map((section) => <NavSectionBlock key={section.label} section={section} pathname={pathname} onNavigate={() => setOpen(false)} />)}
+          {directOwnerNav
+            ? navigation.directItems.map((item) => <NavLink key={`${item.href}-${item.label}`} {...item} pathname={pathname} onClick={() => setOpen(false)} />)
+            : navigation.sections.map((section) => <NavSectionBlock key={section.label} section={section} pathname={pathname} onNavigate={() => setOpen(false)} onOpen={handleSectionOpen} />)}
         </nav>
 
         <div className="sidebarInsight">
