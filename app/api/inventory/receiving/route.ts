@@ -42,10 +42,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "RECEIVED_QTY_EXCEEDS_ORDER", remaining: remainingBefore }, { status: 409 });
   }
 
+  const serials = parsed.data.serials ?? [];
+  if (serials.length) {
+    const expected = Math.round(parsed.data.receivedQty);
+    if (Math.abs(parsed.data.receivedQty - expected) > 0.000001 || serials.length !== expected) {
+      return NextResponse.json({ error: "SERIAL_COUNT_MISMATCH", expected }, { status: 409 });
+    }
+    if (new Set(serials).size !== serials.length) return NextResponse.json({ error: "DUPLICATE_SERIALS" }, { status: 409 });
+    const existing = await db.inventoryAuditEvent.findFirst({ where: { businessId, action: "PRODUCT_SERIAL", itemName: { in: serials } } });
+    if (existing) return NextResponse.json({ error: "SERIAL_ALREADY_EXISTS", serial: existing.itemName }, { status: 409 });
+  }
+
   const actor = actorFromContext(auth.context);
   const unitCost = parsed.data.unitCost ?? Number(line.unitCost);
   const expiry = parsed.data.expiryDate ? new Date(`${parsed.data.expiryDate}T12:00:00`) : undefined;
   if (expiry && Number.isNaN(expiry.getTime())) return NextResponse.json({ error: "INVALID_EXPIRY_DATE" }, { status: 400 });
+  const locationId = parsed.data.locationId || defaultLocation.id;
 
   try {
     const result = await receivePurchaseOrder({
@@ -53,7 +65,7 @@ export async function POST(request: Request) {
       purchaseOrderId: order.id,
       invoiceNumber: parsed.data.invoiceNumber,
       issuedAt: new Date(),
-      locationId: parsed.data.locationId || defaultLocation.id,
+      locationId,
       actorUserId: actor.userId,
       actorName: actor.name,
       actorRole: actor.role,
@@ -66,16 +78,9 @@ export async function POST(request: Request) {
       }],
     });
 
-    if (parsed.data.serials?.length) {
-      if (parsed.data.serials.length !== Math.round(parsed.data.receivedQty)) {
-        return NextResponse.json({ error: "SERIAL_COUNT_MISMATCH", expected: Math.round(parsed.data.receivedQty) }, { status: 409 });
-      }
-      for (const serial of parsed.data.serials) {
-        const existing = await db.inventoryAuditEvent.findFirst({ where: { businessId, action: "PRODUCT_SERIAL", itemName: serial } });
-        if (existing) return NextResponse.json({ error: "SERIAL_ALREADY_EXISTS", serial }, { status: 409 });
-      }
+    if (serials.length) {
       await db.inventoryAuditEvent.createMany({
-        data: parsed.data.serials.map((serial) => ({
+        data: serials.map((serial) => ({
           businessId,
           action: "PRODUCT_SERIAL",
           listingId: line.productId,
@@ -84,7 +89,7 @@ export async function POST(request: Request) {
           actorUserId: actor.userId,
           actorName: actor.name,
           actorRole: actor.role,
-          note: JSON.stringify({ status: "IN_STOCK", locationId: parsed.data.locationId || defaultLocation.id }),
+          note: JSON.stringify({ status: "IN_STOCK", locationId }),
         })),
       });
     }
