@@ -3,6 +3,7 @@ import { ClipboardCheck, ScanBarcode, ShoppingBasket } from "lucide-react";
 import { PickingForm } from "@/components/commerce-forms";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
+import { firstPermissionHref, hasAppPermission } from "@/lib/access";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function SupplierPickingPage() {
   const context = await getSessionContext(); if (!context) redirect("/login");
   if (!["SUPPLIER", "BOTH"].includes(context.business.businessType)) redirect("/");
+  if (!hasAppPermission(context.membership, "INVENTORY")) redirect(firstPermissionHref(context.membership));
   const orders = await db.marketplaceOrder.findMany({ where: { sellerBusinessId: context.business.id, status: { in: ["PLACED", "ACCEPTED"] } }, include: { buyer: true, items: { include: { listing: true } } }, orderBy: { createdAt: "asc" }, take: 100 });
   const ids = orders.map((x) => x.id);
   const progress = ids.length ? await db.inventoryAuditEvent.findMany({ where: { businessId: context.business.id, action: { in: ["PICK_PROGRESS", "PICK_COMPLETE"] }, orderId: { in: ids } } }) : [];
