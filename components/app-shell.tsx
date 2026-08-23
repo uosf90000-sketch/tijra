@@ -54,23 +54,35 @@ const smartPrice: NavItem = { href: "/alerts", label: "السعر الأذكى",
 const smartAlerts: NavItem = { href: "/smart-alerts", label: "التنبيهات الذكية", icon: Bell };
 const inventory: NavItem = { href: "/inventory", label: "المخزون", icon: Boxes };
 const inventoryAudit: NavItem = { href: "/inventory/audit", label: "الجرد", icon: ClipboardCheck };
+const receiving: NavItem = { href: "/inventory/receiving", label: "الاستلام الذكي", icon: PackageCheck };
+const returns: NavItem = { href: "/inventory/returns", label: "المرتجعات", icon: RotateCcw };
+const locations: NavItem = { href: "/inventory/locations", label: "الفروع والمستودعات", icon: Store };
+const units: NavItem = { href: "/inventory/units", label: "وحدات البيع", icon: Tags };
+const batches: NavItem = { href: "/inventory/batches", label: "الدفعات والصلاحية", icon: PackageSearch };
+const productSettings: NavItem = { href: "/inventory/product-settings", label: "إعدادات البيع", icon: Calculator };
+const movements: NavItem = { href: "/inventory/movements", label: "سجل حركة الصنف", icon: Activity };
 const recipes: NavItem = { href: "/recipes", label: "الوصفات والمكونات", icon: ChefHat };
 const waste: NavItem = { href: "/inventory/waste", label: "الهدر والتالف", icon: Trash2 };
 const dayClosing: NavItem = { href: "/inventory/closing", label: "إقفال نهاية اليوم", icon: ClipboardCheck };
 const sales: NavItem = { href: "/sales", label: "الكاشير", icon: ShoppingCart };
 const salesAnalytics: NavItem = { href: "/sales/analytics", label: "تحليلات المبيعات", icon: BarChart3 };
+const shifts: NavItem = { href: "/sales/shifts", label: "الورديات", icon: ClipboardCheck };
 const purchases: NavItem = { href: "/purchases", label: "المشتريات", icon: ShoppingBasket };
 const activityCenter: NavItem = { href: "/activity", label: "مركز النشاط", icon: Activity };
+const controlCenter: NavItem = { href: "/control-center", label: "مركز الرقابة", icon: Bell };
 
 const sellerProducts: NavItem = { href: "/marketplace/seller", label: "المنتجات", icon: Store };
 const importProducts: NavItem = { href: "/supplier/import", label: "استيراد Excel / CSV", icon: FileSpreadsheet };
 const stockUpdate: NavItem = { href: "/supplier/stock-update", label: "تحديث باركود سريع", icon: ScanBarcode };
 const stockCount: NavItem = { href: "/supplier/stock-count", label: "الجرد السريع", icon: ClipboardCheck };
+const supplierPicking: NavItem = { href: "/supplier/picking", label: "تجهيز الطلبات بالمسح", icon: ScanBarcode };
 const sellerOrders: NavItem = { href: "/marketplace/seller#orders", label: "الطلبات الواردة", icon: ClipboardList };
 const externalSale: NavItem = { href: "/marketplace/seller#external-sale", label: "البيع الخارجي", icon: ScanBarcode };
 const customers: NavItem = { href: "/marketplace/seller#customers", label: "التجار والعملاء", icon: UsersRound };
 const dormantCustomers: NavItem = { href: "/supplier/dormant", label: "تجار توقفوا عن الشراء", icon: RotateCcw };
+const supplierPricing: NavItem = { href: "/supplier/pricing", label: "التسعير المتقدم", icon: Tags };
 const supplierPrice: NavItem = { href: "/supplier/price-intelligence", label: "ذكاء الأسعار", icon: Tags };
+const supplierForecast: NavItem = { href: "/supplier/forecast", label: "توقع الطلب", icon: BarChart3 };
 const supplierAlerts: NavItem = { href: "/supplier/alerts", label: "التنبيهات الذكية", icon: Bell };
 const supplierActivity: NavItem = { href: "/activity?mode=supplier", label: "مركز النشاط", icon: Activity };
 
@@ -89,31 +101,53 @@ const retailerOperations: NavItem[] = [
   smartAlerts,
   purchases,
   orders,
+  receiving,
+  returns,
   inventory,
   inventoryAudit,
+  locations,
+  units,
+  batches,
+  productSettings,
+  movements,
   recipes,
   waste,
   dayClosing,
   sales,
+  shifts,
   salesAnalytics,
   activityCenter,
 ];
-const retailerManagement: NavItem[] = [{ ...accounting, label: "الملخص المالي" }, employees, payroll];
+const retailerManagement: NavItem[] = [controlCenter, { ...accounting, label: "الملخص المالي" }, employees, payroll];
 const supplierOperations: NavItem[] = [
   home,
   sellerProducts,
   importProducts,
   stockUpdate,
   stockCount,
+  supplierPicking,
   sellerOrders,
   externalSale,
+  sales,
+  shifts,
+  salesAnalytics,
+  inventory,
+  receiving,
+  returns,
+  locations,
+  units,
+  batches,
+  productSettings,
+  movements,
   customers,
   dormantCustomers,
+  supplierPricing,
   supplierPrice,
+  supplierForecast,
   supplierAlerts,
   supplierActivity,
 ];
-const supplierManagement: NavItem[] = [accounting, employees, payroll];
+const supplierManagement: NavItem[] = [controlCenter, accounting, employees, payroll];
 
 type Viewer = {
   user: { name: string; email: string };
@@ -164,8 +198,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (isStaff) {
       const operations: NavItem[] = [];
       const management: NavItem[] = [];
-      if (permissions.has("CASHIER")) operations.push(sales, salesAnalytics);
-      if (permissions.has("INVENTORY")) operations.push(inventory, inventoryAudit, recipes, waste, dayClosing);
+      if (permissions.has("CASHIER")) operations.push(sales, shifts, salesAnalytics);
+      if (permissions.has("INVENTORY")) {
+        operations.push(inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, recipes, waste, dayClosing);
+        if (businessType === "SUPPLIER" || businessType === "BOTH") operations.push(stockUpdate, stockCount, supplierPicking, supplierPricing, supplierForecast);
+      }
       if (permissions.has("PURCHASES")) operations.push(market, smartBuy, reorder, orders, purchases);
       if (permissions.has("ACCOUNTING")) management.push(accounting);
       const all = [...operations, ...management];
@@ -188,8 +225,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     const operations = sourceOperations.map((item) => item.href === "/" ? modeHome : item);
     const management = effectiveMode === "supplier" ? supplierManagement : retailerManagement;
     const mobile = effectiveMode === "supplier"
-      ? [modeHome, sellerProducts, sellerOrders, stockUpdate, supplierAlerts]
-      : [modeHome, market, smartBuy, inventory, sales];
+      ? [modeHome, sales, sellerOrders, stockUpdate, supplierAlerts]
+      : [modeHome, market, sales, inventory, smartBuy];
 
     return {
       operations,
@@ -305,8 +342,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="sidebarInsight">
           <div className="sidebarInsightIcon"><PackageCheck size={18} /></div>
           <div>
-            <strong>{isStaff ? "دخول حسب صلاحياتك" : navigation.mode === "supplier" ? "مخزونك متصل بالسوق" : "تِجرا يساعدك في القرار"}</strong>
-            <span>{isStaff ? "يعرض تِجرا فقط الأقسام المسموحة لهذا الحساب." : navigation.mode === "supplier" ? "الجرد والإخراج والتحديثات محفوظة باسم الموظف." : "خطة أسبوعية، إعادة طلب، وصفات ومكونات، وكاشير ومخزون في مكان واحد."}</span>
+            <strong>{isStaff ? "دخول حسب صلاحياتك" : navigation.mode === "supplier" ? "مخزون واحد لكل قنوات البيع" : "تِجرا يساعدك في القرار"}</strong>
+            <span>{isStaff ? "يعرض تِجرا فقط الأقسام المسموحة لهذا الحساب." : navigation.mode === "supplier" ? "السوق والكاشير والبيع الخارجي والطلبات تعمل على نفس حركة المخزون." : "السوق والكاشير والمخزون والموردين والرقابة في نظام واحد."}</span>
           </div>
         </div>
 
