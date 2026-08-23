@@ -33,6 +33,8 @@ export default async function RecipesPage({ searchParams }: { searchParams: Prom
     unit: row.unit,
     canRemove: row.canRemove,
     canExtra: row.canExtra,
+    extraOnly: Boolean(row.extraOnly),
+    replacesComponentId: row.replacesComponentId || null,
     extraPrice: row.extraPrice,
   }));
   const initialProductId = products.some((item) => item.id === params.product) ? params.product : undefined;
@@ -42,7 +44,7 @@ export default async function RecipesPage({ searchParams }: { searchParams: Prom
       <PageHeader
         eyebrow="إعدادات المالك"
         title="المكونات والإضافات"
-        description="اختر المنتج بصورته، أضف مكوناته مرة واحدة، وحدد الإضافات التي يقدر الكاشير يختارها. الوصفة الأساسية لا تظهر للكاشير."
+        description="اختر المنتج بصورته، أضف مكوناته مرة واحدة، وحدد الإضافات والبدائل. الكاشير يرى خيارات الطلب فقط ولا يرى كميات الوصفة."
       />
       <RecipeManager
         products={products.map((item) => ({ ...item, salePrice: Number(item.salePrice) }))}
