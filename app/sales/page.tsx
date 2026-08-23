@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BarChart3, Banknote, ReceiptText, TrendingUp } from "lucide-react";
+import { BarChart3, Banknote, ChefHat, ReceiptText, TrendingUp } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { PosTerminal } from "@/components/pos-terminal";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
+import { loadRecipesForBusiness, recipeMaxServings } from "@/lib/recipes";
 
 export const metadata = { title: "المبيعات" };
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export default async function SalesPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [products, recentSales, todayAggregate] = await Promise.all([
+  const [products, recentSales, todayAggregate, recipeMap] = await Promise.all([
     db.product.findMany({
       where: { businessId, active: true },
       select: { id: true, name: true, barcode: true, salePrice: true, quantity: true, unit: true },
@@ -38,6 +39,7 @@ export default async function SalesPage() {
       _sum: { total: true, costTotal: true },
       _count: { _all: true },
     }),
+    loadRecipesForBusiness(businessId),
   ]);
 
   const salesTotal = Number(todayAggregate._sum.total ?? 0);
@@ -45,29 +47,46 @@ export default async function SalesPage() {
   const grossProfit = salesTotal - costTotal;
   const count = todayAggregate._count._all;
 
+  const posProducts = products.map((item) => {
+    const recipe = recipeMap.get(item.id) ?? [];
+    const availableQuantity = recipe.length ? Math.floor(recipeMaxServings(recipe)) : Number(item.quantity);
+    return {
+      id: item.id,
+      name: item.name,
+      barcode: item.barcode,
+      salePrice: Number(item.salePrice),
+      quantity: Number(item.quantity),
+      availableQuantity,
+      unit: item.unit,
+      recipe: recipe.map((component) => ({
+        id: component.id,
+        ingredientName: component.ingredientName,
+        quantity: component.quantity,
+        unit: component.unit,
+        canRemove: component.canRemove,
+        canExtra: component.canExtra,
+        extraPrice: component.extraPrice,
+        yieldPercent: component.yieldPercent,
+      })),
+    };
+  });
+
   return (
     <>
       <PageHeader
         eyebrow="نقطة البيع"
         title="الكاشير"
-        description="امسح الباركود وسجّل البيع؛ الكمية تخصم من المخزون ويُحفظ الموظف المنفّذ تلقائيًا."
-        actions={<Link className="button secondary" href="/sales/analytics"><BarChart3 size={17} /> تحليلات المبيعات</Link>}
+        description="بيع قطعة أو وزن أو منتج بوصفة؛ تِجرا يخصم المخزون والمكونات تلقائيًا ويحفظ الموظف المنفّذ."
+        actions={<div className="pageActionGroup"><Link className="button secondary" href="/recipes"><ChefHat size={17} /> الوصفات</Link><Link className="button secondary" href="/sales/analytics"><BarChart3 size={17} /> التحليلات</Link></div>}
       />
 
       <section className="metricsGrid three">
         <MetricCard label="مبيعات اليوم" value={formatSar(salesTotal)} note={`${count} فواتير`} icon={TrendingUp} />
-        <MetricCard label="مجمل الربح اليوم" value={formatSar(grossProfit)} note="بحسب متوسط التكلفة" icon={Banknote} tone="blue" />
+        <MetricCard label="مجمل الربح اليوم" value={formatSar(grossProfit)} note="يشمل تكلفة مكونات الوصفات" icon={Banknote} tone="blue" />
         <MetricCard label="متوسط الفاتورة" value={formatSar(count ? salesTotal / count : 0)} note="لعمليات اليوم" icon={ReceiptText} tone="violet" />
       </section>
 
-      <PosTerminal products={products.map((item) => ({
-        id: item.id,
-        name: item.name,
-        barcode: item.barcode,
-        salePrice: Number(item.salePrice),
-        quantity: Number(item.quantity),
-        unit: item.unit,
-      }))} />
+      <PosTerminal products={posProducts} />
 
       <section className="panel tablePanel">
         <div className="panelHeader tableHeader"><div><span className="eyebrow">السجل</span><h2>آخر الفواتير</h2></div></div>

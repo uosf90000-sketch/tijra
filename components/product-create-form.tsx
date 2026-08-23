@@ -50,19 +50,19 @@ export function ProductCreateForm() {
   return (
     <form className="panel onboardingForm" onSubmit={submit}>
       <div className="formSection">
-        <div><h2>بيانات الصنف</h2><p>الرصيد الافتتاحي يُسجل كحركة مخزون مستقلة للحفاظ على سجل صحيح.</p></div>
+        <div><h2>بيانات الصنف</h2><p>استخدم الوحدة التي تعد بها المخزون فعليًا. المكونات تدعم التحويل بين غرام/كيلو ومل/لتر.</p></div>
       </div>
 
       <ProductImageInput />
 
       <div className="formGrid">
-        <label className="field full"><span>اسم الصنف</span><input name="name" required minLength={2} placeholder="مثال: مياه 330 مل" /></label>
+        <label className="field full"><span>اسم الصنف</span><input name="name" required minLength={2} placeholder="مثال: دجاج شاورما / تفاح أحمر / شاحن جوال" /></label>
         <label className="field"><span>SKU</span><input name="sku" placeholder="اختياري" dir="ltr" /></label>
         <div className="field"><BarcodeInput /></div>
-        <label className="field"><span>التصنيف</span><input name="category" placeholder="مشروبات، ألبان..." /></label>
-        <label className="field"><span>الوحدة</span><select name="unit" defaultValue="حبة"><option value="حبة">حبة / قطعة</option><option value="باك">باك</option><option value="كرتون">كرتون</option><option value="كيس">كيس</option><option value="صندوق">صندوق</option><option value="كيلو">كيلو</option><option value="لتر">لتر</option></select></label>
-        <label className="field"><span>سعر البيع</span><input name="salePrice" required type="number" min="0" step="0.01" inputMode="decimal" /></label>
-        <label className="field"><span>متوسط التكلفة</span><input name="averageCost" type="number" min="0" step="0.01" defaultValue="0" inputMode="decimal" /></label>
+        <label className="field"><span>التصنيف</span><input name="category" placeholder="مكونات، خضار، إلكترونيات..." /></label>
+        <label className="field"><span>وحدة المخزون / البيع</span><select name="unit" defaultValue="حبة"><option value="حبة">حبة / قطعة</option><option value="غرام">غرام</option><option value="كيلو">كيلو</option><option value="مل">مل</option><option value="لتر">لتر</option><option value="شريحة">شريحة</option><option value="رغيف">رغيف</option><option value="باك">باك</option><option value="كرتون">كرتون</option><option value="كيس">كيس</option><option value="صندوق">صندوق</option></select></label>
+        <label className="field"><span>سعر البيع</span><input name="salePrice" required type="number" min="0" step="0.01" inputMode="decimal" /><small>للمكوّن غير المباع مباشرة يمكن أن يكون 0.</small></label>
+        <label className="field"><span>متوسط التكلفة لكل وحدة مخزون</span><input name="averageCost" type="number" min="0" step="0.0001" defaultValue="0" inputMode="decimal" /></label>
         <label className="field"><span>الرصيد الحالي</span><input name="quantity" type="number" min="0" step="0.001" defaultValue="0" inputMode="decimal" /></label>
         <label className="field"><span>نقطة إعادة الطلب</span><input name="reorderPoint" type="number" min="0" step="0.001" defaultValue="0" inputMode="decimal" /></label>
         <label className="field"><span>التغطية المستهدفة بالأيام</span><input name="targetCoverageDays" type="number" min="1" max="60" defaultValue="7" inputMode="numeric" /></label>

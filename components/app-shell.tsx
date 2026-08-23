@@ -10,6 +10,7 @@ import {
   Bell,
   Boxes,
   Calculator,
+  ChefHat,
   ChevronDown,
   CircleUserRound,
   ClipboardCheck,
@@ -29,6 +30,7 @@ import {
   Sparkles,
   Store,
   Tags,
+  Trash2,
   UsersRound,
   WalletCards,
   X,
@@ -52,6 +54,9 @@ const smartPrice: NavItem = { href: "/alerts", label: "السعر الأذكى",
 const smartAlerts: NavItem = { href: "/smart-alerts", label: "التنبيهات الذكية", icon: Bell };
 const inventory: NavItem = { href: "/inventory", label: "المخزون", icon: Boxes };
 const inventoryAudit: NavItem = { href: "/inventory/audit", label: "الجرد", icon: ClipboardCheck };
+const recipes: NavItem = { href: "/recipes", label: "الوصفات والمكونات", icon: ChefHat };
+const waste: NavItem = { href: "/inventory/waste", label: "الهدر والتالف", icon: Trash2 };
+const dayClosing: NavItem = { href: "/inventory/closing", label: "إقفال نهاية اليوم", icon: ClipboardCheck };
 const sales: NavItem = { href: "/sales", label: "الكاشير", icon: ShoppingCart };
 const salesAnalytics: NavItem = { href: "/sales/analytics", label: "تحليلات المبيعات", icon: BarChart3 };
 const purchases: NavItem = { href: "/purchases", label: "المشتريات", icon: ShoppingBasket };
@@ -86,6 +91,9 @@ const retailerOperations: NavItem[] = [
   orders,
   inventory,
   inventoryAudit,
+  recipes,
+  waste,
+  dayClosing,
   sales,
   salesAnalytics,
   activityCenter,
@@ -157,7 +165,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       const operations: NavItem[] = [];
       const management: NavItem[] = [];
       if (permissions.has("CASHIER")) operations.push(sales, salesAnalytics);
-      if (permissions.has("INVENTORY")) operations.push(inventory, inventoryAudit);
+      if (permissions.has("INVENTORY")) operations.push(inventory, inventoryAudit, recipes, waste, dayClosing);
       if (permissions.has("PURCHASES")) operations.push(market, smartBuy, reorder, orders, purchases);
       if (permissions.has("ACCOUNTING")) management.push(accounting);
       const all = [...operations, ...management];
@@ -298,7 +306,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="sidebarInsightIcon"><PackageCheck size={18} /></div>
           <div>
             <strong>{isStaff ? "دخول حسب صلاحياتك" : navigation.mode === "supplier" ? "مخزونك متصل بالسوق" : "تِجرا يساعدك في القرار"}</strong>
-            <span>{isStaff ? "يعرض تِجرا فقط الأقسام المسموحة لهذا الحساب." : navigation.mode === "supplier" ? "الجرد والإخراج والتحديثات محفوظة باسم الموظف." : "خطة أسبوعية، إعادة طلب، مقارنة موردين، وكاشير ومخزون في مكان واحد."}</span>
+            <span>{isStaff ? "يعرض تِجرا فقط الأقسام المسموحة لهذا الحساب." : navigation.mode === "supplier" ? "الجرد والإخراج والتحديثات محفوظة باسم الموظف." : "خطة أسبوعية، إعادة طلب، وصفات ومكونات، وكاشير ومخزون في مكان واحد."}</span>
           </div>
         </div>
 
