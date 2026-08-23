@@ -34,7 +34,7 @@ type SalePlan = {
 
 export async function recordSale(input: RecordSaleInput) {
   return db.$transaction(async (tx) => {
-    const productIds = Array.from(new Set(input.items.map((item) => item.productId));
+    const productIds = Array.from(new Set(input.items.map((item) => item.productId)));
     const products = await tx.product.findMany({
       where: { businessId: input.businessId, id: { in: productIds }, active: true },
     });
