@@ -42,6 +42,7 @@ import { TijraLogo } from "@/components/tijra-logo";
 type Permission = "CASHIER" | "INVENTORY" | "PURCHASES" | "ACCOUNTING";
 type TradeMode = "retailer" | "supplier";
 type NavItem = { href: string; label: string; icon: LucideIcon; badge?: string };
+type NavSection = { label: string; items: NavItem[] };
 
 const home: NavItem = { href: "/", label: "الرئيسية", icon: LayoutDashboard };
 const market: NavItem = { href: "/marketplace", label: "السوق", icon: ShoppingBag };
@@ -90,84 +91,6 @@ const accounting: NavItem = { href: "/accounting", label: "التقارير", ic
 const employees: NavItem = { href: "/employees", label: "الموظفون", icon: UsersRound };
 const payroll: NavItem = { href: "/payroll", label: "الرواتب", icon: WalletCards };
 
-const retailerOperations: NavItem[] = [
-  home,
-  market,
-  smartBuy,
-  reorder,
-  catalog,
-  marketplaceSuppliers,
-  smartPrice,
-  smartAlerts,
-  purchases,
-  orders,
-  receiving,
-  returns,
-  inventory,
-  inventoryAudit,
-  locations,
-  units,
-  batches,
-  productSettings,
-  movements,
-  recipes,
-  waste,
-  dayClosing,
-  sales,
-  shifts,
-  salesAnalytics,
-  activityCenter,
-];
-const retailerManagement: NavItem[] = [controlCenter, { ...accounting, label: "الملخص المالي" }, employees, payroll];
-const supplierOperations: NavItem[] = [
-  home,
-  sellerProducts,
-  importProducts,
-  stockUpdate,
-  stockCount,
-  supplierPicking,
-  sellerOrders,
-  externalSale,
-  sales,
-  shifts,
-  salesAnalytics,
-  inventory,
-  receiving,
-  returns,
-  locations,
-  units,
-  batches,
-  productSettings,
-  movements,
-  customers,
-  dormantCustomers,
-  supplierPricing,
-  supplierPrice,
-  supplierForecast,
-  supplierAlerts,
-  supplierActivity,
-];
-const supplierManagement: NavItem[] = [controlCenter, accounting, employees, payroll];
-
-type Viewer = {
-  user: { name: string; email: string };
-  membership: { role: string; permissions: Permission[] };
-  business: { name: string; businessType: "RETAILER" | "SUPPLIER" | "BOTH" };
-};
-
-function NavLink({ href, label, icon: Icon, badge, pathname, onClick }: NavItem & { pathname: string; onClick?: () => void }) {
-  const cleanHref = href.split("#")[0].split("?")[0];
-  const hasHash = href.includes("#");
-  const active = !hasHash && (cleanHref === "/" ? pathname === "/" : cleanHref === "/marketplace/seller" ? pathname === cleanHref : pathname.startsWith(cleanHref));
-  return (
-    <Link className={`navItem ${active ? "active" : ""} ${badge ? "lockedNavItem" : ""}`} href={href} onClick={onClick}>
-      <span className="navIcon"><Icon size={18} strokeWidth={1.8} /></span>
-      <span>{label}</span>
-      {badge ? <span className="navBadge">{badge}</span> : null}
-    </Link>
-  );
-}
-
 const roleLabels: Record<string, string> = {
   OWNER: "مالك المنشأة",
   MANAGER: "مدير",
@@ -179,6 +102,79 @@ const roleLabels: Record<string, string> = {
 
 const businessTypeLabels = { RETAILER: "تاجر تجزئة", SUPPLIER: "مورد", BOTH: "مورد وتاجر" } as const;
 
+function cleanHref(href: string) {
+  return href.split("#")[0].split("?")[0];
+}
+
+function isItemActive(item: NavItem, pathname: string) {
+  const clean = cleanHref(item.href);
+  if (item.href.includes("#")) return false;
+  if (clean === "/") return pathname === "/";
+  if (clean === "/marketplace/seller") return pathname === clean;
+  return pathname.startsWith(clean);
+}
+
+function NavLink({ href, label, icon: Icon, badge, pathname, onClick }: NavItem & { pathname: string; onClick?: () => void }) {
+  const active = isItemActive({ href, label, icon: Icon, badge }, pathname);
+  return (
+    <Link className={`navItem ${active ? "active" : ""} ${badge ? "lockedNavItem" : ""}`} href={href} onClick={onClick}>
+      <span className="navIcon"><Icon size={18} strokeWidth={1.8} /></span>
+      <span>{label}</span>
+      {badge ? <span className="navBadge">{badge}</span> : null}
+    </Link>
+  );
+}
+
+function NavSectionBlock({ section, pathname, onNavigate }: { section: NavSection; pathname: string; onNavigate: () => void }) {
+  if (!section.items.length) return null;
+  const active = section.items.some((item) => isItemActive(item, pathname));
+  return (
+    <details className="navSection" open={active || undefined}>
+      <summary><span>{section.label}</span><ChevronDown size={16} /></summary>
+      <div className="navSectionItems">
+        {section.items.map((item) => <NavLink key={`${item.href}-${item.label}`} {...item} pathname={pathname} onClick={onNavigate} />)}
+      </div>
+    </details>
+  );
+}
+
+function retailerSections(isOwner: boolean): NavSection[] {
+  return [
+    { label: "البيع", items: [sales, shifts] },
+    { label: "المخزون والتشغيل", items: [inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, waste, dayClosing, ...(isOwner ? [recipes] : [])] },
+    { label: "الشراء والسوق", items: [market, smartBuy, reorder, catalog, marketplaceSuppliers, smartPrice, smartAlerts, purchases, orders] },
+    { label: "الإدارة", items: [...(isOwner ? [salesAnalytics, controlCenter] : []), activityCenter, { ...accounting, label: "الملخص المالي" }, employees, payroll] },
+  ];
+}
+
+function supplierSections(isOwner: boolean): NavSection[] {
+  return [
+    { label: "البيع والطلبات", items: [sales, shifts, sellerOrders, supplierPicking, externalSale] },
+    { label: "المخزون", items: [sellerProducts, importProducts, stockUpdate, stockCount, inventory, receiving, returns, locations, units, batches, productSettings, movements] },
+    { label: "التجار والتسعير", items: [customers, dormantCustomers, supplierPricing, supplierPrice, supplierForecast, supplierAlerts] },
+    { label: "الإدارة", items: [...(isOwner ? [salesAnalytics, controlCenter] : []), supplierActivity, accounting, employees, payroll] },
+  ];
+}
+
+function staffSections(permissions: Set<Permission>, businessType: "RETAILER" | "SUPPLIER" | "BOTH"): NavSection[] {
+  const sections: NavSection[] = [];
+  if (permissions.has("CASHIER")) sections.push({ label: "البيع", items: [sales, shifts] });
+  if (permissions.has("INVENTORY")) {
+    const items = [inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, waste, dayClosing];
+    if (businessType === "SUPPLIER" || businessType === "BOTH") items.push(stockUpdate, stockCount, supplierPicking);
+    sections.push({ label: "المخزون والتشغيل", items });
+  }
+  if (permissions.has("PURCHASES")) sections.push({ label: "المشتريات", items: [market, smartBuy, reorder, orders, purchases] });
+  if (permissions.has("ACCOUNTING")) sections.push({ label: "التقارير", items: [accounting] });
+  return sections;
+}
+
+type Viewer = {
+  user: { name: string; email: string };
+  membership: { role: string; permissions: Permission[] };
+  business: { name: string; businessType: "RETAILER" | "SUPPLIER" | "BOTH" };
+};
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -189,30 +185,29 @@ export function AppShell({ children }: { children: ReactNode }) {
   const publicPage = pathname === "/login" || pathname === "/register" || pathname.startsWith("/supplier/order/");
 
   const navigation = useMemo(() => {
-    if (!viewer) return { operations: [] as NavItem[], management: [] as NavItem[], mobile: [] as NavItem[], homeHref: "/", allowedHrefs: undefined as string[] | undefined, quick: null as NavItem | null, mode: "retailer" as TradeMode };
+    if (!viewer) return {
+      sections: [] as NavSection[],
+      homeItem: null as NavItem | null,
+      homeHref: "/",
+      allowedHrefs: undefined as string[] | undefined,
+      quick: null as NavItem | null,
+      mode: "retailer" as TradeMode,
+    };
 
     const businessType = viewer.business.businessType;
     const isStaff = viewer.membership.role === "STAFF";
+    const isOwner = viewer.membership.role === "OWNER";
     const permissions = new Set(viewer.membership.permissions ?? []);
 
     if (isStaff) {
-      const operations: NavItem[] = [];
-      const management: NavItem[] = [];
-      if (permissions.has("CASHIER")) operations.push(sales, shifts, salesAnalytics);
-      if (permissions.has("INVENTORY")) {
-        operations.push(inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, recipes, waste, dayClosing);
-        if (businessType === "SUPPLIER" || businessType === "BOTH") operations.push(stockUpdate, stockCount, supplierPicking, supplierPricing, supplierForecast);
-      }
-      if (permissions.has("PURCHASES")) operations.push(market, smartBuy, reorder, orders, purchases);
-      if (permissions.has("ACCOUNTING")) management.push(accounting);
-      const all = [...operations, ...management];
+      const sections = staffSections(permissions, businessType);
+      const all = sections.flatMap((section) => section.items);
       const preferred = permissions.has("CASHIER") ? sales : permissions.has("INVENTORY") ? inventory : permissions.has("PURCHASES") ? market : permissions.has("ACCOUNTING") ? accounting : null;
       return {
-        operations,
-        management,
-        mobile: all.slice(0, 5),
+        sections,
+        homeItem: null,
         homeHref: preferred?.href ?? "/no-access",
-        allowedHrefs: Array.from(new Set(all.map((item) => item.href.split("#")[0].split("?")[0]))),
+        allowedHrefs: Array.from(new Set(all.map((item) => cleanHref(item.href)))),
         quick: preferred,
         mode: tradeMode,
       };
@@ -220,18 +215,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
     const effectiveMode: TradeMode = businessType === "SUPPLIER" ? "supplier" : businessType === "RETAILER" ? "retailer" : tradeMode;
     const homeHref = businessType === "BOTH" && effectiveMode === "supplier" ? "/?mode=supplier" : "/";
-    const modeHome: NavItem = { ...home, href: homeHref };
-    const sourceOperations = effectiveMode === "supplier" ? supplierOperations : retailerOperations;
-    const operations = sourceOperations.map((item) => item.href === "/" ? modeHome : item);
-    const management = effectiveMode === "supplier" ? supplierManagement : retailerManagement;
-    const mobile = effectiveMode === "supplier"
-      ? [modeHome, sales, sellerOrders, stockUpdate, supplierAlerts]
-      : [modeHome, market, sales, inventory, smartBuy];
+    const homeItem = { ...home, href: homeHref };
+    const sections = effectiveMode === "supplier" ? supplierSections(isOwner) : retailerSections(isOwner);
 
     return {
-      operations,
-      management,
-      mobile,
+      sections,
+      homeItem,
       homeHref,
       allowedHrefs: undefined,
       quick: effectiveMode === "supplier" ? sellerProducts : market,
@@ -328,15 +317,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         )}
 
-        <nav className="sideNav" aria-label="التنقل الرئيسي">
-          {navigation.operations.length ? <div className="navGroup">
-            <span className="navGroupLabel">{isStaff ? "صلاحيات العمل" : navigation.mode === "supplier" ? "البيع والمخزون" : "الشراء وتشغيل المتجر"}</span>
-            {navigation.operations.map((item) => <NavLink key={`${item.href}-${item.label}`} {...item} pathname={pathname} onClick={() => setOpen(false)} />)}
-          </div> : null}
-          {navigation.management.length ? <div className="navGroup">
-            <span className="navGroupLabel">الإدارة</span>
-            {navigation.management.map((item) => <NavLink key={`${item.href}-${item.label}`} {...item} pathname={pathname} onClick={() => setOpen(false)} />)}
-          </div> : null}
+        <nav className="sideNav compactSideNav" aria-label="التنقل الرئيسي">
+          {navigation.homeItem ? <div className="navHomeItem"><NavLink {...navigation.homeItem} pathname={pathname} onClick={() => setOpen(false)} /></div> : null}
+          {navigation.sections.map((section) => <NavSectionBlock key={section.label} section={section} pathname={pathname} onNavigate={() => setOpen(false)} />)}
         </nav>
 
         <div className="sidebarInsight">
@@ -371,14 +354,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="pageContent">{children}</main>
-
-        {navigation.mobile.length ? <nav className="mobileBottomNav" aria-label="التنقل على الجوال">
-          {navigation.mobile.map(({ href, label, icon: Icon, badge }) => {
-            const cleanHref = href.split("#")[0].split("?")[0];
-            const active = cleanHref === "/" ? pathname === "/" : pathname.startsWith(cleanHref);
-            return <Link key={`${href}-${label}`} className={active ? "active" : ""} href={href}>{badge ? <span className="navSoonDot" /> : null}<Icon size={19} /><span>{label}</span></Link>;
-          })}
-        </nav> : null}
       </div>
     </div>
   );
