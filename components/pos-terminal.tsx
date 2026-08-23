@@ -14,6 +14,7 @@ type RecipeComponent = {
   unit: string;
   canRemove: boolean;
   canExtra: boolean;
+  extraOnly: boolean;
   extraPrice: number;
   yieldPercent: number;
 };
@@ -59,7 +60,7 @@ function isContinuousUnit(unit: string) {
 
 function lineUnitPrice(item: CartLine) {
   return item.displayPrice + item.recipe.reduce((sum, component) => {
-    const multiplier = item.adjustments[component.id] ?? 1;
+    const multiplier = item.adjustments[component.id] ?? (component.extraOnly ? 0 : 1);
     return multiplier > 1 ? sum + component.extraPrice * (multiplier - 1) : sum;
   }, 0);
 }
@@ -131,9 +132,10 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
         setMessage(`المتاح من ${product.name} هو ${limit.toLocaleString("ar-SA")} ${displayUnit}.`);
         return current;
       }
+      const defaultAdjustments = Object.fromEntries(product.recipe.filter((component) => component.extraOnly).map((component) => [component.id, 0])) as Record<string, Adjustment>;
       return existing
         ? current.map((item) => item.cartKey === cartKey ? { ...item, qty: nextQty } : item)
-        : [...current, { ...product, cartKey, qty: increment, factor, displayUnit, displayPrice, adjustments: {}, serialText: "" }];
+        : [...current, { ...product, cartKey, qty: increment, factor, displayUnit, displayPrice, adjustments: defaultAdjustments, serialText: "" }];
     });
   }
 
@@ -206,8 +208,9 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
   function toggleAdjustment(cartKey: string, component: RecipeComponent, target: Adjustment) {
     setCart((current) => current.map((item) => {
       if (item.cartKey !== cartKey) return item;
-      const currentValue = item.adjustments[component.id] ?? 1;
-      const next = currentValue === target ? 1 : target;
+      const defaultValue: Adjustment = component.extraOnly ? 0 : 1;
+      const currentValue = item.adjustments[component.id] ?? defaultValue;
+      const next = currentValue === target ? defaultValue : target;
       return { ...item, adjustments: { ...item.adjustments, [component.id]: next } };
     }));
   }
@@ -313,9 +316,9 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
                 <div className="grow"><strong>{item.name}</strong><span>{formatSar(unitPrice)} لكل {item.displayUnit}</span>
                   {visibleModifiers.length ? <div className="recipeModifiers cashierExtras">
                     {visibleModifiers.map((component) => {
-                      const value = item.adjustments[component.id] ?? 1;
+                      const value = item.adjustments[component.id] ?? (component.extraOnly ? 0 : 1);
                       return <div className="modifierGroup" key={component.id}><span>{component.ingredientName}</span>
-                        {component.canRemove ? <button type="button" className={value === 0 ? "active danger" : ""} onClick={() => toggleAdjustment(item.cartKey, component, 0)}>بدون</button> : null}
+                        {!component.extraOnly && component.canRemove ? <button type="button" className={value === 0 ? "active danger" : ""} onClick={() => toggleAdjustment(item.cartKey, component, 0)}>بدون</button> : null}
                         {component.canExtra ? <button type="button" className={value === 2 ? "active" : ""} onClick={() => toggleAdjustment(item.cartKey, component, 2)}>إضافة{component.extraPrice ? ` +${component.extraPrice.toLocaleString("ar-SA")}` : ""}</button> : null}
                       </div>;
                     })}
