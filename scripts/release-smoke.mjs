@@ -102,7 +102,7 @@ async function groceryAndStaffFlow() {
   assert(recipesDenied.response.status === 403, `grocery recipes should be forbidden, got ${recipesDenied.response.status}`);
 
   const ownerProductsPage = await html(owner.cookie, "/products");
-  assert(!ownerProductsPage.includes('href="/recipes"'), "grocery products page unexpectedly exposes recipes");
+  assert(!ownerProductsPage.includes("المكونات والإضافات"), "grocery products page unexpectedly exposes recipe settings");
 
   const staffEmail = `${unique("cashier")}@smoke.tijra.test`;
   await expectJson("/api/employees", {
@@ -221,7 +221,7 @@ async function restaurantFlow() {
   }, 200);
 
   const productsPage = await html(owner.cookie, "/products");
-  assert(productsPage.includes('href="/recipes"'), "restaurant products page should expose recipe settings");
+  assert(productsPage.includes("المكونات والإضافات"), "restaurant products page should expose recipe settings");
   const cashierPage = await html(owner.cookie, "/sales");
   assert(cashierPage.includes("اختر المنتج من الصور"), "restaurant cashier did not render image-menu experience");
   assert(!cashierPage.includes("18 غرام"), "cashier page leaked recipe quantity details");
