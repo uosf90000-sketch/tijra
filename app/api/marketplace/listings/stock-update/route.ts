@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
+import { syncProductForListing } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
 
 const schema = z.object({
@@ -35,6 +36,22 @@ export async function POST(request: Request) {
       if (newQuantity < 0) throw new Error("INSUFFICIENT_STOCK");
 
       const updated = await tx.marketplaceListing.update({ where: { id: listing.id }, data: { quantity: newQuantity } });
+      const internalProduct = await syncProductForListing(tx, { businessId: context.business.id, listing, delta });
+      if (internalProduct) {
+        await tx.stockMovement.create({
+          data: {
+            businessId: context.business.id,
+            productId: internalProduct.id,
+            type: delta > 0 ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT",
+            quantity: delta,
+            unitCost: internalProduct.averageCost,
+            sourceType: "SUPPLIER_BARCODE_UPDATE",
+            sourceId: listing.id,
+            note: delta > 0 ? "إضافة بالباركود إلى مخزون المورد" : "إخراج بالباركود من مخزون المورد",
+          },
+        });
+      }
+
       const event = await tx.inventoryAuditEvent.create({
         data: {
           businessId: context.business.id,
@@ -47,14 +64,14 @@ export async function POST(request: Request) {
           actorUserId: context.user.id,
           actorName: context.user.name,
           actorRole: context.membership.role,
-          note: delta > 0 ? "إضافة سريعة للمخزون" : "إخراج سريع من المخزون",
+          note: delta > 0 ? "إضافة سريعة للمخزون بالباركود" : "إخراج سريع من المخزون بالباركود",
         },
       });
 
-      return { updated, event };
+      return { updated, event, internalProduct };
     });
 
-    return NextResponse.json({ listing: result.updated, event: result.event, delta });
+    return NextResponse.json({ listing: result.updated, event: result.event, delta, internalProductSynced: Boolean(result.internalProduct) });
   } catch (error) {
     const code = error instanceof Error ? error.message : "STOCK_UPDATE_FAILED";
     const status = code === "LISTING_NOT_FOUND" ? 404 : code === "INSUFFICIENT_STOCK" ? 409 : 500;
