@@ -218,7 +218,36 @@ export async function DELETE(request: Request) {
   });
   if (!existing) return NextResponse.json({ error: "RECIPE_COMPONENT_NOT_FOUND" }, { status: 404 });
 
-  await db.$transaction([
+  const existingConfig = decodeRecipeNote(existing.note);
+  let targetToRestore: { id: string; note: string | null } | null = null;
+  if (existingConfig.extraOnly && existingConfig.replacesComponentId) {
+    const siblings = await db.inventoryAuditEvent.findMany({
+      where: {
+        businessId: auth.context.business.id,
+        action: "RECIPE_COMPONENT",
+        listingId: saleProductId,
+        id: { not: existing.id },
+      },
+      select: { id: true, note: true },
+    });
+    const hasAnotherAlternative = siblings.some((row) => {
+      const config = decodeRecipeNote(row.note);
+      return config.extraOnly && config.replacesComponentId === existingConfig.replacesComponentId;
+    });
+    if (!hasAnotherAlternative) {
+      targetToRestore = await db.inventoryAuditEvent.findFirst({
+        where: {
+          id: existingConfig.replacesComponentId,
+          businessId: auth.context.business.id,
+          action: "RECIPE_COMPONENT",
+          listingId: saleProductId,
+        },
+        select: { id: true, note: true },
+      });
+    }
+  }
+
+  const operations = [
     db.inventoryAuditEvent.delete({ where: { id: existing.id } }),
     db.inventoryAuditEvent.create({
       data: {
@@ -233,7 +262,28 @@ export async function DELETE(request: Request) {
         note: "حذف مكوّن من الوصفة",
       },
     }),
-  ]);
+  ];
 
+  if (targetToRestore) {
+    const targetConfig = decodeRecipeNote(targetToRestore.note);
+    operations.push(db.inventoryAuditEvent.update({
+      where: { id: targetToRestore.id },
+      data: {
+        note: JSON.stringify({
+          unit: targetConfig.unit,
+          canRemove: false,
+          canExtra: targetConfig.canExtra,
+          extraOnly: targetConfig.extraOnly,
+          replacesComponentId: targetConfig.replacesComponentId,
+        }),
+        actorUserId: auth.context.user.id,
+        actorName: auth.context.user.name,
+        actorRole: auth.context.membership.role,
+        occurredAt: new Date(),
+      },
+    }));
+  }
+
+  await db.$transaction(operations);
   return NextResponse.json({ ok: true });
 }
