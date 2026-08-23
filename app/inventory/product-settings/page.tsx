@@ -3,6 +3,7 @@ import { Boxes, ChefHat, Scale, ScanLine } from "lucide-react";
 import { ActivityProductConfigForm } from "@/components/activity-product-config-form";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
+import { firstPermissionHref } from "@/lib/access";
 import { getSessionContext } from "@/lib/auth";
 import { isFoodActivity } from "@/lib/business-experience";
 import { safeJson } from "@/lib/commerce-ops";
@@ -15,6 +16,7 @@ const modeLabels: Record<string, string> = { STANDARD: "قطعة / كمية", WE
 
 export default async function ProductSettingsPage() {
   const context = await getSessionContext(); if (!context) redirect("/login");
+  if (context.membership.role !== "OWNER") redirect(firstPermissionHref(context.membership));
   const foodBusiness = isFoodActivity(context.business.businessActivity);
   const [products, configs] = await Promise.all([
     db.product.findMany({ where: { businessId: context.business.id, active: true }, select: { id: true, name: true, barcode: true, unit: true, quantity: true }, orderBy: { name: "asc" }, take: 1500 }),
