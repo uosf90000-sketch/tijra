@@ -33,6 +33,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireApiPermission("INVENTORY");
   if (auth.response) return auth.response;
+  if (auth.context.membership.role !== "OWNER") return NextResponse.json({ error: "OWNER_REQUIRED" }, { status: 403 });
 
   const parsed = productSchema.safeParse(await request.json());
   if (!parsed.success) {

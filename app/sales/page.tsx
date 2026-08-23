@@ -4,8 +4,9 @@ import { BarChart3, Banknote, ChefHat, Clock3, ReceiptText, TrendingUp } from "l
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { PosTerminal } from "@/components/pos-terminal";
-import { ensureDefaultLocation, listUnitConversions, safeJson } from "@/lib/commerce-ops";
 import { getSessionContext } from "@/lib/auth";
+import { isFoodActivity, posExperienceFor } from "@/lib/business-experience";
+import { ensureDefaultLocation, listUnitConversions, safeJson } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
 import { loadRecipesForBusiness, recipeMaxServings } from "@/lib/recipes";
@@ -15,21 +16,31 @@ export const dynamic = "force-dynamic";
 
 const paymentLabels: Record<string, string> = { CASH: "نقدي", CARD: "بطاقة", TRANSFER: "تحويل", OTHER: "أخرى" };
 
+function cashierCopy(activity: string) {
+  const experience = posExperienceFor(activity);
+  if (experience === "MENU") return { title: "اختر المنتج من الصور وأتم الطلب", note: "المنتجات والإضافات فقط. الوصفات والتكلفة تبقى في حساب المالك." };
+  if (experience === "PART_LOOKUP") return { title: "ابحث برقم القطعة ثم امسح الباركود", note: "البحث للتأكد من القطعة والمتوفر فقط، والبيع يتم بالباركود مثل كاشير البقالة." };
+  if (experience === "BARCODE") return { title: "امسح البضاعة وأتم البيع", note: "الباركود، الكمية والمبلغ فقط. التقارير والأرباح تبقى في حساب المالك." };
+  return { title: "ابحث عن المنتج وأتم البيع", note: "واجهة بيع بسيطة حسب نشاط المنشأة." };
+}
+
 export default async function SalesPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
 
   const businessId = context.business.id;
+  const activity = context.business.businessActivity;
+  const foodBusiness = isFoodActivity(activity);
   const isOwner = context.membership.role === "OWNER";
   const isStaff = context.membership.role === "STAFF";
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const defaultLocation = await ensureDefaultLocation(businessId);
 
-  const [products, recentSales, todayAggregate, recipeMap] = await Promise.all([
+  const [products, recentSales, todayAggregate] = await Promise.all([
     db.product.findMany({
       where: { businessId, active: true },
-      select: { id: true, name: true, barcode: true, salePrice: true, quantity: true, unit: true },
+      select: { id: true, name: true, sku: true, barcode: true, imageUrl: true, salePrice: true, quantity: true, unit: true },
       orderBy: { name: "asc" },
     }),
     isStaff ? Promise.resolve([]) : db.sale.findMany({
@@ -43,8 +54,8 @@ export default async function SalesPage() {
       _sum: { total: true, costTotal: true },
       _count: { _all: true },
     }),
-    loadRecipesForBusiness(businessId),
   ]);
+  const recipeMap = foodBusiness ? await loadRecipesForBusiness(businessId) : new Map<string, never[]>();
 
   const productIds = products.map((item) => item.id);
   const [conversions, configRows, serialRows] = await Promise.all([
@@ -72,20 +83,24 @@ export default async function SalesPage() {
   const costTotal = Number(todayAggregate._sum.costTotal ?? 0);
   const grossProfit = salesTotal - costTotal;
   const count = todayAggregate._count._all;
+  const cashierProducts = foodBusiness ? products.filter((item) => Number(item.salePrice) > 0) : products;
 
-  const posProducts = products.map((item) => {
+  const posProducts = cashierProducts.map((item) => {
     const recipe = recipeMap.get(item.id) ?? [];
     const config = configMap.get(item.id) ?? {};
     const saleMode = config.saleMode || (recipe.length ? "RECIPE" : "STANDARD");
     const serials = serialMap.get(item.id) ?? [];
+    const maxServings = recipe.length ? recipeMaxServings(recipe) : 0;
     const availableQuantity = saleMode === "SERVICE" ? 100000000
-      : recipe.length ? Math.floor(recipeMaxServings(recipe))
+      : recipe.length ? (Number.isFinite(maxServings) ? Math.floor(maxServings) : 100000000)
       : saleMode === "SERIAL" && serials.length ? Math.min(Number(item.quantity), serials.length)
       : Number(item.quantity);
     return {
       id: item.id,
       name: item.name,
+      sku: item.sku,
       barcode: item.barcode,
+      imageUrl: item.imageUrl,
       salePrice: Number(item.salePrice),
       quantity: Number(item.quantity),
       availableQuantity,
@@ -109,6 +124,7 @@ export default async function SalesPage() {
         unit: component.unit,
         canRemove: component.canRemove,
         canExtra: component.canExtra,
+        extraOnly: Boolean(component.extraOnly),
         extraPrice: component.extraPrice,
         yieldPercent: component.yieldPercent,
       })),
@@ -116,40 +132,50 @@ export default async function SalesPage() {
   });
 
   if (isStaff) {
+    const copy = cashierCopy(activity);
     return (
       <section className="staffTaskPage">
         <div className="staffPageIntro">
           <span>الكاشير</span>
-          <h1>امسح البضاعة وأتم البيع</h1>
-          <p>الكاميرا، البضاعة، الكمية والمبلغ فقط. التقارير والأرباح تبقى في حساب المالك.</p>
+          <h1>{copy.title}</h1>
+          <p>{copy.note}</p>
         </div>
         <div className="staffPosMode">
-          <PosTerminal products={posProducts} locationId={defaultLocation.id} businessActivity={context.business.businessActivity} />
+          <PosTerminal products={posProducts} locationId={defaultLocation.id} businessActivity={activity} />
         </div>
       </section>
     );
   }
+
+  const experience = posExperienceFor(activity);
+  const description = experience === "MENU"
+    ? "صور المنتجات والإضافات أمام الكاشير، بينما المكونات والخصم من المخزون تعمل تلقائيًا في الخلفية."
+    : experience === "PART_LOOKUP"
+      ? "ابحث برقم القطعة للتأكد من توفرها، ثم امسح باركود القطعة لإضافتها للسلة وإتمام البيع مثل البقالة."
+      : experience === "BARCODE"
+        ? "امسح الباركود، حدد الكمية وأتم البيع؛ المخزون يتحدث فورًا."
+        : "نقطة بيع تتكيف مع نشاط المنشأة وتحدث المخزون تلقائيًا.";
 
   return (
     <>
       <PageHeader
         eyebrow="نقطة البيع"
         title="الكاشير"
-        description="قطعة، وزن، كرتون، وصفة، خدمة أو جهاز برقم Serial/IMEI — وكل بيع ينعكس فورًا على المخزون والحركة."
+        description={description}
         actions={<div className="pageActionGroup">
           <Link className="button secondary" href="/sales/shifts"><Clock3 size={17} /> الورديات</Link>
-          {isOwner ? <Link className="button secondary" href="/recipes"><ChefHat size={17} /> إعداد الوصفات</Link> : null}
+          {isOwner && foodBusiness ? <Link className="button secondary" href="/recipes"><ChefHat size={17} /> المكونات والإضافات</Link> : null}
           {isOwner ? <Link className="button secondary" href="/sales/analytics"><BarChart3 size={17} /> التحليلات</Link> : null}
         </div>}
       />
 
       {isOwner ? <section className="metricsGrid three ownerOnlyMetrics">
         <MetricCard label="مبيعات اليوم" value={formatSar(salesTotal)} note={`${count} فواتير`} icon={TrendingUp} />
-        <MetricCard label="مجمل الربح اليوم" value={formatSar(grossProfit)} note="يشمل تكلفة مكونات الوصفات" icon={Banknote} tone="blue" />
+        <MetricCard label="مجمل الربح اليوم" value={formatSar(grossProfit)} note={foodBusiness ? "يشمل تكلفة المكونات" : "بعد تكلفة البضاعة"} icon={Banknote} tone="blue" />
         <MetricCard label="متوسط الفاتورة" value={formatSar(count ? salesTotal / count : 0)} note="لعمليات اليوم" icon={ReceiptText} tone="violet" />
       </section> : null}
 
-      <PosTerminal products={posProducts} locationId={defaultLocation.id} businessActivity={context.business.businessActivity} />
+      <PosTerminal products={posProducts} locationId={defaultLocation.id} businessActivity={activity} />
 
       <section className="panel tablePanel">
         <div className="panelHeader tableHeader"><div><span className="eyebrow">السجل</span><h2>آخر الفواتير</h2></div></div>

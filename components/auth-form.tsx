@@ -16,7 +16,7 @@ const activities = [
   ["CAFE", "مقهى"],
   ["FASHION", "ملابس"],
   ["BEAUTY", "عناية وتجميل"],
-  ["HARDWARE", "أدوات ومواد"],
+  ["HARDWARE", "قطع غيار وأدوات"],
   ["OFFICE", "مكتبة ومستلزمات مكتبية"],
   ["OTHER", "نشاط آخر"],
 ] as const;
