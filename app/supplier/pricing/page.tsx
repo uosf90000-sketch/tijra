@@ -3,6 +3,7 @@ import { BadgePercent, Tags, UsersRound } from "lucide-react";
 import { PriceTierForm } from "@/components/commerce-forms";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
+import { firstPermissionHref, hasAppPermission } from "@/lib/access";
 import { safeJson } from "@/lib/commerce-ops";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -14,6 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function SupplierPricingPage() {
   const context = await getSessionContext(); if (!context) redirect("/login");
   if (!["SUPPLIER", "BOTH"].includes(context.business.businessType)) redirect("/");
+  if (!hasAppPermission(context.membership, "INVENTORY")) redirect(firstPermissionHref(context.membership));
   const [listings, orders, tiers] = await Promise.all([
     db.marketplaceListing.findMany({ where: { sellerBusinessId: context.business.id, active: true }, orderBy: { name: "asc" }, take: 1000 }),
     db.marketplaceOrder.findMany({ where: { sellerBusinessId: context.business.id }, include: { buyer: true }, orderBy: { createdAt: "desc" }, take: 1000 }),
