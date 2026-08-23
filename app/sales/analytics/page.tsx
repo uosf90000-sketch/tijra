@@ -25,6 +25,8 @@ const labels: Record<Range, string> = { day: "اليوم", week: "آخر 7 أي�
 export default async function SalesAnalyticsPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (context.membership.role !== "OWNER") redirect("/sales");
+
   const params = await searchParams;
   const range: Range = params.range === "week" || params.range === "month" ? params.range : "day";
   const since = rangeStart(range);
@@ -76,7 +78,7 @@ export default async function SalesAnalyticsPage({ searchParams }: { searchParam
 
   return (
     <>
-      <PageHeader eyebrow="الكاشير" title="تحليلات المبيعات" description={`قراءة ${labels[range]}: المبيعات، المنتجات، الأيام، وأداء الموظفين.`} actions={<Link className="button secondary" href="/sales"><BarChart3 size={17} /> رجوع للكاشير</Link>} />
+      <PageHeader eyebrow="لوحة المالك" title="تحليلات المبيعات" description={`قراءة ${labels[range]}: المبيعات، المنتجات، الأيام، وأداء الموظفين.`} actions={<Link className="button secondary" href="/sales"><BarChart3 size={17} /> رجوع للكاشير</Link>} />
       <div className="rangeTabs">{(["day", "week", "month"] as Range[]).map((item) => <Link key={item} className={range === item ? "active" : ""} href={`/sales/analytics?range=${item}`}>{labels[item]}</Link>)}</div>
       <section className="metricsGrid four">
         <MetricCard label="إجمالي المبيعات" value={formatSar(total)} note={`${invoiceCount} فاتورة`} icon={TrendingUp} />
