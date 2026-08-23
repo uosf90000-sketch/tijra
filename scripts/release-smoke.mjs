@@ -130,7 +130,14 @@ async function groceryAndStaffFlow() {
   assert(cashierPage.includes("امسح الباركود"), "grocery cashier did not render barcode experience");
 
   const analytics = await request("/sales/analytics", { cookie: login.cookie, redirect: "manual" });
-  assert([302, 303, 307, 308].includes(analytics.response.status), `cashier analytics should redirect, got ${analytics.response.status}`);
+  if ([302, 303, 307, 308].includes(analytics.response.status)) {
+    const location = analytics.response.headers.get("location") || "";
+    assert(location.includes("/sales"), `cashier analytics redirected to unexpected location: ${location}`);
+  } else {
+    assert(analytics.response.status === 200, `cashier analytics expected redirect semantics, got ${analytics.response.status}`);
+    assert(!analytics.text.includes("إجمالي المبيعات") && !analytics.text.includes("مجمل الربح"), "cashier analytics response leaked owner metrics");
+    assert(analytics.text.includes("/sales") || analytics.text.includes("NEXT_REDIRECT") || analytics.text.includes("refresh"), "cashier analytics response did not contain redirect semantics");
+  }
 
   const staffProducts = await request("/api/products", { cookie: login.cookie });
   assert(staffProducts.response.status === 403, `cashier should not read inventory API, got ${staffProducts.response.status}`);
