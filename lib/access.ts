@@ -33,8 +33,8 @@ export function hasAnyAppPermission(membership: AccessMembership, permissions: r
 
 export function firstPermissionHref(membership: AccessMembership) {
   if (hasAppPermission(membership, "CASHIER")) return "/sales";
-  if (hasAppPermission(membership, "INVENTORY")) return "/inventory";
-  if (hasAppPermission(membership, "PURCHASES")) return "/marketplace";
+  if (hasAppPermission(membership, "INVENTORY")) return membership.role === "STAFF" ? "/staff/inventory" : "/inventory";
+  if (hasAppPermission(membership, "PURCHASES")) return membership.role === "STAFF" ? "/marketplace/orders" : "/marketplace";
   if (hasAppPermission(membership, "ACCOUNTING")) return "/accounting";
   return "/no-access";
 }

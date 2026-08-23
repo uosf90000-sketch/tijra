@@ -71,6 +71,7 @@ const shifts: NavItem = { href: "/sales/shifts", label: "الورديات", icon
 const purchases: NavItem = { href: "/purchases", label: "المشتريات", icon: ShoppingBasket };
 const activityCenter: NavItem = { href: "/activity", label: "مركز النشاط", icon: Activity };
 const controlCenter: NavItem = { href: "/control-center", label: "مركز الرقابة", icon: Bell };
+const staffInventory: NavItem = { href: "/staff/inventory", label: "إدخال وإخراج المخزون", icon: ScanBarcode };
 
 const sellerProducts: NavItem = { href: "/marketplace/seller", label: "المنتجات", icon: Store };
 const importProducts: NavItem = { href: "/supplier/import", label: "استيراد Excel / CSV", icon: FileSpreadsheet };
@@ -158,14 +159,14 @@ function supplierSections(isOwner: boolean): NavSection[] {
 
 function staffSections(permissions: Set<Permission>, businessType: "RETAILER" | "SUPPLIER" | "BOTH"): NavSection[] {
   const sections: NavSection[] = [];
-  if (permissions.has("CASHIER")) sections.push({ label: "البيع", items: [sales, shifts] });
+  if (permissions.has("CASHIER")) sections.push({ label: "مهمتك", items: [sales] });
   if (permissions.has("INVENTORY")) {
-    const items = [inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, waste, dayClosing];
-    if (businessType === "SUPPLIER" || businessType === "BOTH") items.push(stockUpdate, stockCount, supplierPicking);
-    sections.push({ label: "المخزون والتشغيل", items });
+    const items = [staffInventory];
+    if (businessType === "SUPPLIER" || businessType === "BOTH") items.push(supplierPicking);
+    sections.push({ label: "المخزون", items });
   }
-  if (permissions.has("PURCHASES")) sections.push({ label: "المشتريات", items: [market, smartBuy, reorder, orders, purchases] });
-  if (permissions.has("ACCOUNTING")) sections.push({ label: "التقارير", items: [accounting] });
+  if (permissions.has("PURCHASES")) sections.push({ label: "الطلبات", items: [orders] });
+  if (permissions.has("ACCOUNTING")) sections.push({ label: "المحاسبة", items: [accounting] });
   return sections;
 }
 
@@ -202,7 +203,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (isStaff) {
       const sections = staffSections(permissions, businessType);
       const all = sections.flatMap((section) => section.items);
-      const preferred = permissions.has("CASHIER") ? sales : permissions.has("INVENTORY") ? inventory : permissions.has("PURCHASES") ? market : permissions.has("ACCOUNTING") ? accounting : null;
+      const preferred = permissions.has("CASHIER") ? sales : permissions.has("INVENTORY") ? staffInventory : permissions.has("PURCHASES") ? orders : permissions.has("ACCOUNTING") ? accounting : null;
       return {
         sections,
         homeItem: null,
@@ -245,7 +246,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           const saved = window.localStorage.getItem("tijra-trade-mode");
           const mode = saved === "supplier" ? "supplier" : "retailer";
           setTradeMode(mode);
-          if (mode === "supplier" && pathname === "/" && !window.location.search.includes("mode=supplier")) {
+          if (data.membership?.role !== "STAFF" && mode === "supplier" && pathname === "/" && !window.location.search.includes("mode=supplier")) {
             router.replace("/?mode=supplier");
           }
         } else if (data.business?.businessType === "SUPPLIER") {
@@ -258,6 +259,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => { active = false; };
   }, [publicPage, pathname, router]);
 
+  useEffect(() => {
+    if (!viewer || viewer.membership.role !== "STAFF" || publicPage) return;
+    const allowed = navigation.allowedHrefs ?? [];
+    if (pathname === "/" || !allowed.includes(pathname)) router.replace(navigation.homeHref);
+  }, [viewer, publicPage, pathname, router, navigation.allowedHrefs, navigation.homeHref]);
+
   function chooseMode(mode: TradeMode) {
     setTradeMode(mode);
     window.localStorage.setItem("tijra-trade-mode", mode);
@@ -265,7 +272,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    if (publicPage) return;
+    if (publicPage || isStaff) return;
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -274,7 +281,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [publicPage]);
+  }, [publicPage, isStaff]);
 
   useEffect(() => {
     setOpen(false);
@@ -288,6 +295,27 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   if (publicPage) return <>{children}</>;
+
+  if (!viewer) {
+    return <div className="staffLoadingShell"><TijraLogo compact size={46} /><span>جاري فتح تِجرا...</span></div>;
+  }
+
+  if (isStaff) {
+    const tasks = navigation.sections.flatMap((section) => section.items);
+    const allowed = navigation.allowedHrefs ?? [];
+    const pathAllowed = allowed.includes(pathname);
+    return (
+      <div className="staffFrame">
+        <header className="staffTopbar">
+          <Link href={navigation.homeHref} className="brand brandCompact" aria-label="تِجرا"><TijraLogo compact size={42} /></Link>
+          <div className="staffIdentity"><span>{viewer.business.name}</span><strong>{viewer.user.name}</strong></div>
+          <button type="button" className="staffLogout" onClick={logout} aria-label="تسجيل الخروج"><LogOut size={18} /></button>
+        </header>
+        {tasks.length > 1 ? <nav className="staffTaskNav" aria-label="مهام الموظف">{tasks.map(({ href, label, icon: Icon }) => <Link key={`${href}-${label}`} href={href} className={pathname === cleanHref(href) ? "active" : ""}><Icon size={18} /><span>{label}</span></Link>)}</nav> : null}
+        <main className="staffContent">{pathAllowed ? children : <div className="staffRedirecting"><span>جاري فتح مهمتك...</span></div>}</main>
+      </div>
+    );
+  }
 
   const quickLabel = navigation.quick?.href === "/sales" ? "فتح الكاشير" : navigation.quick?.href === "/inventory" ? "فتح المخزون" : navigation.quick?.href === "/accounting" ? "فتح التقارير" : navigation.mode === "supplier" ? "إضافة منتج" : "فتح السوق";
   const QuickIcon = navigation.quick?.icon ?? ShoppingBag;
@@ -312,7 +340,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         ) : (
           <div className="workspaceSwitcher staticWorkspace">
             <div className="workspaceIcon"><Store size={17} /></div>
-            <div><span>{viewer ? (isStaff ? "حساب موظف" : businessTypeLabels[viewer.business.businessType]) : "نوع الحساب"}</span><strong>{viewer?.business.name ?? "جاري التحميل..."}</strong></div>
+            <div><span>{businessTypeLabels[viewer.business.businessType]}</span><strong>{viewer.business.name}</strong></div>
             <ChevronDown size={15} />
           </div>
         )}
@@ -325,14 +353,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="sidebarInsight">
           <div className="sidebarInsightIcon"><PackageCheck size={18} /></div>
           <div>
-            <strong>{isStaff ? "دخول حسب صلاحياتك" : navigation.mode === "supplier" ? "مخزون واحد لكل قنوات البيع" : "تِجرا يساعدك في القرار"}</strong>
-            <span>{isStaff ? "يعرض تِجرا فقط الأقسام المسموحة لهذا الحساب." : navigation.mode === "supplier" ? "السوق والكاشير والبيع الخارجي والطلبات تعمل على نفس حركة المخزون." : "السوق والكاشير والمخزون والموردين والرقابة في نظام واحد."}</span>
+            <strong>{navigation.mode === "supplier" ? "مخزون واحد لكل قنوات البيع" : "تِجرا يساعدك في القرار"}</strong>
+            <span>{navigation.mode === "supplier" ? "السوق والكاشير والبيع الخارجي والطلبات تعمل على نفس حركة المخزون." : "السوق والكاشير والمخزون والموردين والرقابة في نظام واحد."}</span>
           </div>
         </div>
 
         <div className="accountBlock">
           <div className="avatar"><CircleUserRound size={19} /></div>
-          <div><strong>{viewer?.user.name ?? "حساب تِجرا"}</strong><span>{roleLabels[viewer?.membership.role ?? ""] ?? viewer?.user.email ?? ""}</span></div>
+          <div><strong>{viewer.user.name}</strong><span>{roleLabels[viewer.membership.role] ?? viewer.user.email}</span></div>
           <button type="button" className="iconButton logoutButton" onClick={logout} aria-label="تسجيل الخروج" title="تسجيل الخروج"><LogOut size={16} /></button>
         </div>
       </aside>
@@ -344,11 +372,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link href={navigation.homeHref} className="brand brandCompact"><TijraLogo compact size={42} /></Link>
           </div>
           <button type="button" className="searchTrigger" onClick={() => setCommandOpen(true)} aria-label="فتح البحث السريع">
-            <Search size={17} /><span>{isStaff ? "ابحث داخل صلاحياتك..." : navigation.mode === "supplier" ? "ابحث عن منتج، طلب أو مخزون..." : "ابحث عن منتج، مورد أو طلب..."}</span><kbd>⌘ K</kbd>
+            <Search size={17} /><span>{navigation.mode === "supplier" ? "ابحث عن منتج، طلب أو مخزون..." : "ابحث عن منتج، مورد أو طلب..."}</span><kbd>⌘ K</kbd>
           </button>
           <div className="topActions">
             {canSwitchMode && <span className="modePill">{navigation.mode === "supplier" ? "وضع المورد" : "وضع التاجر"}</span>}
-            {(!isStaff || staffCanPurchase) ? <Link className="iconButton notificationButton" href={alertsHref} aria-label="التنبيهات"><Bell size={18} /><span className="notificationDot" /></Link> : null}
+            <Link className="iconButton notificationButton" href={alertsHref} aria-label="التنبيهات"><Bell size={18} /><span className="notificationDot" /></Link>
             {navigation.quick ? <Link className="quickSale" href={navigation.quick.href}><QuickIcon size={17} /><span>{quickLabel}</span></Link> : null}
           </div>
         </header>

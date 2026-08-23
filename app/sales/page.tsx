@@ -21,6 +21,7 @@ export default async function SalesPage() {
 
   const businessId = context.business.id;
   const isOwner = context.membership.role === "OWNER";
+  const isStaff = context.membership.role === "STAFF";
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const defaultLocation = await ensureDefaultLocation(businessId);
@@ -31,13 +32,13 @@ export default async function SalesPage() {
       select: { id: true, name: true, barcode: true, salePrice: true, quantity: true, unit: true },
       orderBy: { name: "asc" },
     }),
-    db.sale.findMany({
+    isStaff ? Promise.resolve([]) : db.sale.findMany({
       where: { businessId },
       include: { items: true },
       orderBy: { soldAt: "desc" },
       take: 30,
     }),
-    db.sale.aggregate({
+    isStaff ? Promise.resolve({ _sum: { total: null, costTotal: null }, _count: { _all: 0 } }) : db.sale.aggregate({
       where: { businessId, soldAt: { gte: today } },
       _sum: { total: true, costTotal: true },
       _count: { _all: true },
@@ -113,6 +114,21 @@ export default async function SalesPage() {
       })),
     };
   });
+
+  if (isStaff) {
+    return (
+      <section className="staffTaskPage">
+        <div className="staffPageIntro">
+          <span>الكاشير</span>
+          <h1>امسح البضاعة وأتم البيع</h1>
+          <p>الكاميرا، البضاعة، الكمية والمبلغ فقط. التقارير والأرباح تبقى في حساب المالك.</p>
+        </div>
+        <div className="staffPosMode">
+          <PosTerminal products={posProducts} locationId={defaultLocation.id} businessActivity={context.business.businessActivity} />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <>
