@@ -15,7 +15,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
-    "db:deploy": "prisma db push --skip-generate --accept-data-loss"
+    "db:deploy": "prisma db push --skip-generate",
+    "release:smoke": "node scripts/release-smoke.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.19.0",
