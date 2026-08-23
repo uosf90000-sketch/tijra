@@ -30,7 +30,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const sale = await recordSale({ ...parsed.data, businessId: auth.context.business.id });
+    const sale = await recordSale({
+      ...parsed.data,
+      businessId: auth.context.business.id,
+      actorUserId: auth.context.user.id,
+      actorName: auth.context.user.name,
+      actorRole: auth.context.membership.role,
+    });
     return NextResponse.json({ sale }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "SALE_FAILED";

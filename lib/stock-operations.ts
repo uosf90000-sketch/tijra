@@ -10,6 +10,9 @@ export type RecordSaleInput = {
   businessId: string;
   invoiceNumber?: string;
   paymentMethod?: "CASH" | "CARD" | "TRANSFER" | "OTHER";
+  actorUserId?: string;
+  actorName?: string;
+  actorRole?: string;
   items: SaleLineInput[];
 };
 
@@ -78,6 +81,21 @@ export async function recordSale(input: RecordSaleInput) {
           unitCost: product.averageCost,
           sourceType: "Sale",
           sourceId: sale.id,
+        },
+      });
+    }
+
+    if (input.actorName) {
+      await tx.inventoryAuditEvent.create({
+        data: {
+          businessId: input.businessId,
+          action: "CASHIER_SALE",
+          itemName: input.invoiceNumber ? `فاتورة ${input.invoiceNumber}` : `فاتورة ${sale.id.slice(-8).toUpperCase()}`,
+          quantity: total,
+          actorUserId: input.actorUserId,
+          actorName: input.actorName,
+          actorRole: input.actorRole,
+          note: `${input.items.length} صنف · إجمالي البيع ${total.toFixed(2)} ر.س`,
         },
       });
     }

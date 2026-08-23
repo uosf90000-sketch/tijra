@@ -5,21 +5,28 @@ import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
+  Activity,
+  BarChart3,
   Bell,
   Boxes,
   Calculator,
   ChevronDown,
   CircleUserRound,
+  ClipboardCheck,
   ClipboardList,
+  FileSpreadsheet,
   LayoutDashboard,
   LogOut,
   Menu,
   PackageCheck,
+  PackageSearch,
+  RotateCcw,
   ScanBarcode,
   Search,
   ShoppingBag,
   ShoppingBasket,
   ShoppingCart,
+  Sparkles,
   Store,
   Tags,
   UsersRound,
@@ -36,26 +43,69 @@ type NavItem = { href: string; label: string; icon: LucideIcon; badge?: string }
 
 const home: NavItem = { href: "/", label: "الرئيسية", icon: LayoutDashboard };
 const market: NavItem = { href: "/marketplace", label: "السوق", icon: ShoppingBag };
+const smartBuy: NavItem = { href: "/smart-buy", label: "مشتريات الأسبوع", icon: Sparkles };
+const reorder: NavItem = { href: "/reorder", label: "إعادة الطلب", icon: RotateCcw };
+const catalog: NavItem = { href: "/catalog", label: "كتالوج المنتجات", icon: PackageSearch };
+const marketplaceSuppliers: NavItem = { href: "/marketplace/suppliers", label: "الموردون", icon: Store };
 const orders: NavItem = { href: "/marketplace/orders", label: "طلباتي", icon: ClipboardList };
 const smartPrice: NavItem = { href: "/alerts", label: "السعر الأذكى", icon: Tags };
+const smartAlerts: NavItem = { href: "/smart-alerts", label: "التنبيهات الذكية", icon: Bell };
 const inventory: NavItem = { href: "/inventory", label: "المخزون", icon: Boxes };
-const lockedInventory: NavItem = { ...inventory, badge: "قريبًا" };
+const inventoryAudit: NavItem = { href: "/inventory/audit", label: "الجرد", icon: ClipboardCheck };
 const sales: NavItem = { href: "/sales", label: "الكاشير", icon: ShoppingCart };
-const lockedSales: NavItem = { ...sales, badge: "قريبًا" };
+const salesAnalytics: NavItem = { href: "/sales/analytics", label: "تحليلات المبيعات", icon: BarChart3 };
 const purchases: NavItem = { href: "/purchases", label: "المشتريات", icon: ShoppingBasket };
-const suppliers: NavItem = { href: "/suppliers", label: "الموردون", icon: Store };
+const activityCenter: NavItem = { href: "/activity", label: "مركز النشاط", icon: Activity };
+
 const sellerProducts: NavItem = { href: "/marketplace/seller", label: "المنتجات", icon: Store };
+const importProducts: NavItem = { href: "/supplier/import", label: "استيراد Excel / CSV", icon: FileSpreadsheet };
+const stockUpdate: NavItem = { href: "/supplier/stock-update", label: "تحديث باركود سريع", icon: ScanBarcode };
+const stockCount: NavItem = { href: "/supplier/stock-count", label: "الجرد السريع", icon: ClipboardCheck };
 const sellerOrders: NavItem = { href: "/marketplace/seller#orders", label: "الطلبات الواردة", icon: ClipboardList };
-const externalSale: NavItem = { href: "/marketplace/seller#external-sale", label: "البيع الخارجي السريع", icon: ScanBarcode };
+const externalSale: NavItem = { href: "/marketplace/seller#external-sale", label: "البيع الخارجي", icon: ScanBarcode };
 const customers: NavItem = { href: "/marketplace/seller#customers", label: "التجار والعملاء", icon: UsersRound };
+const dormantCustomers: NavItem = { href: "/supplier/dormant", label: "تجار توقفوا عن الشراء", icon: RotateCcw };
+const supplierPrice: NavItem = { href: "/supplier/price-intelligence", label: "ذكاء الأسعار", icon: Tags };
+const supplierAlerts: NavItem = { href: "/supplier/alerts", label: "التنبيهات الذكية", icon: Bell };
+const supplierActivity: NavItem = { href: "/activity?mode=supplier", label: "مركز النشاط", icon: Activity };
+
 const accounting: NavItem = { href: "/accounting", label: "التقارير", icon: Calculator };
 const employees: NavItem = { href: "/employees", label: "الموظفون", icon: UsersRound };
 const payroll: NavItem = { href: "/payroll", label: "الرواتب", icon: WalletCards };
 
-const retailerOperations: NavItem[] = [home, market, purchases, orders, suppliers, smartPrice, lockedInventory, lockedSales];
+const retailerOperations: NavItem[] = [
+  home,
+  market,
+  smartBuy,
+  reorder,
+  catalog,
+  marketplaceSuppliers,
+  smartPrice,
+  smartAlerts,
+  purchases,
+  orders,
+  inventory,
+  inventoryAudit,
+  sales,
+  salesAnalytics,
+  activityCenter,
+];
 const retailerManagement: NavItem[] = [{ ...accounting, label: "الملخص المالي" }, employees, payroll];
-const supplierOperations: NavItem[] = [home, sellerProducts, sellerOrders, externalSale, inventory, customers];
-const supplierManagement: NavItem[] = [accounting, employees, payroll, smartPrice];
+const supplierOperations: NavItem[] = [
+  home,
+  sellerProducts,
+  importProducts,
+  stockUpdate,
+  stockCount,
+  sellerOrders,
+  externalSale,
+  customers,
+  dormantCustomers,
+  supplierPrice,
+  supplierAlerts,
+  supplierActivity,
+];
+const supplierManagement: NavItem[] = [accounting, employees, payroll];
 
 type Viewer = {
   user: { name: string; email: string };
@@ -106,9 +156,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (isStaff) {
       const operations: NavItem[] = [];
       const management: NavItem[] = [];
-      if (permissions.has("CASHIER")) operations.push(sales);
-      if (permissions.has("INVENTORY")) operations.push(inventory);
-      if (permissions.has("PURCHASES")) operations.push(market, orders, purchases);
+      if (permissions.has("CASHIER")) operations.push(sales, salesAnalytics);
+      if (permissions.has("INVENTORY")) operations.push(inventory, inventoryAudit);
+      if (permissions.has("PURCHASES")) operations.push(market, smartBuy, reorder, orders, purchases);
       if (permissions.has("ACCOUNTING")) management.push(accounting);
       const all = [...operations, ...management];
       const preferred = permissions.has("CASHIER") ? sales : permissions.has("INVENTORY") ? inventory : permissions.has("PURCHASES") ? market : permissions.has("ACCOUNTING") ? accounting : null;
@@ -117,7 +167,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         management,
         mobile: all.slice(0, 5),
         homeHref: preferred?.href ?? "/no-access",
-        allowedHrefs: Array.from(new Set(all.map((item) => item.href.split("#")[0]))),
+        allowedHrefs: Array.from(new Set(all.map((item) => item.href.split("#")[0].split("?")[0]))),
         quick: preferred,
         mode: tradeMode,
       };
@@ -130,8 +180,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     const operations = sourceOperations.map((item) => item.href === "/" ? modeHome : item);
     const management = effectiveMode === "supplier" ? supplierManagement : retailerManagement;
     const mobile = effectiveMode === "supplier"
-      ? [modeHome, sellerProducts, sellerOrders, inventory, accounting]
-      : [modeHome, market, orders, smartPrice, lockedInventory];
+      ? [modeHome, sellerProducts, sellerOrders, stockUpdate, supplierAlerts]
+      : [modeHome, market, smartBuy, inventory, sales];
 
     return {
       operations,
@@ -207,6 +257,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const quickLabel = navigation.quick?.href === "/sales" ? "فتح الكاشير" : navigation.quick?.href === "/inventory" ? "فتح المخزون" : navigation.quick?.href === "/accounting" ? "فتح التقارير" : navigation.mode === "supplier" ? "إضافة منتج" : "فتح السوق";
   const QuickIcon = navigation.quick?.icon ?? ShoppingBag;
+  const alertsHref = navigation.mode === "supplier" ? "/supplier/alerts" : "/smart-alerts";
 
   return (
     <div className={`appFrame role-${navigation.mode}`}>
@@ -234,7 +285,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <nav className="sideNav" aria-label="التنقل الرئيسي">
           {navigation.operations.length ? <div className="navGroup">
-            <span className="navGroupLabel">{isStaff ? "صلاحيات العمل" : navigation.mode === "supplier" ? "إدارة البيع" : "الشراء والتوريد"}</span>
+            <span className="navGroupLabel">{isStaff ? "صلاحيات العمل" : navigation.mode === "supplier" ? "البيع والمخزون" : "الشراء وتشغيل المتجر"}</span>
             {navigation.operations.map((item) => <NavLink key={`${item.href}-${item.label}`} {...item} pathname={pathname} onClick={() => setOpen(false)} />)}
           </div> : null}
           {navigation.management.length ? <div className="navGroup">
@@ -246,8 +297,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="sidebarInsight">
           <div className="sidebarInsightIcon"><PackageCheck size={18} /></div>
           <div>
-            <strong>{isStaff ? "دخول حسب صلاحياتك" : navigation.mode === "supplier" ? "مخزونك متصل بالسوق" : "تسوق بذكاء"}</strong>
-            <span>{isStaff ? "يعرض تِجرا فقط الأقسام المسموحة لهذا الحساب." : navigation.mode === "supplier" ? "حدّث منتجاتك ومخزونك وسجّل البيع الخارجي من الجوال." : "قارن الموردين والأسعار واطلب من داخل مدينتك أو من كل المدن."}</span>
+            <strong>{isStaff ? "دخول حسب صلاحياتك" : navigation.mode === "supplier" ? "مخزونك متصل بالسوق" : "تِجرا يساعدك في القرار"}</strong>
+            <span>{isStaff ? "يعرض تِجرا فقط الأقسام المسموحة لهذا الحساب." : navigation.mode === "supplier" ? "الجرد والإخراج والتحديثات محفوظة باسم الموظف." : "خطة أسبوعية، إعادة طلب، مقارنة موردين، وكاشير ومخزون في مكان واحد."}</span>
           </div>
         </div>
 
@@ -269,7 +320,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
           <div className="topActions">
             {canSwitchMode && <span className="modePill">{navigation.mode === "supplier" ? "وضع المورد" : "وضع التاجر"}</span>}
-            {(!isStaff || staffCanPurchase) ? <Link className="iconButton notificationButton" href="/alerts" aria-label="التنبيهات"><Bell size={18} /><span className="notificationDot" /></Link> : null}
+            {(!isStaff || staffCanPurchase) ? <Link className="iconButton notificationButton" href={alertsHref} aria-label="التنبيهات"><Bell size={18} /><span className="notificationDot" /></Link> : null}
             {navigation.quick ? <Link className="quickSale" href={navigation.quick.href}><QuickIcon size={17} /><span>{quickLabel}</span></Link> : null}
           </div>
         </header>
