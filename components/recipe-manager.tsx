@@ -21,16 +21,17 @@ type RecipeRow = {
 
 type SetupMode = "ingredients" | "extras";
 
-export function RecipeManager({ products, rows }: { products: ProductOption[]; rows: RecipeRow[] }) {
+export function RecipeManager({ products, rows, initialProductId }: { products: ProductOption[]; rows: RecipeRow[]; initialProductId?: string }) {
   const router = useRouter();
   const saleProducts = useMemo(() => products.filter((item) => item.salePrice > 0), [products]);
-  const initialProduct = saleProducts[0] ?? products[0];
+  const firstSaleProduct = saleProducts[0] ?? products[0];
+  const initialProduct = products.find((item) => item.id === initialProductId) ?? firstSaleProduct;
   const [selectedProductId, setSelectedProductId] = useState(initialProduct?.id ?? "");
   const [mode, setMode] = useState<SetupMode>("ingredients");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const selectedProduct = products.find((item) => item.id === selectedProductId) ?? initialProduct;
+  const selectedProduct = products.find((item) => item.id === selectedProductId) ?? firstSaleProduct;
   const currentRows = rows.filter((row) => row.saleProductId === selectedProductId);
   const baseRows = currentRows.filter((row) => !row.canExtra);
   const extraRows = currentRows.filter((row) => row.canExtra);
