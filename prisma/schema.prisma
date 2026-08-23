@@ -113,31 +113,32 @@ model Session {
 }
 
 model Business {
-  id                         String               @id @default(cuid())
+  id                         String                @id @default(cuid())
   name                       String
   commercialName             String?
   taxNumber                  String?
   city                       String?
-  currency                   String               @default("SAR")
-  businessType               BusinessType         @default(RETAILER)
-  businessActivity           BusinessActivity     @default(GROCERY)
-  createdAt                  DateTime             @default(now())
-  updatedAt                  DateTime             @updatedAt
+  currency                   String                @default("SAR")
+  businessType               BusinessType          @default(RETAILER)
+  businessActivity           BusinessActivity      @default(GROCERY)
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
   memberships                Membership[]
   products                   Product[]
   suppliers                  Supplier[]
   purchaseOrders             PurchaseOrder[]
   purchaseInvoices           PurchaseInvoice[]
   stockMovements             StockMovement[]
+  inventoryAuditEvents       InventoryAuditEvent[]
   sales                      Sale[]
   expenses                   Expense[]
   employees                  Employee[]
   payrollRuns                PayrollRun[]
-  marketplaceListings        MarketplaceListing[] @relation("MarketplaceSellerListings")
-  marketplaceOrdersAsBuyer   MarketplaceOrder[]   @relation("MarketplaceBuyer")
-  marketplaceOrdersAsSeller  MarketplaceOrder[]   @relation("MarketplaceSeller")
-  favoriteSuppliers          FavoriteSupplier[]   @relation("FavoriteBuyer")
-  favoritedBy                FavoriteSupplier[]   @relation("FavoriteSeller")
+  marketplaceListings        MarketplaceListing[]  @relation("MarketplaceSellerListings")
+  marketplaceOrdersAsBuyer   MarketplaceOrder[]    @relation("MarketplaceBuyer")
+  marketplaceOrdersAsSeller  MarketplaceOrder[]    @relation("MarketplaceSeller")
+  favoriteSuppliers          FavoriteSupplier[]    @relation("FavoriteBuyer")
+  favoritedBy                FavoriteSupplier[]    @relation("FavoriteSeller")
 }
 
 model Membership {
@@ -254,8 +255,8 @@ model Supplier {
   businessId       String
   name             String
   phone            String?
-  email            String?
-  notes            String?
+  email             String?
+  notes             String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   business         Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -326,12 +327,12 @@ model PurchaseInvoice {
   imageUrl        String?
   issuedAt        DateTime?
   approvedAt      DateTime?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  business        Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  supplier        Supplier              @relation(fields: [supplierId], references: [id])
-  purchaseOrder   PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id])
-  items           PurchaseInvoiceItem[]
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  business         Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  supplier         Supplier               @relation(fields: [supplierId], references: [id])
+  purchaseOrder    PurchaseOrder?          @relation(fields: [purchaseOrderId], references: [id])
+  items            PurchaseInvoiceItem[]
 
   @@index([businessId, createdAt])
 }
@@ -366,6 +367,29 @@ model StockMovement {
 
   @@index([businessId, occurredAt])
   @@index([productId, occurredAt])
+}
+
+model InventoryAuditEvent {
+  id               String   @id @default(cuid())
+  businessId       String
+  action           String
+  listingId        String?
+  orderId          String?
+  itemName         String?
+  quantity         Decimal? @db.Decimal(14, 3)
+  previousQuantity Decimal? @db.Decimal(14, 3)
+  newQuantity      Decimal? @db.Decimal(14, 3)
+  actorUserId      String?
+  actorName        String
+  actorRole        String?
+  note             String?
+  occurredAt       DateTime @default(now())
+  business         Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, occurredAt])
+  @@index([businessId, action, occurredAt])
+  @@index([listingId, occurredAt])
+  @@index([orderId])
 }
 
 model Sale {

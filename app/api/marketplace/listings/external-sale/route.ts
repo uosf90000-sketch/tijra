@@ -26,44 +26,68 @@ export async function POST(request: Request) {
   }
 
   const { listingId, barcode, quantity } = parsed.data;
-  const listing = listingId
-    ? await db.marketplaceListing.findFirst({
-        where: { id: listingId, sellerBusinessId: context.business.id },
-      })
-    : await db.marketplaceListing.findFirst({
+
+  try {
+    const result = await db.$transaction(async (tx) => {
+      const listing = listingId
+        ? await tx.marketplaceListing.findFirst({
+            where: { id: listingId, sellerBusinessId: context.business.id },
+          })
+        : await tx.marketplaceListing.findFirst({
+            where: {
+              sellerBusinessId: context.business.id,
+              barcode: barcode || "__NO_BARCODE__",
+            },
+            orderBy: { updatedAt: "desc" },
+          });
+
+      if (!listing) throw new Error("LISTING_NOT_FOUND");
+
+      const updated = await tx.marketplaceListing.updateMany({
         where: {
+          id: listing.id,
           sellerBusinessId: context.business.id,
-          barcode: barcode || "__NO_BARCODE__",
+          quantity: { gte: quantity },
         },
-        orderBy: { updatedAt: "desc" },
+        data: { quantity: { decrement: quantity } },
       });
 
-  if (!listing) {
-    return NextResponse.json({ error: "LISTING_NOT_FOUND" }, { status: 404 });
-  }
+      if (updated.count !== 1) throw new Error(`INSUFFICIENT_STOCK:${Number(listing.quantity)}`);
 
-  const updated = await db.marketplaceListing.updateMany({
-    where: {
-      id: listing.id,
-      sellerBusinessId: context.business.id,
-      quantity: { gte: quantity },
-    },
-    data: {
-      quantity: { decrement: quantity },
-    },
-  });
+      const current = await tx.marketplaceListing.findUnique({ where: { id: listing.id } });
+      if (!current) throw new Error("LISTING_NOT_FOUND");
 
-  if (updated.count !== 1) {
+      await tx.inventoryAuditEvent.create({
+        data: {
+          businessId: context.business.id,
+          action: "EXTERNAL_SALE",
+          listingId: listing.id,
+          itemName: listing.name,
+          quantity,
+          previousQuantity: Number(current.quantity) + quantity,
+          newQuantity: Number(current.quantity),
+          actorUserId: context.user.id,
+          actorName: context.user.name,
+          actorRole: context.membership.role,
+          note: "إخراج بضاعة بسبب بيع خارج تِجرا",
+        },
+      });
+
+      return current;
+    });
+
     return NextResponse.json({
-      error: "INSUFFICIENT_STOCK",
-      available: Number(listing.quantity),
-    }, { status: 409 });
+      listing: result,
+      deducted: quantity,
+      source: "EXTERNAL_SALE",
+      actor: context.user.name,
+    });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "EXTERNAL_SALE_FAILED";
+    if (code === "LISTING_NOT_FOUND") return NextResponse.json({ error: code }, { status: 404 });
+    if (code.startsWith("INSUFFICIENT_STOCK:")) {
+      return NextResponse.json({ error: "INSUFFICIENT_STOCK", available: Number(code.split(":")[1] || 0) }, { status: 409 });
+    }
+    return NextResponse.json({ error: "EXTERNAL_SALE_FAILED" }, { status: 500 });
   }
-
-  const current = await db.marketplaceListing.findUnique({ where: { id: listing.id } });
-  return NextResponse.json({
-    listing: current,
-    deducted: quantity,
-    source: "EXTERNAL_SALE",
-  });
 }

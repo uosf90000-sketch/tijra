@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Boxes, CirclePlus, Clock3, ScanLine, ShoppingBasket, Store, UsersRound } from "lucide-react";
+import { Boxes, CirclePlus, ClipboardCheck, Clock3, ScanLine, ShoppingBasket, Store, UsersRound } from "lucide-react";
 import { MarketplaceListingForm } from "@/components/marketplace-listing-form";
 import { MarketplaceOrderActions } from "@/components/marketplace-order-actions";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { SupplierExternalSaleForm } from "@/components/supplier-external-sale-form";
+import { SupplierInventoryAuditForm } from "@/components/supplier-inventory-audit-form";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
@@ -20,6 +21,13 @@ const statusLabels: Record<string, string> = {
   CANCELLED: "ملغي",
 };
 
+const auditActionLabels: Record<string, string> = {
+  COUNT: "جرد مخزون",
+  EXTERNAL_SALE: "إخراج بيع خارجي",
+  OUTBOUND_ORDER: "إخراج طلب تاجر",
+  ORDER_CANCEL_RESTORE: "إرجاع بعد إلغاء",
+};
+
 const stockUpdateFormatter = new Intl.DateTimeFormat("ar-SA", {
   dateStyle: "short",
   timeStyle: "short",
@@ -30,13 +38,18 @@ export default async function MarketplaceSellerPage() {
   if (!context) redirect("/login");
   if (!["SUPPLIER", "BOTH"].includes(context.business.businessType)) redirect("/marketplace");
 
-  const [listings, orders] = await Promise.all([
+  const [listings, orders, auditEvents] = await Promise.all([
     db.marketplaceListing.findMany({ where: { sellerBusinessId: context.business.id }, orderBy: { updatedAt: "desc" }, take: 100 }),
     db.marketplaceOrder.findMany({
       where: { sellerBusinessId: context.business.id },
       include: { buyer: true, items: { include: { listing: true } } },
       orderBy: { createdAt: "desc" },
       take: 30,
+    }),
+    db.inventoryAuditEvent.findMany({
+      where: { businessId: context.business.id },
+      orderBy: { occurredAt: "desc" },
+      take: 50,
     }),
   ]);
 
@@ -90,8 +103,19 @@ export default async function MarketplaceSellerPage() {
             <h2>بيع خارجي سريع</h2>
           </div>
         </div>
-        <p className="panelLead">إذا بعت لعميل خارج تِجرا، امسح باركود المنتج وحدد الكمية. نخصمها فورًا من الكمية التي يراها التجار في السوق.</p>
+        <p className="panelLead">إذا بعت لعميل خارج تِجرا، امسح باركود المنتج وحدد الكمية. نخصمها فورًا من الكمية التي يراها التجار في السوق ونسجل اسم الموظف المنفذ.</p>
         <SupplierExternalSaleForm listings={listingOptions} />
+      </section>
+
+      <section id="stock-audit" className="panel externalSalePanel" style={{ marginTop: 12 }}>
+        <div className="panelHeader">
+          <div>
+            <span className="eyebrow"><ClipboardCheck size={14} /> جرد الموظفين</span>
+            <h2>جرد سريع للمخزون</h2>
+          </div>
+        </div>
+        <p className="panelLead">اختر الصنف وأدخل الكمية الفعلية بعد العد. يتم تعديل المخزون وتسجيل الموظف الذي جرد والفرق والوقت تلقائيًا.</p>
+        <SupplierInventoryAuditForm listings={listingOptions} />
       </section>
 
       <section className="marketSellerGrid">
@@ -125,6 +149,23 @@ export default async function MarketplaceSellerPage() {
         <div className="tableScroll"><table className="dataTable"><thead><tr><th>المنتج</th><th>السعر</th><th>المتوفر</th><th>الحد الأدنى</th><th>آخر تحديث</th><th>الحالة</th></tr></thead><tbody>
           {listings.map((item) => <tr key={item.id}><td><strong>{item.name}</strong>{item.barcode && <span className="mutedText" style={{ display: "block" }}>{item.barcode}</span>}</td><td>{formatSar(Number(item.price))}</td><td>{Number(item.quantity).toLocaleString("ar-SA")} {item.unit}</td><td>{Number(item.minOrderQty).toLocaleString("ar-SA")}</td><td><span className="stockUpdatedAt"><Clock3 size={13} /> {stockUpdateFormatter.format(item.updatedAt)}</span></td><td>{item.active ? "معروض" : "متوقف"}</td></tr>)}
           {!listings.length && <tr><td colSpan={6}><div className="infoNote">أضف أول منتج ليظهر في سوق تِجرا.</div></td></tr>}
+        </tbody></table></div>
+      </section>
+
+      <section className="panel tablePanel" style={{ marginTop: 12 }}>
+        <div className="panelHeader tableHeader"><div><span className="eyebrow"><UsersRound size={14} /> رقابة المخزون</span><h2>من جرد ومن أخرج البضاعة</h2></div></div>
+        <div className="tableScroll"><table className="dataTable"><thead><tr><th>العملية</th><th>الموظف</th><th>الصنف</th><th>الكمية</th><th>قبل ← بعد</th><th>الوقت</th></tr></thead><tbody>
+          {auditEvents.map((event) => (
+            <tr key={event.id}>
+              <td><strong>{auditActionLabels[event.action] ?? event.action}</strong>{event.note && <span className="mutedText" style={{ display: "block" }}>{event.note}</span>}</td>
+              <td><strong>{event.actorName}</strong><span className="mutedText" style={{ display: "block" }}>{event.actorRole || "حساب منشأة"}</span></td>
+              <td>{event.itemName || "—"}</td>
+              <td>{event.quantity == null ? "—" : Number(event.quantity).toLocaleString("ar-SA")}</td>
+              <td>{event.previousQuantity == null || event.newQuantity == null ? "—" : `${Number(event.previousQuantity).toLocaleString("ar-SA")} ← ${Number(event.newQuantity).toLocaleString("ar-SA")}`}</td>
+              <td><span className="stockUpdatedAt"><Clock3 size={13} /> {stockUpdateFormatter.format(event.occurredAt)}</span></td>
+            </tr>
+          ))}
+          {!auditEvents.length && <tr><td colSpan={6}><div className="infoNote">أول جرد أو إخراج بضاعة سيظهر هنا باسم الموظف المنفذ.</div></td></tr>}
         </tbody></table></div>
       </section>
 
