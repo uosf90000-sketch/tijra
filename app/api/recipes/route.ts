@@ -85,7 +85,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "INCOMPATIBLE_RECIPE_UNITS", ingredientUnit: ingredient.unit }, { status: 409 });
   }
 
-  const note = JSON.stringify({ unit: data.unit, canRemove: data.canRemove, canExtra: data.canExtra });
+  const extraOnly = data.canExtra;
+  const storedQuantity = extraOnly ? data.quantity / 2 : data.quantity;
+  const note = JSON.stringify({
+    unit: data.unit,
+    canRemove: extraOnly ? true : data.canRemove,
+    canExtra: data.canExtra,
+    extraOnly,
+  });
   const existing = await db.inventoryAuditEvent.findFirst({
     where: {
       businessId: auth.context.business.id,
@@ -100,7 +107,7 @@ export async function POST(request: Request) {
         where: { id: existing.id },
         data: {
           itemName: ingredient.name,
-          quantity: data.quantity,
+          quantity: storedQuantity,
           previousQuantity: data.extraPrice,
           newQuantity: data.yieldPercent,
           note,
@@ -117,7 +124,7 @@ export async function POST(request: Request) {
           listingId: data.saleProductId,
           orderId: ingredient.id,
           itemName: ingredient.name,
-          quantity: data.quantity,
+          quantity: storedQuantity,
           previousQuantity: data.extraPrice,
           newQuantity: data.yieldPercent,
           note,
@@ -138,7 +145,7 @@ export async function POST(request: Request) {
       actorUserId: auth.context.user.id,
       actorName: auth.context.user.name,
       actorRole: auth.context.membership.role,
-      note: data.canExtra ? `حفظ إضافة: ${ingredient.name} +${data.extraPrice} ر.س` : `حفظ مكوّن: ${data.quantity} ${data.unit}`,
+      note: extraOnly ? `حفظ إضافة اختيارية: ${ingredient.name} +${data.extraPrice} ر.س` : `حفظ مكوّن: ${data.quantity} ${data.unit}`,
     },
   });
 
