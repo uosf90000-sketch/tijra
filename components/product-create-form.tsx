@@ -12,7 +12,8 @@ export function ProductCreateForm({ businessActivity }: { businessActivity: stri
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const foodBusiness = isFoodActivity(businessActivity);
-  const partsBusiness = businessActivity === "HARDWARE" || businessActivity === "ELECTRONICS";
+  const partsBusiness = businessActivity === "HARDWARE";
+  const electronicsBusiness = businessActivity === "ELECTRONICS";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,7 +42,7 @@ export function ProductCreateForm({ businessActivity }: { businessActivity: stri
 
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setError(result.error === "SKU_ALREADY_EXISTS" ? "رقم القطعة / SKU مستخدم لصنف آخر." : "تعذر إضافة المنتج. راجع البيانات.");
+      setError(result.error === "SKU_ALREADY_EXISTS" ? `${partsBusiness ? "رقم القطعة" : "SKU"} مستخدم لمنتج آخر.` : result.error === "OWNER_REQUIRED" ? "إضافة المنتجات متاحة لمالك المنشأة فقط." : "تعذر إضافة المنتج. راجع البيانات.");
       setLoading(false);
       return;
     }
@@ -51,22 +52,26 @@ export function ProductCreateForm({ businessActivity }: { businessActivity: stri
     router.refresh();
   }
 
+  const title = foodBusiness ? "المنتج في قائمة الكاشير" : partsBusiness ? "بيانات القطعة" : electronicsBusiness ? "بيانات الجهاز / المنتج" : "بيانات المنتج";
+  const note = foodBusiness
+    ? "الصورة والاسم والسعر تظهر للكاشير. بعد الحفظ تربط المكونات والإضافات."
+    : partsBusiness
+      ? "رقم القطعة هو أسرع طريقة للكاشير للعثور عليها ومعرفة المتوفر."
+      : electronicsBusiness
+        ? "أضف SKU أو الموديل والباركود. فعّل Serial / IMEI فقط للمنتجات التي تحتاج رقمًا فريدًا."
+        : "أضف البيانات التي يحتاجها البيع والمخزون فقط.";
+
   return (
     <form className="panel onboardingForm activityProductForm" onSubmit={submit}>
-      <div className="formSection">
-        <div>
-          <h2>{foodBusiness ? "المنتج في قائمة الكاشير" : partsBusiness ? "بيانات القطعة" : "بيانات المنتج"}</h2>
-          <p>{foodBusiness ? "الصورة والاسم والسعر تظهر للكاشير. بعد الحفظ تربط المكونات والإضافات." : partsBusiness ? "رقم القطعة هو أسرع طريقة للكاشير للعثور عليها ومعرفة المتوفر." : "أضف البيانات التي يحتاجها البيع والمخزون فقط."}</p>
-        </div>
-      </div>
+      <div className="formSection"><div><h2>{title}</h2><p>{note}</p></div></div>
 
       <ProductImageInput />
 
       <div className="formGrid">
-        <label className="field full"><span>اسم المنتج</span><input name="name" required minLength={2} placeholder={foodBusiness ? "مثال: قهوة اليوم" : partsBusiness ? "مثال: فلتر زيت كامري" : "مثال: مياه 330 مل"} /></label>
-        <label className={`field ${partsBusiness ? "full" : ""}`}><span>{partsBusiness ? "رقم القطعة" : "SKU"}</span><input name="sku" required={partsBusiness} placeholder={partsBusiness ? "مثال: 90915-YZZE1" : "اختياري"} dir="ltr" /></label>
+        <label className="field full"><span>اسم المنتج</span><input name="name" required minLength={2} placeholder={foodBusiness ? "مثال: قهوة اليوم" : partsBusiness ? "مثال: فلتر زيت كامري" : electronicsBusiness ? "مثال: آيفون 16 برو" : "مثال: مياه 330 مل"} /></label>
+        <label className={`field ${partsBusiness ? "full" : ""}`}><span>{partsBusiness ? "رقم القطعة" : electronicsBusiness ? "SKU / الموديل" : "SKU"}</span><input name="sku" required={partsBusiness} placeholder={partsBusiness ? "مثال: 90915-YZZE1" : electronicsBusiness ? "مثال: MYW63AE/A" : "اختياري"} dir="ltr" /></label>
         {!foodBusiness ? <div className="field"><BarcodeInput /></div> : null}
-        <label className="field"><span>التصنيف</span><input name="category" placeholder={foodBusiness ? "قهوة، مشروبات، وجبات..." : partsBusiness ? "فلاتر، فرامل، كهرباء..." : "اختياري"} /></label>
+        <label className="field"><span>التصنيف</span><input name="category" placeholder={foodBusiness ? "قهوة، مشروبات، وجبات..." : partsBusiness ? "فلاتر، فرامل، كهرباء..." : electronicsBusiness ? "جوالات، شاشات، إكسسوارات..." : "اختياري"} /></label>
         <label className="field"><span>وحدة البيع</span><select name="unit" defaultValue="حبة"><option value="حبة">حبة / قطعة</option><option value="غرام">غرام</option><option value="كيلو">كيلو</option><option value="مل">مل</option><option value="لتر">لتر</option><option value="شريحة">شريحة</option><option value="رغيف">رغيف</option><option value="باك">باك</option><option value="كرتون">كرتون</option><option value="كيس">كيس</option><option value="صندوق">صندوق</option></select></label>
         <label className="field"><span>سعر البيع</span><input name="salePrice" required type="number" min="0" step="0.01" inputMode="decimal" /></label>
         {!foodBusiness ? <label className="field"><span>متوسط التكلفة</span><input name="averageCost" type="number" min="0" step="0.0001" defaultValue="0" inputMode="decimal" /></label> : <input type="hidden" name="averageCost" value="0" />}
@@ -75,6 +80,7 @@ export function ProductCreateForm({ businessActivity }: { businessActivity: stri
         <input type="hidden" name="targetCoverageDays" value="7" />
       </div>
       {foodBusiness ? <div className="infoNote">بعد الحفظ نفتح لك المنتج مباشرة لإضافة مثل: 18 غرام بن، 220 مل حليب، أو إضافات مثل شوت إضافي.</div> : null}
+      {electronicsBusiness ? <div className="infoNote">بعد إضافة المنتج، من «إعدادات البيع» تقدر تختار Serial / IMEI للأجهزة التي تحتاجه.</div> : null}
       {error && <div className="infoNote" style={{ color: "#9b3028", background: "#fff0ef" }}>{error}</div>}
       <div className="formActions"><button className="button primary" disabled={loading}><Save size={17} /> {loading ? "جاري الحفظ..." : foodBusiness ? "حفظ والانتقال للمكونات" : "حفظ المنتج"}</button></div>
     </form>
