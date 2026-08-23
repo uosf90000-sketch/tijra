@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
 import { ensureDefaultLocation } from "@/lib/commerce-ops";
+import { db } from "@/lib/db";
+import { decodeRecipeNote } from "@/lib/recipes";
 import { recordSale } from "@/lib/stock-operations";
 
 const saleSchema = z.object({
@@ -22,6 +24,8 @@ const saleSchema = z.object({
   ).min(1).max(200),
 });
 
+type OptionalComponent = { id: string; replacesComponentId: string | null };
+
 export async function POST(request: Request) {
   const auth = await requireApiPermission("CASHIER");
   if (auth.response) return auth.response;
@@ -31,10 +35,59 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
   }
 
+  const productIds = Array.from(new Set(parsed.data.items.map((item) => item.productId)));
+  const recipeRows = productIds.length ? await db.inventoryAuditEvent.findMany({
+    where: {
+      businessId: auth.context.business.id,
+      action: "RECIPE_COMPONENT",
+      listingId: { in: productIds },
+    },
+    select: { id: true, listingId: true, note: true },
+  }) : [];
+
+  const optionalByProduct = new Map<string, OptionalComponent[]>();
+  for (const row of recipeRows) {
+    if (!row.listingId) continue;
+    const config = decodeRecipeNote(row.note);
+    if (!config.extraOnly) continue;
+    const current = optionalByProduct.get(row.listingId) ?? [];
+    current.push({ id: row.id, replacesComponentId: config.replacesComponentId });
+    optionalByProduct.set(row.listingId, current);
+  }
+
+  const normalizedItems = parsed.data.items.map((item) => {
+    const optionalComponents = optionalByProduct.get(item.productId) ?? [];
+    if (!optionalComponents.length) return item;
+
+    const optionalIds = new Set(optionalComponents.map((component) => component.id));
+    const replacementTargetIds = new Set(optionalComponents.map((component) => component.replacesComponentId).filter((value): value is string => Boolean(value)));
+    const supplied = new Map((item.adjustments ?? []).map((adjustment) => [adjustment.componentId, adjustment.multiplier]));
+    const adjustments: Array<{ componentId: string; multiplier: 0 | 1 | 2 }> = (item.adjustments ?? [])
+      .filter((adjustment) => !optionalIds.has(adjustment.componentId) && !replacementTargetIds.has(adjustment.componentId))
+      .map((adjustment) => ({ ...adjustment }));
+
+    const selectedReplacementTargets = new Set<string>();
+    for (const component of optionalComponents) {
+      let selected = supplied.get(component.id) === 2;
+      if (component.replacesComponentId && selected) {
+        if (selectedReplacementTargets.has(component.replacesComponentId)) selected = false;
+        else selectedReplacementTargets.add(component.replacesComponentId);
+      }
+      adjustments.push({ componentId: component.id, multiplier: selected ? 2 : 0 });
+    }
+
+    for (const targetId of replacementTargetIds) {
+      adjustments.push({ componentId: targetId, multiplier: selectedReplacementTargets.has(targetId) ? 0 : 1 });
+    }
+
+    return { ...item, adjustments };
+  });
+
   const defaultLocation = await ensureDefaultLocation(auth.context.business.id);
   try {
     const sale = await recordSale({
       ...parsed.data,
+      items: normalizedItems,
       locationId: parsed.data.locationId || defaultLocation.id,
       businessId: auth.context.business.id,
       actorUserId: auth.context.user.id,

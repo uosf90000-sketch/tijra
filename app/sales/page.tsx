@@ -18,8 +18,8 @@ const paymentLabels: Record<string, string> = { CASH: "نقدي", CARD: "بطا�
 
 function cashierCopy(activity: string) {
   const experience = posExperienceFor(activity);
-  if (experience === "MENU") return { title: "اختر المنتج من الصور وأتم الطلب", note: "المنتجات والإضافات فقط. الوصفات والتكلفة تبقى في حساب المالك." };
-  if (experience === "PART_LOOKUP") return { title: "ابحث برقم القطعة ثم امسح الباركود", note: "البحث للتأكد من القطعة والمتوفر فقط، والبيع يتم بالباركود مثل كاشير البقالة." };
+  if (experience === "MENU") return { title: "اختر المنتج من الصور وأتم الطلب", note: "المنتجات والإضافات والبدائل فقط. الوصفات والتكلفة تبقى في حساب المالك." };
+  if (experience === "PART_LOOKUP") return { title: "ابحث برقم القطعة ثم أضفها", note: "اكتب رقم القطعة أو امسح الباركود، واعرف المتوفر قبل البيع." };
   if (experience === "BARCODE") return { title: "امسح البضاعة وأتم البيع", note: "الباركود، الكمية والمبلغ فقط. التقارير والأرباح تبقى في حساب المالك." };
   return { title: "ابحث عن المنتج وأتم البيع", note: "واجهة بيع بسيطة حسب نشاط المنشأة." };
 }
@@ -125,6 +125,7 @@ export default async function SalesPage() {
         canRemove: component.canRemove,
         canExtra: component.canExtra,
         extraOnly: Boolean(component.extraOnly),
+        replacesComponentId: component.replacesComponentId || null,
         extraPrice: component.extraPrice,
         yieldPercent: component.yieldPercent,
       })),
@@ -135,23 +136,17 @@ export default async function SalesPage() {
     const copy = cashierCopy(activity);
     return (
       <section className="staffTaskPage">
-        <div className="staffPageIntro">
-          <span>الكاشير</span>
-          <h1>{copy.title}</h1>
-          <p>{copy.note}</p>
-        </div>
-        <div className="staffPosMode">
-          <PosTerminal products={posProducts} locationId={defaultLocation.id} businessActivity={activity} />
-        </div>
+        <div className="staffPageIntro"><span>الكاشير</span><h1>{copy.title}</h1><p>{copy.note}</p></div>
+        <div className="staffPosMode"><PosTerminal products={posProducts} locationId={defaultLocation.id} businessActivity={activity} /></div>
       </section>
     );
   }
 
   const experience = posExperienceFor(activity);
   const description = experience === "MENU"
-    ? "صور المنتجات والإضافات أمام الكاشير، بينما المكونات والخصم من المخزون تعمل تلقائيًا في الخلفية."
+    ? "صور المنتجات أمام الكاشير، والإضافات والبدائل فقط عند الطلب، بينما المكونات والخصم من المخزون تعمل تلقائيًا في الخلفية."
     : experience === "PART_LOOKUP"
-      ? "ابحث برقم القطعة للتأكد من توفرها، ثم امسح باركود القطعة لإضافتها للسلة وإتمام البيع مثل البقالة."
+      ? "ابحث برقم القطعة أو امسح باركودها، اعرف المتوفر وأضفها للسلة مباشرة."
       : experience === "BARCODE"
         ? "امسح الباركود، حدد الكمية وأتم البيع؛ المخزون يتحدث فورًا."
         : "نقطة بيع تتكيف مع نشاط المنشأة وتحدث المخزون تلقائيًا.";
