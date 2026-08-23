@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { ProductCreateForm } from "@/components/product-create-form";
 import { PageHeader } from "@/components/page-header";
+import { firstPermissionHref } from "@/lib/access";
 import { getSessionContext } from "@/lib/auth";
 import { isFoodActivity } from "@/lib/business-experience";
 
@@ -11,6 +12,7 @@ export const metadata = { title: "إضافة منتج" };
 export default async function NewProductPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (context.membership.role !== "OWNER") redirect(firstPermissionHref(context.membership));
 
   const foodBusiness = isFoodActivity(context.business.businessActivity);
   return (
