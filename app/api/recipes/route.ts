@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { convertRecipeQuantity } from "@/lib/recipes";
 
 const unitSchema = z.enum(["غرام", "كيلو", "مل", "لتر", "حبة", "قطعة", "شريحة", "رغيف"]);
 
@@ -29,10 +30,16 @@ export async function POST(request: Request) {
 
   const products = await db.product.findMany({
     where: { businessId: auth.context.business.id, id: { in: [data.saleProductId, data.ingredientProductId] }, active: true },
-    select: { id: true, name: true },
+    select: { id: true, name: true, unit: true },
   });
   if (products.length !== 2) return NextResponse.json({ error: "PRODUCT_NOT_FOUND" }, { status: 404 });
   const ingredient = products.find((item) => item.id === data.ingredientProductId)!;
+
+  try {
+    convertRecipeQuantity(data.quantity, data.unit, ingredient.unit);
+  } catch {
+    return NextResponse.json({ error: "INCOMPATIBLE_RECIPE_UNITS", ingredientUnit: ingredient.unit }, { status: 409 });
+  }
 
   const note = JSON.stringify({ unit: data.unit, canRemove: data.canRemove, canExtra: data.canExtra });
   const existing = await db.inventoryAuditEvent.findFirst({
