@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
 import { isFoodActivity } from "@/lib/business-experience";
 import { db } from "@/lib/db";
-import { convertRecipeQuantity } from "@/lib/recipes";
+import { convertRecipeQuantity, decodeRecipeNote } from "@/lib/recipes";
 
 const unitSchema = z.enum(["غرام", "كيلو", "مل", "لتر", "حبة", "قطعة", "شريحة", "رغيف"]);
 
@@ -15,9 +15,11 @@ const recipeSchema = z.object({
   unit: unitSchema,
   canRemove: z.boolean().default(false),
   canExtra: z.boolean().default(false),
+  replacesComponentId: z.string().min(1).optional(),
   extraPrice: z.coerce.number().nonnegative().max(100000).default(0),
   yieldPercent: z.coerce.number().min(1).max(100).default(100),
-}).refine((value) => Boolean(value.ingredientProductId || value.ingredientName), { message: "INGREDIENT_REQUIRED" });
+}).refine((value) => Boolean(value.ingredientProductId || value.ingredientName), { message: "INGREDIENT_REQUIRED" })
+  .refine((value) => !value.replacesComponentId || value.canExtra, { message: "ALTERNATIVE_MUST_BE_OPTIONAL" });
 
 function requireOwner(role: string) {
   return role === "OWNER" ? null : NextResponse.json({ error: "OWNER_REQUIRED" }, { status: 403 });
@@ -44,6 +46,22 @@ export async function POST(request: Request) {
     select: { id: true },
   });
   if (!saleProduct) return NextResponse.json({ error: "PRODUCT_NOT_FOUND" }, { status: 404 });
+
+  let replacementTarget: { id: string; note: string | null } | null = null;
+  if (data.replacesComponentId) {
+    replacementTarget = await db.inventoryAuditEvent.findFirst({
+      where: {
+        id: data.replacesComponentId,
+        businessId: auth.context.business.id,
+        action: "RECIPE_COMPONENT",
+        listingId: data.saleProductId,
+      },
+      select: { id: true, note: true },
+    });
+    if (!replacementTarget || decodeRecipeNote(replacementTarget.note).extraOnly) {
+      return NextResponse.json({ error: "REPLACEMENT_TARGET_NOT_FOUND" }, { status: 404 });
+    }
+  }
 
   let ingredient = data.ingredientProductId
     ? await db.product.findFirst({
@@ -92,6 +110,7 @@ export async function POST(request: Request) {
     canRemove: extraOnly ? true : data.canRemove,
     canExtra: data.canExtra,
     extraOnly,
+    replacesComponentId: data.replacesComponentId || null,
   });
   const existing = await db.inventoryAuditEvent.findFirst({
     where: {
@@ -134,6 +153,26 @@ export async function POST(request: Request) {
         },
       });
 
+  if (replacementTarget) {
+    const targetConfig = decodeRecipeNote(replacementTarget.note);
+    await db.inventoryAuditEvent.update({
+      where: { id: replacementTarget.id },
+      data: {
+        note: JSON.stringify({
+          unit: targetConfig.unit,
+          canRemove: true,
+          canExtra: targetConfig.canExtra,
+          extraOnly: targetConfig.extraOnly,
+          replacesComponentId: targetConfig.replacesComponentId,
+        }),
+        actorUserId: auth.context.user.id,
+        actorName: auth.context.user.name,
+        actorRole: auth.context.membership.role,
+        occurredAt: new Date(),
+      },
+    });
+  }
+
   await db.inventoryAuditEvent.create({
     data: {
       businessId: auth.context.business.id,
@@ -145,7 +184,11 @@ export async function POST(request: Request) {
       actorUserId: auth.context.user.id,
       actorName: auth.context.user.name,
       actorRole: auth.context.membership.role,
-      note: extraOnly ? `حفظ إضافة اختيارية: ${ingredient.name} +${data.extraPrice} ر.س` : `حفظ مكوّن: ${data.quantity} ${data.unit}`,
+      note: replacementTarget
+        ? `حفظ بديل: ${ingredient.name} +${data.extraPrice} ر.س`
+        : extraOnly
+          ? `حفظ إضافة اختيارية: ${ingredient.name} +${data.extraPrice} ر.س`
+          : `حفظ مكوّن: ${data.quantity} ${data.unit}`,
     },
   });
 
