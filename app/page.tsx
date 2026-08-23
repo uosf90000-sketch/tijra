@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   AlertTriangle,
@@ -5,10 +6,8 @@ import {
   ClipboardCheck,
   ClipboardList,
   PackageCheck,
-  ShoppingBasket,
   ShoppingCart,
   Store,
-  Tags,
   TrendingUp,
   UsersRound,
 } from "lucide-react";
@@ -49,12 +48,27 @@ type PartnerStat = {
   lastOrder: Date;
 };
 
+type SmartInsight = {
+  title: string;
+  note: string;
+  href: string;
+  tone?: "warning" | "danger" | "good";
+  icon: typeof Store;
+};
+
 function sortPartners(values: PartnerStat[]) {
   return values.sort((a, b) => b.total - a.total);
 }
 
 function StatStrip({ items }: { items: Array<{ label: string; value: string; note: string; icon: typeof Store }> }) {
   return <section className="dashboardStatStrip">{items.map(({ label, value, note, icon: Icon }) => <article className="dashboardStripItem" key={label}><span className="dashboardStripIcon"><Icon size={18} /></span><span className="dashboardStripLabel">{label}</span><strong>{value}</strong><small>{note}</small></article>)}</section>;
+}
+
+function SmartInsights({ items }: { items: SmartInsight[] }) {
+  return <section className="smartOwnerPanel">
+    <div className="smartOwnerPanelHead"><div><span className="dashboardEyebrow">تنبيهات ذكية</span><h2>الأشياء التي تحتاج انتباهك فقط</h2></div><span>{items.length ? `${items.length} ملاحظة` : "كل شيء جيد"}</span></div>
+    {items.length ? <div className="smartOwnerList">{items.map(({ title, note, href, tone = "warning", icon: Icon }) => <Link href={href} className={`smartOwnerInsight ${tone}`} key={`${href}-${title}`}><span className="smartOwnerInsightIcon"><Icon size={19} /></span><div><strong>{title}</strong><span>{note}</span></div></Link>)}</div> : <div className="smartOwnerAllGood"><PackageCheck size={20} /><div><strong>ما عندك شيء عاجل الآن</strong><span>إذا ظهر نقص مخزون أو طلب يحتاج متابعة أو فرق جرد، يظهر هنا تلقائيًا.</span></div></div>}
+  </section>;
 }
 
 function RankBars({ rows, empty }: { rows: PartnerStat[]; empty: string }) {
@@ -75,59 +89,39 @@ function Donut({ percent }: { percent: number }) {
 }
 
 async function RetailerDashboard({ businessId, firstName }: { businessId: string; firstName: string }) {
-  const start = monthStart();
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const auditSince = daysAgo(30);
-  const [receivedOrders, activeOrders, products, todaySales, cashierEvents, countEvents] = await Promise.all([
-    db.marketplaceOrder.findMany({ where: { buyerBusinessId: businessId, status: "RECEIVED" }, include: { seller: true }, orderBy: { createdAt: "desc" }, take: 500 }),
-    db.marketplaceOrder.findMany({ where: { buyerBusinessId: businessId, status: { in: ["PLACED", "ACCEPTED"] } }, select: { expectedTotal: true } }),
+  const [activeOrders, products, todaySales, countEvents] = await Promise.all([
+    db.marketplaceOrder.findMany({ where: { buyerBusinessId: businessId, status: { in: ["PLACED", "ACCEPTED"] } }, select: { id: true, status: true } }),
     db.product.findMany({ where: { businessId, active: true }, orderBy: { quantity: "asc" }, take: 500 }),
     db.sale.findMany({ where: { businessId, soldAt: { gte: today } }, select: { total: true, costTotal: true } }),
-    db.inventoryAuditEvent.findMany({ where: { businessId, action: "CASHIER_SALE", occurredAt: { gte: today } }, orderBy: { occurredAt: "desc" }, take: 500 }),
-    db.inventoryAuditEvent.findMany({ where: { businessId, action: "STORE_COUNT", occurredAt: { gte: auditSince } }, orderBy: { occurredAt: "desc" }, take: 1000 }),
+    db.inventoryAuditEvent.findMany({ where: { businessId, action: "STORE_COUNT", occurredAt: { gte: auditSince } }, select: { itemName: true }, take: 1000 }),
   ]);
-
-  const monthOrders = receivedOrders.filter((order) => orderDate(order) >= start);
-  const monthSpend = monthOrders.reduce((sum, order) => sum + Number(order.expectedTotal), 0);
-  const lifetimeSpend = receivedOrders.reduce((sum, order) => sum + Number(order.expectedTotal), 0);
-  const averageOrder = receivedOrders.length ? lifetimeSpend / receivedOrders.length : 0;
-
-  const supplierMap = new Map<string, PartnerStat>();
-  for (const order of receivedOrders) {
-    const previous = supplierMap.get(order.sellerBusinessId);
-    const date = orderDate(order);
-    supplierMap.set(order.sellerBusinessId, { id: order.sellerBusinessId, name: order.seller.name, city: order.seller.city, total: (previous?.total ?? 0) + Number(order.expectedTotal), count: (previous?.count ?? 0) + 1, lastOrder: previous && previous.lastOrder > date ? previous.lastOrder : date });
-  }
-  const suppliers = sortPartners(Array.from(supplierMap.values()));
-  const topSupplier = suppliers[0];
 
   const stockValue = products.reduce((sum, item) => sum + Number(item.quantity) * Number(item.averageCost), 0);
   const lowStock = products.filter((item) => Number(item.quantity) > 0 && Number(item.quantity) <= Math.max(1, Number(item.reorderPoint))).length;
   const outOfStock = products.filter((item) => Number(item.quantity) <= 0).length;
   const countedProducts = new Set(countEvents.map((event) => event.itemName).filter(Boolean)).size;
-  const auditProgress = products.length ? (countedProducts / products.length) * 100 : 0;
+  const auditProgress = products.length ? (countedProducts / products.length) * 100 : 100;
   const todaySalesTotal = todaySales.reduce((sum, sale) => sum + Number(sale.total), 0);
   const todayProfit = todaySales.reduce((sum, sale) => sum + Number(sale.total) - Number(sale.costTotal), 0);
-  const employeeMap = new Map<string, number>();
-  for (const event of cashierEvents) employeeMap.set(event.actorName, (employeeMap.get(event.actorName) ?? 0) + Number(event.quantity ?? 0));
-  const employeeRows = [...employeeMap.entries()].map(([name, total], index) => ({ id: `${index}-${name}`, name, total, count: 0, lastOrder: new Date() })).sort((a, b) => b.total - a.total);
 
-  return <main className="approvedDashboard">
-    <header className="dashboardGreeting"><div><span>لوحة التاجر</span><h1>مرحبًا {firstName} 👋</h1><p>المشتريات والمبيعات والمخزون في نظرة واحدة.</p></div><span className="dashboardDate">{new Intl.DateTimeFormat("ar-SA", { dateStyle: "long" }).format(new Date())}</span></header>
+  const insights: SmartInsight[] = [];
+  if (outOfStock > 0) insights.push({ title: `${outOfStock} أصناف نافدة`, note: "راجعها قبل ما تؤثر على البيع.", href: "/inventory", tone: "danger", icon: Boxes });
+  if (lowStock > 0) insights.push({ title: `${lowStock} أصناف قربت تخلص`, note: "تقدر تراجع السوق والطلب حسب حاجتك.", href: "/marketplace", tone: "warning", icon: AlertTriangle });
+  if (activeOrders.length > 0) insights.push({ title: `${activeOrders.length} طلبات قيد التنفيذ`, note: "تابع حالة الطلبات الحالية من مكان واحد.", href: "/marketplace/orders", tone: "warning", icon: ClipboardList });
+  if (products.length > 0 && auditProgress < 100) insights.push({ title: "الجرد غير مكتمل", note: `تم جرد ${countedProducts} من ${products.length} صنف خلال آخر 30 يوم.`, href: "/inventory/audit", tone: "warning", icon: ClipboardCheck });
+  if (todaySalesTotal > 0 && todayProfit < 0) insights.push({ title: "ربح اليوم يحتاج مراجعة", note: "المبيعات موجودة لكن مجمل الربح سلبي اليوم.", href: "/sales/analytics", tone: "danger", icon: TrendingUp });
+
+  return <main className="approvedDashboard ownerSimpleHome">
+    <header className="dashboardGreeting"><div><span>الرئيسية</span><h1>مرحبًا {firstName} 👋</h1><p>الأهم اليوم فقط، والتفاصيل موجودة داخل أقسامها.</p></div><span className="dashboardDate">{new Intl.DateTimeFormat("ar-SA", { dateStyle: "long" }).format(new Date())}</span></header>
     <StatStrip items={[
-      { label: "مشتريات الشهر", value: formatSar(monthSpend), note: `${monthOrders.length} طلب مستلم`, icon: ShoppingBasket },
       { label: "مبيعات اليوم", value: formatSar(todaySalesTotal), note: `${todaySales.length} فاتورة`, icon: ShoppingCart },
+      { label: "ربح اليوم", value: formatSar(todayProfit), note: "بعد تكلفة البضاعة", icon: TrendingUp },
       { label: "قيمة المخزون", value: formatSar(stockValue), note: `${products.length} صنف`, icon: Boxes },
       { label: "الطلبات الحالية", value: `${activeOrders.length}`, note: "قيد التنفيذ", icon: ClipboardList },
     ]} />
-    <section className="dashboardFeatureGrid">
-      <article className="dashboardCard dashboardSupplierCard"><div className="dashboardCardHeading"><div><span className="dashboardEyebrow">أكثر مورد تتعامل معه</span><h2>{topSupplier?.name ?? "لا توجد مشتريات بعد"}</h2></div><span className="dashboardCardIcon"><Store size={20} /></span></div>{topSupplier ? <div className="dashboardSupplierStats"><div><span>إجمالي المشتريات</span><strong>{formatSar(topSupplier.total)}</strong></div><div><span>عدد الطلبات</span><strong>{topSupplier.count}</strong></div><div className="dashboardSupplierLast"><span>آخر شراء</span><strong>{shortDate(topSupplier.lastOrder)}</strong></div></div> : <div className="dashboardEmpty">بعد أول طلب مستلم يظهر هنا المورد الأكثر تعاملًا.</div>}</article>
-      <article className="dashboardCard"><div className="dashboardCardHeading"><div><span className="dashboardEyebrow">مبيعات الموظفين اليوم</span><h2>{employeeRows[0]?.name ?? "لا توجد مبيعات اليوم"}</h2><p>{employeeRows[0] ? `الأعلى بـ ${formatSar(employeeRows[0].total)}` : "تبدأ الإحصائية مع أول فاتورة"}</p></div><span className="dashboardCardIcon teal"><UsersRound size={20} /></span></div><RankBars rows={employeeRows} empty="لا توجد مبيعات موظفين اليوم." /></article>
-      <article className="dashboardCard dashboardAuditCard"><div className="dashboardCardHeading"><div><span className="dashboardEyebrow">الجرد آخر 30 يوم</span><h2>{countedProducts} من {products.length}</h2><p>صنف تم جرده</p></div><span className="dashboardCardIcon teal"><ClipboardCheck size={20} /></span></div><Donut percent={auditProgress} /></article>
-      <article className="dashboardCard dashboardInventoryCard"><div className="dashboardCardHeading"><div><span className="dashboardEyebrow">المخزون</span><h2>{formatSar(stockValue)}</h2><p>الربح اليوم {formatSar(todayProfit)}</p></div><span className="dashboardCardIcon"><Boxes size={20} /></span></div><InventoryBars quantities={products.map((item) => Number(item.quantity))} /><div className="inventorySignals"><span><b>{lowStock}</b> منخفض</span><span className="danger"><b>{outOfStock}</b> نافد</span></div></article>
-    </section>
-    <section className="dashboardWideCard"><div className="dashboardCardHeading"><div><span className="dashboardEyebrow">الموردون</span><h2>توزيع مشترياتك</h2></div><strong className="dashboardWideValue">{formatSar(lifetimeSpend)}</strong></div><RankBars rows={suppliers} empty="لا توجد مشتريات مستلمة بعد." /></section>
-    <section className="dashboardWideCard"><div className="dashboardCardHeading"><div><span className="dashboardEyebrow">متوسط الطلب</span><h2>{formatSar(averageOrder)}</h2><p>على {receivedOrders.length} طلب مستلم</p></div><span className="dashboardCardIcon"><Tags size={20} /></span></div></section>
+    <SmartInsights items={insights} />
   </main>;
 }
 
