@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
+import { syncProductForListing } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
 
 const externalSaleSchema = z.object({
@@ -54,6 +55,22 @@ export async function POST(request: Request) {
 
       if (updated.count !== 1) throw new Error(`INSUFFICIENT_STOCK:${Number(listing.quantity)}`);
 
+      const internalProduct = await syncProductForListing(tx, { businessId: context.business.id, listing, delta: -quantity });
+      if (internalProduct) {
+        await tx.stockMovement.create({
+          data: {
+            businessId: context.business.id,
+            productId: internalProduct.id,
+            type: "SALE",
+            quantity: -quantity,
+            unitCost: internalProduct.averageCost,
+            sourceType: "EXTERNAL_SALE",
+            sourceId: listing.id,
+            note: "بيع خارجي مسجل لدى المورد",
+          },
+        });
+      }
+
       const current = await tx.marketplaceListing.findUnique({ where: { id: listing.id } });
       if (!current) throw new Error("LISTING_NOT_FOUND");
 
@@ -73,14 +90,15 @@ export async function POST(request: Request) {
         },
       });
 
-      return current;
+      return { current, internalProduct };
     });
 
     return NextResponse.json({
-      listing: result,
+      listing: result.current,
       deducted: quantity,
       source: "EXTERNAL_SALE",
       actor: context.user.name,
+      internalProductSynced: Boolean(result.internalProduct),
     });
   } catch (error) {
     const code = error instanceof Error ? error.message : "EXTERNAL_SALE_FAILED";
