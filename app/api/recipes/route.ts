@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
+import { isFoodActivity } from "@/lib/business-experience";
 import { db } from "@/lib/db";
 import { convertRecipeQuantity } from "@/lib/recipes";
 
@@ -8,17 +9,22 @@ const unitSchema = z.enum(["غرام", "كيلو", "مل", "لتر", "حبة", "
 
 const recipeSchema = z.object({
   saleProductId: z.string().min(1),
-  ingredientProductId: z.string().min(1),
+  ingredientProductId: z.string().min(1).optional(),
+  ingredientName: z.string().trim().min(2).max(160).optional(),
   quantity: z.coerce.number().positive().max(1000000),
   unit: unitSchema,
   canRemove: z.boolean().default(false),
   canExtra: z.boolean().default(false),
   extraPrice: z.coerce.number().nonnegative().max(100000).default(0),
   yieldPercent: z.coerce.number().min(1).max(100).default(100),
-});
+}).refine((value) => Boolean(value.ingredientProductId || value.ingredientName), { message: "INGREDIENT_REQUIRED" });
 
 function requireOwner(role: string) {
   return role === "OWNER" ? null : NextResponse.json({ error: "OWNER_REQUIRED" }, { status: 403 });
+}
+
+function requireFoodActivity(activity: string) {
+  return isFoodActivity(activity) ? null : NextResponse.json({ error: "RECIPES_NOT_AVAILABLE_FOR_ACTIVITY" }, { status: 403 });
 }
 
 export async function POST(request: Request) {
@@ -26,21 +32,52 @@ export async function POST(request: Request) {
   if (auth.response) return auth.response;
   const ownerError = requireOwner(auth.context.membership.role);
   if (ownerError) return ownerError;
+  const activityError = requireFoodActivity(auth.context.business.businessActivity);
+  if (activityError) return activityError;
 
   const parsed = recipeSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
 
   const data = parsed.data;
-  if (data.saleProductId === data.ingredientProductId) {
-    return NextResponse.json({ error: "SAME_PRODUCT_NOT_ALLOWED" }, { status: 409 });
+  const saleProduct = await db.product.findFirst({
+    where: { businessId: auth.context.business.id, id: data.saleProductId, active: true },
+    select: { id: true },
+  });
+  if (!saleProduct) return NextResponse.json({ error: "PRODUCT_NOT_FOUND" }, { status: 404 });
+
+  let ingredient = data.ingredientProductId
+    ? await db.product.findFirst({
+        where: { businessId: auth.context.business.id, id: data.ingredientProductId, active: true },
+        select: { id: true, name: true, unit: true },
+      })
+    : null;
+
+  if (!ingredient && data.ingredientName) {
+    ingredient = await db.product.findFirst({
+      where: { businessId: auth.context.business.id, name: { equals: data.ingredientName, mode: "insensitive" }, active: true },
+      select: { id: true, name: true, unit: true },
+    });
   }
 
-  const products = await db.product.findMany({
-    where: { businessId: auth.context.business.id, id: { in: [data.saleProductId, data.ingredientProductId] }, active: true },
-    select: { id: true, name: true, unit: true },
-  });
-  if (products.length !== 2) return NextResponse.json({ error: "PRODUCT_NOT_FOUND" }, { status: 404 });
-  const ingredient = products.find((item) => item.id === data.ingredientProductId)!;
+  if (!ingredient && data.ingredientName) {
+    ingredient = await db.product.create({
+      data: {
+        businessId: auth.context.business.id,
+        name: data.ingredientName,
+        category: "مكوّن",
+        unit: data.unit,
+        salePrice: 0,
+        averageCost: 0,
+        quantity: 0,
+        reorderPoint: 0,
+        targetCoverageDays: 7,
+      },
+      select: { id: true, name: true, unit: true },
+    });
+  }
+
+  if (!ingredient) return NextResponse.json({ error: "PRODUCT_NOT_FOUND" }, { status: 404 });
+  if (saleProduct.id === ingredient.id) return NextResponse.json({ error: "SAME_PRODUCT_NOT_ALLOWED" }, { status: 409 });
 
   try {
     convertRecipeQuantity(data.quantity, data.unit, ingredient.unit);
@@ -54,7 +91,7 @@ export async function POST(request: Request) {
       businessId: auth.context.business.id,
       action: "RECIPE_COMPONENT",
       listingId: data.saleProductId,
-      orderId: data.ingredientProductId,
+      orderId: ingredient.id,
     },
   });
 
@@ -78,7 +115,7 @@ export async function POST(request: Request) {
           businessId: auth.context.business.id,
           action: "RECIPE_COMPONENT",
           listingId: data.saleProductId,
-          orderId: data.ingredientProductId,
+          orderId: ingredient.id,
           itemName: ingredient.name,
           quantity: data.quantity,
           previousQuantity: data.extraPrice,
@@ -95,17 +132,17 @@ export async function POST(request: Request) {
       businessId: auth.context.business.id,
       action: "RECIPE_CHANGE",
       listingId: data.saleProductId,
-      orderId: data.ingredientProductId,
+      orderId: ingredient.id,
       itemName: ingredient.name,
       quantity: data.quantity,
       actorUserId: auth.context.user.id,
       actorName: auth.context.user.name,
       actorRole: auth.context.membership.role,
-      note: `حفظ مكوّن وصفة: ${data.quantity} ${data.unit} · فاقد التحضير ${100 - data.yieldPercent}%`,
+      note: data.canExtra ? `حفظ إضافة: ${ingredient.name} +${data.extraPrice} ر.س` : `حفظ مكوّن: ${data.quantity} ${data.unit}`,
     },
   });
 
-  return NextResponse.json({ component });
+  return NextResponse.json({ component, ingredient });
 }
 
 export async function DELETE(request: Request) {
@@ -113,6 +150,8 @@ export async function DELETE(request: Request) {
   if (auth.response) return auth.response;
   const ownerError = requireOwner(auth.context.membership.role);
   if (ownerError) return ownerError;
+  const activityError = requireFoodActivity(auth.context.business.businessActivity);
+  if (activityError) return activityError;
 
   const url = new URL(request.url);
   const saleProductId = url.searchParams.get("saleProductId") || "";
