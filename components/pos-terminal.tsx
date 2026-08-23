@@ -15,6 +15,7 @@ type RecipeComponent = {
   canRemove: boolean;
   canExtra: boolean;
   extraOnly: boolean;
+  replacesComponentId: string | null;
   extraPrice: number;
   yieldPercent: number;
 };
@@ -157,12 +158,11 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
       setQuery("");
       return;
     }
-    if (experience === "PART_LOOKUP") return;
     const normalized = code.toLowerCase();
     const exact = products.find((item) => item.sku?.toLowerCase() === normalized || item.barcode === code || item.name.toLowerCase() === normalized);
     if (exact) {
       add(exact);
-      setQuery("");
+      if (experience !== "PART_LOOKUP") setQuery("");
     }
   }
 
@@ -209,10 +209,22 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
   function toggleAdjustment(cartKey: string, component: RecipeComponent, target: Adjustment) {
     setCart((current) => current.map((item) => {
       if (item.cartKey !== cartKey) return item;
+      const adjustments = { ...item.adjustments };
       const defaultValue: Adjustment = component.extraOnly ? 0 : 1;
-      const currentValue = item.adjustments[component.id] ?? defaultValue;
-      const next = currentValue === target ? defaultValue : target;
-      return { ...item, adjustments: { ...item.adjustments, [component.id]: next } };
+      const currentValue = adjustments[component.id] ?? defaultValue;
+
+      if (component.extraOnly && component.replacesComponentId && target === 2) {
+        const selecting = currentValue !== 2;
+        for (const sibling of item.recipe) {
+          if (sibling.extraOnly && sibling.replacesComponentId === component.replacesComponentId) adjustments[sibling.id] = 0;
+        }
+        adjustments[component.id] = selecting ? 2 : 0;
+        adjustments[component.replacesComponentId] = selecting ? 0 : 1;
+        return { ...item, adjustments };
+      }
+
+      adjustments[component.id] = currentValue === target ? defaultValue : target;
+      return { ...item, adjustments };
     }));
   }
 
@@ -267,8 +279,8 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
     router.refresh();
   }
 
-  const catalogTitle = experience === "MENU" ? "اختر المنتج من الصور" : experience === "PART_LOOKUP" ? "ابحث برقم القطعة ثم امسح الباركود للبيع" : experience === "BARCODE" ? "امسح المنتج وأكمل البيع" : "ابحث عن المنتج وأضفه للسلة";
-  const inputPlaceholder = experience === "MENU" ? "ابحث عن وجبة أو مشروب..." : experience === "PART_LOOKUP" ? "رقم القطعة أو اسمها، أو اكتب الباركود للبيع..." : experience === "BARCODE" ? "امسح الباركود أو اكتب الكود..." : "ابحث بالاسم أو الكود...";
+  const catalogTitle = experience === "MENU" ? "اختر المنتج من الصور" : experience === "PART_LOOKUP" ? "اكتب رقم القطعة واعرف المتوفر" : experience === "BARCODE" ? "امسح المنتج وأكمل البيع" : "ابحث عن المنتج وأضفه للسلة";
+  const inputPlaceholder = experience === "MENU" ? "ابحث عن وجبة أو مشروب..." : experience === "PART_LOOKUP" ? "اكتب رقم القطعة أو اسمها..." : experience === "BARCODE" ? "امسح الباركود أو اكتب الكود..." : "ابحث بالاسم أو الكود...";
   const SearchIcon = experience === "PART_LOOKUP" ? Hash : experience === "BARCODE" ? Barcode : Search;
   const showCamera = experience === "BARCODE" || experience === "PART_LOOKUP" || experience === "CATALOG";
 
@@ -281,7 +293,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
         </div>
         <div className={`barcodeField adaptiveSearch ${experience === "PART_LOOKUP" ? "partSearch" : ""}`}><SearchIcon size={21} /><input aria-label="بحث المنتج" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); handleSearchEnter(); } }} placeholder={inputPlaceholder} /></div>
 
-        {experience === "PART_LOOKUP" && !query.trim() ? <div className="partLookupHint"><Hash size={22} /><div><strong>ابحث أولًا برقم القطعة</strong><span>تأكد من الاسم والكمية المتوفرة، وبعدها امسح باركود القطعة لإضافتها للسلة مثل كاشير البقالة.</span></div></div> : null}
+        {experience === "PART_LOOKUP" && !query.trim() ? <div className="partLookupHint"><Hash size={22} /><div><strong>ابدأ برقم القطعة</strong><span>مثال: 90915-YZZE1 — تظهر القطعة والكمية المتوفرة، واضغط عليها لإضافتها للسلة. الباركود اختصار إضافي فقط.</span></div></div> : null}
 
         <div className={`quickProducts ${experience === "MENU" ? "menuProductGrid" : experience === "PART_LOOKUP" ? "partsProductGrid" : ""}`}>
           {filtered.map((product) => {
@@ -294,7 +306,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
                     {experience === "PART_LOOKUP" && product.sku ? <small className="partNumber">رقم القطعة · {product.sku}</small> : null}
                     <strong>{product.name}</strong>
                     <span>{formatSar(product.salePrice)}{experience === "MENU" ? (unavailable ? " · غير متاح" : "") : experience === "PART_LOOKUP" ? ` · متوفر ${product.quantity.toLocaleString("ar-SA")} ${product.unit}` : product.saleMode === "SERVICE" ? " · خدمة" : ` · متاح ${product.quantity.toLocaleString("ar-SA")} ${product.unit}`}</span>
-                    {experience === "PART_LOOKUP" ? <small>{product.barcode ? "جاهز للبيع بالباركود" : "لا يوجد باركود مسجل لهذا الصنف"}</small> : product.saleMode === "SERIAL" ? <small>{product.serials.length} رقم Serial/IMEI متاح</small> : product.size || product.color ? <small>{[product.size, product.color].filter(Boolean).join(" · ")}</small> : null}
+                    {experience === "PART_LOOKUP" ? <small>{product.barcode ? "يمكن بيعه أيضًا بالباركود" : "اضغط لإضافته للسلة"}</small> : product.saleMode === "SERIAL" ? <small>{product.serials.length} رقم Serial/IMEI متاح</small> : product.size || product.color ? <small>{[product.size, product.color].filter(Boolean).join(" · ")}</small> : null}
                   </div>
                 </button>
                 {product.conversions.length ? <div className="unitQuickRow">{product.conversions.slice(0, 4).map((conversion) => <button type="button" key={conversion.id} onClick={() => add(product, conversion)}>{conversion.name} · {formatSar(conversion.salePrice ?? product.salePrice * conversion.factor)}</button>)}</div> : null}
@@ -311,7 +323,8 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
           {cart.map((item) => {
             const unitPrice = lineUnitPrice(item);
             const continuous = (item.saleMode === "WEIGHT" || isContinuousUnit(item.displayUnit)) && !item.recipe.length;
-            const visibleModifiers = item.recipe.filter((component) => component.canRemove || component.canExtra);
+            const replacementTargetIds = new Set(item.recipe.filter((component) => component.extraOnly && component.replacesComponentId).map((component) => component.replacesComponentId));
+            const visibleModifiers = item.recipe.filter((component) => component.extraOnly || (component.canRemove && !replacementTargetIds.has(component.id)));
             return (
               <div className="cartRow recipeCartRow" key={item.cartKey}>
                 <div className="grow"><strong>{item.name}</strong><span>{formatSar(unitPrice)} لكل {item.displayUnit}</span>
@@ -320,7 +333,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
                       const value = item.adjustments[component.id] ?? (component.extraOnly ? 0 : 1);
                       return <div className="modifierGroup" key={component.id}><span>{component.ingredientName}</span>
                         {!component.extraOnly && component.canRemove ? <button type="button" className={value === 0 ? "active danger" : ""} onClick={() => toggleAdjustment(item.cartKey, component, 0)}>بدون</button> : null}
-                        {component.canExtra ? <button type="button" className={value === 2 ? "active" : ""} onClick={() => toggleAdjustment(item.cartKey, component, 2)}>إضافة{component.extraPrice ? ` +${component.extraPrice.toLocaleString("ar-SA")}` : ""}</button> : null}
+                        {component.canExtra ? <button type="button" className={value === 2 ? "active" : ""} onClick={() => toggleAdjustment(item.cartKey, component, 2)}>{component.replacesComponentId ? "بديل" : "إضافة"}{component.extraPrice ? ` +${component.extraPrice.toLocaleString("ar-SA")}` : ""}</button> : null}
                       </div>;
                     })}
                   </div> : null}
@@ -332,7 +345,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
               </div>
             );
           })}
-          {!cart.length && <div className="infoNote">{experience === "MENU" ? "اختر المنتج من القائمة لإضافته للطلب." : experience === "PART_LOOKUP" ? "ابحث برقم القطعة للتأكد من المتوفر، ثم امسح الباركود لإضافتها للسلة." : "امسح المنتج أو ابحث عنه لإضافته للسلة."}</div>}
+          {!cart.length && <div className="infoNote">{experience === "MENU" ? "اختر المنتج من القائمة لإضافته للطلب." : experience === "PART_LOOKUP" ? "اكتب رقم القطعة ثم اضغط على النتيجة لإضافتها للسلة." : "امسح المنتج أو ابحث عنه لإضافته للسلة."}</div>}
         </div>
         <div className="cartTotals"><div className="grandTotal"><span>الإجمالي</span><strong>{formatSar(total)}</strong></div></div>
         {message && <div className="infoNote">{message}</div>}
