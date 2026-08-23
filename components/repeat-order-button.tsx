@@ -21,7 +21,7 @@ export function RepeatOrderButton({ orderId }: { orderId: string }) {
         else setMessage("تعذر إعادة الطلب بنفس الكميات الحالية.");
         return;
       }
-      setMessage("تم إنشاء الطلب الجديد وحجز الكمية ✅");
+      setMessage("تم إنشاء الطلب من المورد السابق وحجز الكمية ✅");
       router.refresh();
     } catch {
       setMessage("تعذر الاتصال بالخادم.");
@@ -33,7 +33,7 @@ export function RepeatOrderButton({ orderId }: { orderId: string }) {
   return (
     <div className="inlineActionStack">
       <button type="button" className="button primary compact" onClick={repeat} disabled={loading}>
-        <RotateCcw size={15} /> {loading ? "جاري الإعادة..." : "إعادة الطلب"}
+        <RotateCcw size={15} /> {loading ? "جاري الإعادة..." : "إعادة الطلب من المورد السابق"}
       </button>
       {message ? <small className="mutedText">{message}</small> : null}
     </div>
