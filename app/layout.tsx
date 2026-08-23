@@ -18,6 +18,8 @@ import "./recipe-pos.css";
 import "./commerce-ops.css";
 import "./navigation-cleanup.css";
 import "./staff-workspace.css";
+import "./simple-market.css";
+import "./owner-six-door.css";
 
 export const metadata: Metadata = {
   title: {

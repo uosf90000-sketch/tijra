@@ -72,6 +72,8 @@ const purchases: NavItem = { href: "/purchases", label: "المشتريات", ic
 const activityCenter: NavItem = { href: "/activity", label: "مركز النشاط", icon: Activity };
 const controlCenter: NavItem = { href: "/control-center", label: "مركز الرقابة", icon: Bell };
 const staffInventory: NavItem = { href: "/staff/inventory", label: "إدخال وإخراج المخزون", icon: ScanBarcode };
+const productsHub: NavItem = { href: "/products", label: "المنتجات", icon: PackageSearch };
+const managementHub: NavItem = { href: "/management", label: "الإدارة", icon: UsersRound };
 
 const sellerProducts: NavItem = { href: "/marketplace/seller", label: "المنتجات", icon: Store };
 const importProducts: NavItem = { href: "/supplier/import", label: "استيراد Excel / CSV", icon: FileSpreadsheet };
@@ -140,11 +142,20 @@ function NavSectionBlock({ section, pathname, onNavigate }: { section: NavSectio
 }
 
 function retailerSections(isOwner: boolean): NavSection[] {
+  if (isOwner) {
+    return [
+      { label: "البيع", items: [{ ...sales, label: "البيع" }] },
+      { label: "المخزون", items: [inventory] },
+      { label: "المنتجات", items: [productsHub] },
+      { label: "المشتريات والسوق", items: [market] },
+      { label: "الإدارة", items: [managementHub] },
+    ];
+  }
   return [
     { label: "البيع", items: [sales, shifts] },
-    { label: "المخزون والتشغيل", items: [inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, waste, dayClosing, ...(isOwner ? [recipes] : [])] },
+    { label: "المخزون والتشغيل", items: [inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, waste, dayClosing] },
     { label: "الشراء والسوق", items: [market, smartBuy, reorder, catalog, marketplaceSuppliers, smartPrice, smartAlerts, purchases, orders] },
-    { label: "الإدارة", items: [...(isOwner ? [salesAnalytics, controlCenter] : []), activityCenter, { ...accounting, label: "الملخص المالي" }, employees, payroll] },
+    { label: "الإدارة", items: [activityCenter, { ...accounting, label: "الملخص المالي" }, employees, payroll] },
   ];
 }
 
@@ -231,7 +242,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const businessType = viewer?.business.businessType ?? "RETAILER";
   const isStaff = viewer?.membership.role === "STAFF";
-  const staffCanPurchase = viewer?.membership.permissions?.includes("PURCHASES") ?? false;
   const canSwitchMode = businessType === "BOTH" && !isStaff;
 
   useEffect(() => {
