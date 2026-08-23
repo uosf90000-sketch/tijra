@@ -24,6 +24,8 @@ const saleSchema = z.object({
   ).min(1).max(200),
 });
 
+type OptionalComponent = { id: string; replacesComponentId: string | null };
+
 export async function POST(request: Request) {
   const auth = await requireApiPermission("CASHIER");
   if (auth.response) return auth.response;
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
   }
 
   const productIds = Array.from(new Set(parsed.data.items.map((item) => item.productId)));
-  const optionalRows = productIds.length ? await db.inventoryAuditEvent.findMany({
+  const recipeRows = productIds.length ? await db.inventoryAuditEvent.findMany({
     where: {
       businessId: auth.context.business.id,
       action: "RECIPE_COMPONENT",
@@ -43,26 +45,41 @@ export async function POST(request: Request) {
     select: { id: true, listingId: true, note: true },
   }) : [];
 
-  const optionalByProduct = new Map<string, string[]>();
-  for (const row of optionalRows) {
-    if (!row.listingId || !decodeRecipeNote(row.note).extraOnly) continue;
+  const optionalByProduct = new Map<string, OptionalComponent[]>();
+  for (const row of recipeRows) {
+    if (!row.listingId) continue;
+    const config = decodeRecipeNote(row.note);
+    if (!config.extraOnly) continue;
     const current = optionalByProduct.get(row.listingId) ?? [];
-    current.push(row.id);
+    current.push({ id: row.id, replacesComponentId: config.replacesComponentId });
     optionalByProduct.set(row.listingId, current);
   }
 
   const normalizedItems = parsed.data.items.map((item) => {
-    const optionalIds = new Set(optionalByProduct.get(item.productId) ?? []);
-    if (!optionalIds.size) return item;
+    const optionalComponents = optionalByProduct.get(item.productId) ?? [];
+    if (!optionalComponents.length) return item;
 
+    const optionalIds = new Set(optionalComponents.map((component) => component.id));
+    const replacementTargetIds = new Set(optionalComponents.map((component) => component.replacesComponentId).filter((value): value is string => Boolean(value)));
     const supplied = new Map((item.adjustments ?? []).map((adjustment) => [adjustment.componentId, adjustment.multiplier]));
-    const adjustments = (item.adjustments ?? [])
-      .filter((adjustment) => !optionalIds.has(adjustment.componentId))
+    const adjustments: Array<{ componentId: string; multiplier: 0 | 1 | 2 }> = (item.adjustments ?? [])
+      .filter((adjustment) => !optionalIds.has(adjustment.componentId) && !replacementTargetIds.has(adjustment.componentId))
       .map((adjustment) => ({ ...adjustment }));
 
-    for (const componentId of optionalIds) {
-      adjustments.push({ componentId, multiplier: supplied.get(componentId) === 2 ? 2 as const : 0 as const });
+    const selectedReplacementTargets = new Set<string>();
+    for (const component of optionalComponents) {
+      let selected = supplied.get(component.id) === 2;
+      if (component.replacesComponentId && selected) {
+        if (selectedReplacementTargets.has(component.replacesComponentId)) selected = false;
+        else selectedReplacementTargets.add(component.replacesComponentId);
+      }
+      adjustments.push({ componentId: component.id, multiplier: selected ? 2 : 0 });
     }
+
+    for (const targetId of replacementTargetIds) {
+      adjustments.push({ componentId: targetId, multiplier: selectedReplacementTargets.has(targetId) ? 0 : 1 });
+    }
+
     return { ...item, adjustments };
   });
 
