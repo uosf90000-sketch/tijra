@@ -35,29 +35,41 @@ export default async function ReorderPage() {
 
   return (
     <>
-      <PageHeader eyebrow="الشراء" title="إعادة الطلب" description="اطلب نفس الطلب السابق بضغطة. قبل الإعادة، تِجرا يفحص السعر الحالي ويشير لو ظهر مورد أرخص لنفس الصنف." />
+      <PageHeader eyebrow="الشراء" title="إعادة الطلب" description="تِجرا يذكّرك بالمورد السابق أولًا، ثم ينبهك إذا وجد نفس الصنف بسعر أرخص عند مورد آخر. القرار يبقى لك." />
       <section className="workflowStack">
         {orders.map((order) => {
           const currentTotal = order.items.reduce((sum, item) => sum + Number(item.quantity) * Number(item.listing.price), 0);
-          let bestAlternative: { name: string; seller: string; price: number; saving: number } | null = null;
-          if (order.items.length === 1) {
-            const item = order.items[0];
+          const cheaperItems = order.items.flatMap((item) => {
+            const requestedQty = Number(item.quantity);
             const key = normalize(item.listing.name);
-            const matches = listings.filter((listing) => item.listing.barcode ? listing.barcode === item.listing.barcode : normalize(listing.name) === key && listing.unit === item.listing.unit);
-            const best = matches[0];
-            if (best) {
-              const saving = (Number(item.listing.price) - Number(best.price)) * Number(item.quantity);
-              if (saving > 0.01) bestAlternative = { name: best.name, seller: best.seller.name, price: Number(best.price), saving };
-            }
-          }
+            const best = listings.find((listing) => {
+              if (listing.sellerBusinessId === order.sellerBusinessId || listing.id === item.listing.id) return false;
+              if (Number(listing.quantity) < requestedQty || Number(listing.minOrderQty) > requestedQty) return false;
+              if (item.listing.barcode) return listing.barcode === item.listing.barcode;
+              return normalize(listing.name) === key && listing.unit === item.listing.unit;
+            });
+            if (!best) return [];
+            const saving = (Number(item.listing.price) - Number(best.price)) * requestedQty;
+            if (saving <= 0.01) return [];
+            return [{
+              name: best.name,
+              seller: best.seller.name,
+              price: Number(best.price),
+              saving,
+              originalName: item.listing.name,
+            }];
+          });
+          const totalSaving = cheaperItems.reduce((sum, item) => sum + item.saving, 0);
+          const firstCheaper = cheaperItems[0];
+
           return <article className="panel reorderCard" key={order.id}>
-            <div className="reorderMain"><div className="reorderIcon"><RotateCcw size={20} /></div><div><span className="eyebrow">{order.seller.name}</span><h2>{order.items.map((item) => item.listing.name).join("، ")}</h2><p>{order.items.map((item) => `${Number(item.quantity).toLocaleString("ar-SA")} ${item.listing.unit}`).join(" · ")} · آخر استلام {new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium" }).format(order.receivedAt ?? order.createdAt)}</p></div></div>
-            <div className="reorderPrice"><span>السعر الحالي لنفس الطلب</span><strong>{formatSar(currentTotal)}</strong><small>السابق {formatSar(Number(order.expectedTotal))}</small></div>
-            {bestAlternative ? <div className="savingHint"><BadgePercent size={17} /><div><strong>يوجد خيار أرخص الآن</strong><span>{bestAlternative.seller} · {formatSar(bestAlternative.price)} · توفير تقريبي {formatSar(bestAlternative.saving)}</span></div><Link className="textLink" href={`/marketplace?q=${encodeURIComponent(bestAlternative.name)}`}>مقارنة</Link></div> : null}
+            <div className="reorderMain"><div className="reorderIcon"><RotateCcw size={20} /></div><div><span className="eyebrow">المورد السابق · {order.seller.name}</span><h2>{order.items.map((item) => item.listing.name).join("، ")}</h2><p>{order.items.map((item) => `${Number(item.quantity).toLocaleString("ar-SA")} ${item.listing.unit}`).join(" · ")} · آخر استلام {new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium" }).format(order.receivedAt ?? order.createdAt)}</p></div></div>
+            <div className="reorderPrice"><span>إعادة الطلب من المورد السابق</span><strong>{formatSar(currentTotal)}</strong><small>{order.seller.name} · السعر السابق {formatSar(Number(order.expectedTotal))}</small></div>
+            {firstCheaper ? <div className="savingHint"><BadgePercent size={17} /><div><strong>يوجد أرخص</strong><span>{cheaperItems.length === 1 ? `${firstCheaper.originalName} عند ${firstCheaper.seller} بسعر ${formatSar(firstCheaper.price)} · توفير تقريبي ${formatSar(firstCheaper.saving)}` : `${cheaperItems.length} أصناف لها سعر أرخص عند موردين آخرين · توفير تقريبي ${formatSar(totalSaving)}`}</span></div><Link className="textLink" href={`/marketplace?q=${encodeURIComponent(firstCheaper.name)}`}>عرض الأرخص</Link></div> : null}
             <RepeatOrderButton orderId={order.id} />
           </article>;
         })}
-        {!orders.length && <section className="panel workflowEmpty"><ShoppingBasket size={28} /><h2>لا توجد طلبات مستلمة بعد</h2><p>بعد أول طلب تستلمه من مورد سيظهر هنا ويمكنك إعادته بضغطة.</p><Link className="button primary" href="/marketplace">فتح السوق</Link></section>}
+        {!orders.length && <section className="panel workflowEmpty"><ShoppingBasket size={28} /><h2>لا توجد طلبات مستلمة بعد</h2><p>بعد أول طلب تستلمه من مورد سيظهر هنا ويمكنك إعادته من نفس المورد، مع تنبيه إذا وجد تِجرا سعرًا أرخص.</p><Link className="button primary" href="/marketplace">فتح السوق</Link></section>}
       </section>
     </>
   );
