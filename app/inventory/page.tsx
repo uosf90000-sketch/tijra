@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Boxes, PackagePlus, Search, SlidersHorizontal, TriangleAlert } from "lucide-react";
+import { Boxes, ClipboardCheck, PackagePlus, Search, SlidersHorizontal, TriangleAlert } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { ProgressBar } from "@/components/progress-bar";
-import { RetailerServiceGate } from "@/components/retailer-service-gate";
 import { StatusPill } from "@/components/status-pill";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -16,19 +15,6 @@ export const dynamic = "force-dynamic";
 export default async function InventoryPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
-
-  if (context.business.businessType === "RETAILER") {
-    return (
-      <>
-        <PageHeader
-          eyebrow="نظام المتجر"
-          title="الجرد الذكي"
-          description="السوق والطلبات يعملان الآن. الجرد المتقدم سنفتحه للتاجر مع تجربة قارئ باركود سريعة ومناسبة للمحل."
-        />
-        <RetailerServiceGate service="inventory" />
-      </>
-    );
-  }
 
   const since = new Date();
   since.setDate(since.getDate() - 30);
@@ -65,8 +51,8 @@ export default async function InventoryPage() {
       <PageHeader
         eyebrow="التشغيل"
         title="المخزون"
-        description="الكميات والتكلفة والحركة هنا مرتبطة مباشرة بقاعدة بيانات منشأتك."
-        actions={<Link className="button primary" href="/inventory/new"><PackagePlus size={17} /> إضافة صنف</Link>}
+        description="الكميات والتكلفة والحركة مرتبطة مباشرة بالكاشير والجرد والشراء."
+        actions={<><Link className="button secondary" href="/inventory/audit"><ClipboardCheck size={17} /> الجرد</Link><Link className="button primary" href="/inventory/new"><PackagePlus size={17} /> إضافة صنف</Link></>}
       />
 
       <section className="metricsGrid three">
@@ -107,7 +93,7 @@ export default async function InventoryPage() {
           </table>
         </div>
 
-        <div className="tableFooter"><span>عرض {rows.length} أصناف من قاعدة البيانات</span><Link className="textLink" href="/purchases">إنشاء طلبية للنواقص</Link></div>
+        <div className="tableFooter"><span>عرض {rows.length} أصناف من قاعدة البيانات</span><Link className="textLink" href="/smart-buy">خطة مشتريات الأسبوع</Link></div>
       </section>
     </>
   );
