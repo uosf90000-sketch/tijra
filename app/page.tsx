@@ -56,12 +56,25 @@ type SmartInsight = {
   icon: typeof Store;
 };
 
+type StatStripItem = {
+  label: string;
+  value: string;
+  note: string;
+  icon: typeof Store;
+  href?: string;
+};
+
 function sortPartners(values: PartnerStat[]) {
   return values.sort((a, b) => b.total - a.total);
 }
 
-function StatStrip({ items }: { items: Array<{ label: string; value: string; note: string; icon: typeof Store }> }) {
-  return <section className="dashboardStatStrip">{items.map(({ label, value, note, icon: Icon }) => <article className="dashboardStripItem" key={label}><span className="dashboardStripIcon"><Icon size={18} /></span><span className="dashboardStripLabel">{label}</span><strong>{value}</strong><small>{note}</small></article>)}</section>;
+function StatStrip({ items }: { items: StatStripItem[] }) {
+  return <section className="dashboardStatStrip">{items.map(({ label, value, note, icon: Icon, href }) => {
+    const content = <><span className="dashboardStripIcon"><Icon size={18} /></span><span className="dashboardStripLabel">{label}</span><strong>{value}</strong><small>{note}</small></>;
+    return href
+      ? <Link className="dashboardStripItem dashboardStripLink" href={href} key={label}>{content}</Link>
+      : <article className="dashboardStripItem" key={label}>{content}</article>;
+  })}</section>;
 }
 
 function SmartInsights({ items }: { items: SmartInsight[] }) {
@@ -119,7 +132,7 @@ async function RetailerDashboard({ businessId, firstName }: { businessId: string
       { label: "مبيعات اليوم", value: formatSar(todaySalesTotal), note: `${todaySales.length} فاتورة`, icon: ShoppingCart },
       { label: "ربح اليوم", value: formatSar(todayProfit), note: "بعد تكلفة البضاعة", icon: TrendingUp },
       { label: "قيمة المخزون", value: formatSar(stockValue), note: `${products.length} صنف`, icon: Boxes },
-      { label: "الطلبات الحالية", value: `${activeOrders.length}`, note: "قيد التنفيذ", icon: ClipboardList },
+      { label: "الطلبات الحالية", value: `${activeOrders.length}`, note: "قيد التنفيذ", icon: ClipboardList, href: "/marketplace/orders" },
     ]} />
     <SmartInsights items={insights} />
   </main>;
@@ -157,7 +170,7 @@ async function SupplierDashboard({ businessId, firstName }: { businessId: string
     <header className="dashboardGreeting"><div><span>لوحة المورد</span><h1>مرحبًا {firstName} 👋</h1><p>هكذا يبدو أداء مبيعاتك ومخزونك اليوم.</p></div><span className="dashboardDate">{new Intl.DateTimeFormat("ar-SA", { dateStyle: "long" }).format(new Date())}</span></header>
     <StatStrip items={[
       { label: "مبيعات الشهر", value: formatSar(monthSales), note: `${monthOrders.length} طلب مستلم`, icon: ShoppingCart },
-      { label: "الطلبات النشطة", value: `${activeOrders.length}`, note: "بانتظار الإجراء", icon: ClipboardList },
+      { label: "الطلبات النشطة", value: `${activeOrders.length}`, note: "بانتظار الإجراء", icon: ClipboardList, href: "/marketplace/seller#orders" },
       { label: "قيمة المخزون", value: formatSar(stockValue), note: `${listings.length} منتج معروض`, icon: Boxes },
       { label: "متوسط الطلب", value: formatSar(averageOrder), note: `${buyers.length} تاجر`, icon: TrendingUp },
     ]} />

@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
-import { SidebarBehavior } from "@/components/sidebar-behavior";
 import "./globals.css";
 import "./premium.css";
 import "./smart-price.css";
@@ -42,7 +41,6 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
     <html lang="ar" dir="rtl">
       <body>
         <AppShell>{children}</AppShell>
-        <SidebarBehavior />
       </body>
     </html>
   );
