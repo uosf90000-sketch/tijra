@@ -15,6 +15,7 @@ const schema = z.object({
 export async function POST(request: Request) {
   const auth = await requireApiPermission("INVENTORY");
   if (auth.response) return auth.response;
+  if (auth.context.membership.role !== "OWNER") return NextResponse.json({ error: "OWNER_REQUIRED" }, { status: 403 });
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
   if (parsed.data.saleMode === "RECIPE" && !isFoodActivity(auth.context.business.businessActivity)) {
