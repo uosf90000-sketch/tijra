@@ -8,6 +8,7 @@ import { recordSale } from "@/lib/stock-operations";
 
 const saleSchema = z.object({
   invoiceNumber: z.string().trim().min(1).max(80).optional(),
+  recordedAt: z.coerce.date().optional(),
   paymentMethod: z.enum(["CASH", "CARD", "TRANSFER", "OTHER"]).optional(),
   locationId: z.string().optional(),
   items: z.array(
@@ -33,6 +34,14 @@ export async function POST(request: Request) {
   const parsed = saleSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
+  }
+
+  if (parsed.data.invoiceNumber) {
+    const existingSale = await db.sale.findFirst({
+      where: { businessId: auth.context.business.id, invoiceNumber: parsed.data.invoiceNumber },
+      include: { items: true },
+    });
+    if (existingSale) return NextResponse.json({ sale: existingSale, duplicate: true });
   }
 
   const productIds = Array.from(new Set(parsed.data.items.map((item) => item.productId)));
@@ -85,8 +94,9 @@ export async function POST(request: Request) {
 
   const defaultLocation = await ensureDefaultLocation(auth.context.business.id);
   try {
+    const { recordedAt, ...saleData } = parsed.data;
     const sale = await recordSale({
-      ...parsed.data,
+      ...saleData,
       items: normalizedItems,
       locationId: parsed.data.locationId || defaultLocation.id,
       businessId: auth.context.business.id,
@@ -94,7 +104,10 @@ export async function POST(request: Request) {
       actorName: auth.context.user.name,
       actorRole: auth.context.membership.role,
     });
-    return NextResponse.json({ sale }, { status: 201 });
+    const finalSale = recordedAt
+      ? await db.sale.update({ where: { id: sale.id }, data: { soldAt: recordedAt }, include: { items: true } })
+      : sale;
+    return NextResponse.json({ sale: finalSale }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "SALE_FAILED";
     const status = message.startsWith("INSUFFICIENT_STOCK") || message.startsWith("INSUFFICIENT_LOCATION_STOCK") ? 409
