@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
+import { OfflineRuntime } from "@/components/offline-runtime";
 import "./globals.css";
 import "./premium.css";
 import "./smart-price.css";
@@ -22,6 +23,7 @@ import "./simple-market.css";
 import "./owner-six-door.css";
 import "./smart-owner-home.css";
 import "./executive-ui.css";
+import "./offline.css";
 
 export const metadata: Metadata = {
   title: {
@@ -41,6 +43,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <html lang="ar" dir="rtl">
       <body>
+        <OfflineRuntime />
         <AppShell>{children}</AppShell>
       </body>
     </html>
