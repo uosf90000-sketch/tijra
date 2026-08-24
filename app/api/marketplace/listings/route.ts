@@ -27,6 +27,33 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
 
   const result = await db.$transaction(async (tx) => {
+    // A network timeout can happen after the database commit. Treat an identical
+    // recent listing as the same publish operation so the supplier cannot create
+    // duplicate listings by pressing Publish again.
+    const existingListing = await tx.marketplaceListing.findFirst({
+      where: {
+        sellerBusinessId: context.business.id,
+        name: parsed.data.name,
+        unit: parsed.data.unit,
+        price: parsed.data.price,
+        quantity: parsed.data.quantity,
+        minOrderQty: parsed.data.minOrderQty,
+        ...(parsed.data.barcode ? { barcode: parsed.data.barcode } : parsed.data.sku ? { sku: parsed.data.sku } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (existingListing) {
+      const link = await tx.inventoryAuditEvent.findFirst({
+        where: { businessId: context.business.id, action: "LISTING_LINKED_PRODUCT", listingId: existingListing.id },
+        select: { orderId: true },
+      });
+      const product = link?.orderId
+        ? await tx.product.findFirst({ where: { id: link.orderId, businessId: context.business.id } })
+        : null;
+      return { listing: existingListing, product, sharedInventory: Boolean(product), duplicate: true };
+    }
+
     const existingProduct = parsed.data.barcode
       ? await tx.product.findFirst({ where: { businessId: context.business.id, barcode: parsed.data.barcode, active: true } })
       : parsed.data.sku
@@ -78,8 +105,8 @@ export async function POST(request: Request) {
       },
     });
 
-    return { listing, product };
+    return { listing, product, sharedInventory: true, duplicate: false };
   });
 
-  return NextResponse.json({ listing: result.listing, product: result.product, sharedInventory: true }, { status: 201 });
+  return NextResponse.json({ listing: result.listing, product: result.product, sharedInventory: result.sharedInventory, duplicate: result.duplicate }, { status: result.duplicate ? 200 : 201 });
 }
