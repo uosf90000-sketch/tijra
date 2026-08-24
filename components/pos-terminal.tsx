@@ -1,11 +1,13 @@
 "use client";
 
 import { BrowserMultiFormatReader } from "@zxing/browser";
-import { Banknote, Barcode, Camera, CreditCard, Hash, ImageIcon, ScanLine, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import { Banknote, Barcode, Camera, CloudOff, CreditCard, Hash, ImageIcon, ScanLine, Search, ShoppingCart, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useOfflineStatus } from "@/hooks/use-offline-status";
 import { businessActivityLabels, posExperienceFor } from "@/lib/business-experience";
 import { formatSar } from "@/lib/format";
+import { makeOfflineOperationId, offlineQueueChangeEvent, pendingSaleQuantities, queueOfflineOperation } from "@/lib/offline-queue";
 
 type RecipeComponent = {
   id: string;
@@ -54,6 +56,20 @@ type CartLine = Product & {
 };
 type ScannerControls = { stop: () => void };
 
+type SalePayload = {
+  paymentMethod: "CASH" | "CARD";
+  invoiceNumber: string;
+  recordedAt: string;
+  locationId: string;
+  items: Array<{
+    productId: string;
+    quantity: number;
+    unitPrice: number;
+    serials?: string[];
+    adjustments: Array<{ componentId: string; multiplier: Adjustment }>;
+  }>;
+};
+
 function isContinuousUnit(unit: string) {
   const value = unit.trim().toLowerCase();
   return ["كيلو", "كجم", "غرام", "جرام", "غ", "لتر", "مل", "kg", "g", "l", "ml"].includes(value);
@@ -74,14 +90,32 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
   const router = useRouter();
   const experience = posExperienceFor(businessActivity);
   const activityLabel = businessActivityLabels[businessActivity] ?? "نشاطك";
+  const { online, pending } = useOfflineStatus("SALE");
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [pendingByProduct, setPendingByProduct] = useState<Record<string, number>>({});
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerControlsRef = useRef<ScannerControls | null>(null);
   const lastScanRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
+
+  const refreshPendingSales = useCallback(async () => {
+    try {
+      const totals = await pendingSaleQuantities();
+      setPendingByProduct(Object.fromEntries(totals));
+    } catch {
+      setPendingByProduct({});
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshPendingSales();
+    const refresh = () => void refreshPendingSales();
+    window.addEventListener(offlineQueueChangeEvent, refresh);
+    return () => window.removeEventListener(offlineQueueChangeEvent, refresh);
+  }, [refreshPendingSales]);
 
   const scanTargets = useMemo(() => {
     const targets = new Map<string, { product: Product; conversion?: Conversion }>();
@@ -105,7 +139,8 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
 
   function availableDisplayQty(product: Product, factor: number) {
     if (product.saleMode === "SERVICE") return 100000000;
-    return Math.max(0, product.availableQuantity / factor);
+    const pendingQuantity = pendingByProduct[product.id] || 0;
+    return Math.max(0, (product.availableQuantity - pendingQuantity) / factor);
   }
 
   function add(product: Product, conversion?: Conversion) {
@@ -230,6 +265,19 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
 
   const total = cart.reduce((sum, item) => sum + item.qty * lineUnitPrice(item), 0);
 
+  async function queueSale(payload: SalePayload, operationId: string) {
+    await queueOfflineOperation({
+      id: operationId,
+      type: "SALE",
+      url: "/api/sales",
+      body: payload as unknown as Record<string, unknown>,
+      createdAt: payload.recordedAt,
+    });
+    await refreshPendingSales();
+    setCart([]);
+    setMessage("تم حفظ البيع على الجهاز ✅ وسيُرفع تلقائيًا للنظام عند عودة النت.");
+  }
+
   async function checkout(paymentMethod: "CASH" | "CARD") {
     if (!cart.length || loading) return;
     for (const item of cart) {
@@ -241,42 +289,74 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
         return;
       }
     }
+
+    const operationId = makeOfflineOperationId("sale");
+    const payload: SalePayload = {
+      paymentMethod,
+      invoiceNumber: `POS-${operationId}`,
+      recordedAt: new Date().toISOString(),
+      locationId,
+      items: cart.map((item) => ({
+        productId: item.id,
+        quantity: item.qty * item.factor,
+        unitPrice: item.displayPrice / item.factor,
+        serials: item.saleMode === "SERIAL" ? parseSerials(item.serialText) : undefined,
+        adjustments: Object.entries(item.adjustments).map(([componentId, multiplier]) => ({ componentId, multiplier })),
+      })),
+    };
+
     setLoading(true);
     setMessage("");
-    const response = await fetch("/api/sales", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        paymentMethod,
-        invoiceNumber: `POS-${Date.now()}`,
-        locationId,
-        items: cart.map((item) => ({
-          productId: item.id,
-          quantity: item.qty * item.factor,
-          unitPrice: item.displayPrice / item.factor,
-          serials: item.saleMode === "SERIAL" ? parseSerials(item.serialText) : undefined,
-          adjustments: Object.entries(item.adjustments).map(([componentId, multiplier]) => ({ componentId, multiplier })),
-        })),
-      }),
-    });
-    const result = await response.json().catch(() => ({}));
-    setLoading(false);
-    if (!response.ok) {
-      if (result.error?.startsWith?.("INSUFFICIENT")) {
-        const itemName = String(result.error).split(":").slice(1).join(":");
-        setMessage(itemName ? `المخزون غير كافٍ: ${itemName}.` : "تغيّر المخزون أثناء البيع. حدّث الصفحة وراجع الكميات.");
-      } else if (String(result.error || "").startsWith("SERIAL") || result.error === "DUPLICATE_SERIALS") {
-        setMessage("راجع أرقام Serial / IMEI؛ أحدها غير متاح أو العدد غير مطابق.");
-      } else if (result.error?.startsWith?.("INCOMPATIBLE_RECIPE_UNITS")) {
-        setMessage("إعداد المنتج يحتاج مراجعة من المالك.");
-      } else {
-        setMessage("تعذر تسجيل عملية البيع.");
+
+    if (!navigator.onLine) {
+      try {
+        await queueSale(payload, operationId);
+      } catch {
+        setMessage("تعذر حفظ البيع على الجهاز. لا تغلق الصفحة وحاول مرة أخرى.");
+      } finally {
+        setLoading(false);
       }
       return;
     }
-    setCart([]);
-    setMessage("تم تسجيل البيع وتحديث المخزون تلقائيًا ✅");
-    router.refresh();
+
+    try {
+      const response = await fetch("/api/sales", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        if (response.status >= 500) {
+          await queueSale(payload, operationId);
+          return;
+        }
+        if (result.error?.startsWith?.("INSUFFICIENT")) {
+          const itemName = String(result.error).split(":").slice(1).join(":");
+          setMessage(itemName ? `المخزون غير كافٍ: ${itemName}.` : "تغيّر المخزون أثناء البيع. حدّث الصفحة وراجع الكميات.");
+        } else if (String(result.error || "").startsWith("SERIAL") || result.error === "DUPLICATE_SERIALS") {
+          setMessage("راجع أرقام Serial / IMEI؛ أحدها غير متاح أو العدد غير مطابق.");
+        } else if (result.error?.startsWith?.("INCOMPATIBLE_RECIPE_UNITS")) {
+          setMessage("إعداد المنتج يحتاج مراجعة من المالك.");
+        } else {
+          setMessage("تعذر تسجيل عملية البيع.");
+        }
+        return;
+      }
+
+      setCart([]);
+      setMessage("تم تسجيل البيع وتحديث المخزون تلقائيًا ✅");
+      router.refresh();
+    } catch {
+      try {
+        await queueSale(payload, operationId);
+      } catch {
+        setMessage("انقطع الاتصال وتعذر حفظ البيع على الجهاز.");
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   const catalogTitle = experience === "MENU" ? "اختر المنتج من الصور" : experience === "PART_LOOKUP" ? "اكتب رقم القطعة واعرف المتوفر" : experience === "BARCODE" ? "امسح المنتج وأكمل البيع" : "ابحث عن المنتج وأضفه للسلة";
@@ -291,13 +371,18 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
           <div><span className="eyebrow">{activityLabel}</span><h2>{catalogTitle}</h2></div>
           {showCamera ? <button type="button" className="button secondary compact" onClick={() => setScannerOpen(true)}><Camera size={17} /> مسح بالكاميرا</button> : null}
         </div>
+        <div className={`offlineState ${online ? "online" : "offline"}`}>
+          {!online ? <CloudOff size={16} /> : null}
+          <span>{!online ? "بدون نت · البيع يُحفظ على هذا الجهاز" : pending ? `${pending} فاتورة بانتظار المزامنة` : "متصل · المزامنة تلقائية"}</span>
+        </div>
         <div className={`barcodeField adaptiveSearch ${experience === "PART_LOOKUP" ? "partSearch" : ""}`}><SearchIcon size={21} /><input aria-label="بحث المنتج" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); handleSearchEnter(); } }} placeholder={inputPlaceholder} /></div>
 
         {experience === "PART_LOOKUP" && !query.trim() ? <div className="partLookupHint"><Hash size={22} /><div><strong>ابدأ برقم القطعة</strong><span>مثال: 90915-YZZE1 — تظهر القطعة والكمية المتوفرة، واضغط عليها لإضافتها للسلة. الباركود اختصار إضافي فقط.</span></div></div> : null}
 
         <div className={`quickProducts ${experience === "MENU" ? "menuProductGrid" : experience === "PART_LOOKUP" ? "partsProductGrid" : ""}`}>
           {filtered.map((product) => {
-            const unavailable = product.availableQuantity <= 0 && product.saleMode !== "SERVICE";
+            const localAvailable = availableDisplayQty(product, 1);
+            const unavailable = localAvailable <= 0 && product.saleMode !== "SERVICE";
             return (
               <div className="quickProductCard" key={product.id}>
                 <button className={`quickProduct ${experience === "MENU" ? "menuProductCard" : ""} ${experience === "PART_LOOKUP" ? "partProductCard" : ""}`} onClick={() => add(product)} disabled={unavailable}>
@@ -305,7 +390,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
                   <div className="adaptiveProductText">
                     {experience === "PART_LOOKUP" && product.sku ? <small className="partNumber">رقم القطعة · {product.sku}</small> : null}
                     <strong>{product.name}</strong>
-                    <span>{formatSar(product.salePrice)}{experience === "MENU" ? (unavailable ? " · غير متاح" : "") : experience === "PART_LOOKUP" ? ` · متوفر ${product.quantity.toLocaleString("ar-SA")} ${product.unit}` : product.saleMode === "SERVICE" ? " · خدمة" : ` · متاح ${product.quantity.toLocaleString("ar-SA")} ${product.unit}`}</span>
+                    <span>{formatSar(product.salePrice)}{experience === "MENU" ? (unavailable ? " · غير متاح" : "") : experience === "PART_LOOKUP" ? ` · متوفر ${localAvailable.toLocaleString("ar-SA")} ${product.unit}` : product.saleMode === "SERVICE" ? " · خدمة" : ` · متاح ${localAvailable.toLocaleString("ar-SA")} ${product.unit}`}</span>
                     {experience === "PART_LOOKUP" ? <small>{product.barcode ? "يمكن بيعه أيضًا بالباركود" : "اضغط لإضافته للسلة"}</small> : product.saleMode === "SERIAL" ? <small>{product.serials.length} رقم Serial/IMEI متاح</small> : product.size || product.color ? <small>{[product.size, product.color].filter(Boolean).join(" · ")}</small> : null}
                   </div>
                 </button>
