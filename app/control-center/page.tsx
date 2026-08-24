@@ -8,6 +8,7 @@ import { getSessionContext } from "@/lib/auth";
 import { listLots, listShifts } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
+import { loadRecipesForBusiness, recipeMaxServings } from "@/lib/recipes";
 
 export const metadata = { title: "مركز الرقابة" };
 export const dynamic = "force-dynamic";
@@ -20,16 +21,28 @@ export default async function ControlCenterPage() {
   const businessId = context.business.id;
   const since7 = new Date(); since7.setDate(since7.getDate() - 7);
   const since30 = new Date(); since30.setDate(since30.getDate() - 30);
-  const [products, lots, shifts, events, buyerOrders, sellerOrders] = await Promise.all([
+  const [products, lots, shifts, events, buyerOrders, sellerOrders, recipeMap] = await Promise.all([
     db.product.findMany({ where: { businessId, active: true }, select: { id: true, name: true, quantity: true, reorderPoint: true, unit: true }, orderBy: { quantity: "asc" }, take: 1200 }),
     listLots(businessId),
     listShifts(businessId, 100),
     db.inventoryAuditEvent.findMany({ where: { businessId, occurredAt: { gte: since7 }, action: { in: ["WASTE", "DAMAGED", "CUSTOMER_RETURN", "SUPPLIER_RETURN", "DAY_CLOSE_ADJUSTMENT", "LOCATION_TRANSFER"] } }, orderBy: { occurredAt: "desc" }, take: 200 }),
     db.marketplaceOrder.findMany({ where: { buyerBusinessId: businessId, status: { in: ["PLACED", "ACCEPTED"] } }, include: { seller: true }, orderBy: { createdAt: "asc" }, take: 100 }),
     db.marketplaceOrder.findMany({ where: { sellerBusinessId: businessId, status: { in: ["PLACED", "ACCEPTED"] } }, include: { buyer: true }, orderBy: { createdAt: "asc" }, take: 100 }),
+    loadRecipesForBusiness(businessId),
   ]);
-  const low = products.filter((x) => Number(x.quantity) <= Math.max(Number(x.reorderPoint), 0) && Number(x.reorderPoint) > 0);
-  const out = products.filter((x) => Number(x.quantity) <= 0);
+
+  // Inventory uses an effective quantity for recipe products (estimated servings),
+  // while the control center previously inspected only the raw product.quantity.
+  // Keep both views aligned so recipe shortages generate the same alerts as stock shortages.
+  const inventoryRows = products.map((product) => {
+    const recipe = recipeMap.get(product.id) ?? [];
+    const isRecipe = recipe.length > 0;
+    const effectiveQuantity = isRecipe ? Math.floor(recipeMaxServings(recipe)) : Number(product.quantity);
+    const lowThreshold = isRecipe ? 5 : Number(product.reorderPoint);
+    return { ...product, isRecipe, effectiveQuantity, lowThreshold };
+  });
+  const low = inventoryRows.filter((x) => x.effectiveQuantity <= Math.max(x.lowThreshold, 0) && x.lowThreshold > 0);
+  const out = inventoryRows.filter((x) => x.effectiveQuantity <= 0);
   const expiring = lots.filter((x) => x.quantity > 0 && x.expiresAt && daysUntil(x.expiresAt) >= 0 && daysUntil(x.expiresAt) <= 30);
   const expired = lots.filter((x) => x.quantity > 0 && x.expiresAt && daysUntil(x.expiresAt) < 0);
   const closedShifts = shifts.filter((x) => x.status === "CLOSED" && x.closedAt && x.closedAt >= since30);
@@ -38,8 +51,8 @@ export default async function ControlCenterPage() {
   const waste = events.filter((x) => x.action === "WASTE" || x.action === "DAMAGED").reduce((s, x) => s + Number(x.quantity ?? 0), 0);
   const returns = events.filter((x) => x.action === "CUSTOMER_RETURN" || x.action === "SUPPLIER_RETURN").length;
   const alerts = [
-    ...out.slice(0, 8).map((x) => ({ level: "danger", title: `${x.name} نافد`, note: "الرصيد صفر — راجع الشراء أو المورد.", href: "/inventory" })),
-    ...low.filter((x) => Number(x.quantity) > 0).slice(0, 8).map((x) => ({ level: "warning", title: `${x.name} منخفض`, note: `المتبقي ${Number(x.quantity).toLocaleString("ar-SA")} ${x.unit}.`, href: "/smart-buy" })),
+    ...out.slice(0, 8).map((x) => ({ level: "danger", title: `${x.name} نافد`, note: x.isRecipe ? "لا توجد كمية كافية لإنتاج طلب واحد — راجع مكونات الوصفة." : "الرصيد صفر — راجع الشراء أو المورد.", href: "/inventory" })),
+    ...low.filter((x) => x.effectiveQuantity > 0).slice(0, 8).map((x) => ({ level: "warning", title: `${x.name} منخفض`, note: x.isRecipe ? `التغطية الحالية تقارب ${x.effectiveQuantity.toLocaleString("ar-SA")} طلبات.` : `المتبقي ${x.effectiveQuantity.toLocaleString("ar-SA")} ${x.unit}.`, href: "/smart-buy" })),
     ...expired.slice(0, 8).map((x) => ({ level: "danger", title: `دفعة منتهية`, note: `${x.lotNumber} — راجع الدفعات فورًا.`, href: "/inventory/batches" })),
     ...expiring.slice(0, 8).map((x) => ({ level: "warning", title: `صلاحية قريبة`, note: `${x.lotNumber} تنتهي خلال ${daysUntil(x.expiresAt!)} يوم.`, href: "/inventory/batches" })),
     ...shiftIssues.slice(0, 5).map((x) => ({ level: "danger", title: `فرق وردية ${x.actorName}`, note: `الفرق ${formatSar((x.actualCash ?? 0) - (x.expectedCash ?? 0))}.`, href: "/sales/shifts" })),
