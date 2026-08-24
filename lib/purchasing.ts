@@ -10,6 +10,7 @@ export type PurchaseSuggestionInput = {
   productName: string;
   onHand: number;
   avgDailySales: number;
+  reorderPoint?: number;
   targetCoverageDays?: number;
   safetyStockDays?: number;
   offers: SupplierOffer[];
@@ -29,12 +30,20 @@ function roundUp(value: number) {
 }
 
 export function buildPurchaseSuggestion(input: PurchaseSuggestionInput): PurchaseSuggestion {
-  const coverageDays = input.targetCoverageDays ?? 7;
-  const safetyDays = input.safetyStockDays ?? 1;
-  const targetStock = input.avgDailySales * (coverageDays + safetyDays);
-  const rawQty = roundUp(targetStock - input.onHand);
+  const coverageDays = Math.max(1, input.targetCoverageDays ?? 7);
+  const safetyDays = Math.max(0, input.safetyStockDays ?? 1);
+  const reorderPoint = Math.max(0, input.reorderPoint ?? 0);
+  const targetStockFromVelocity = input.avgDailySales * (coverageDays + safetyDays);
 
-  if (rawQty === 0) {
+  // A stockout must never be reported as "covered" just because there is no
+  // sales history. Use the configured reorder point as a deterministic fallback.
+  // If both velocity and reorder point are unavailable, recommend at least one
+  // unit so the user gets an actionable exception rather than a false zero.
+  const targetStock = Math.max(targetStockFromVelocity, reorderPoint > 0 ? reorderPoint * 2 : 0);
+  const rawQty = roundUp(targetStock - input.onHand);
+  const emergencyQty = input.onHand <= 0 && rawQty === 0 ? 1 : rawQty;
+
+  if (emergencyQty === 0) {
     return {
       productId: input.productId,
       productName: input.productName,
@@ -47,20 +56,25 @@ export function buildPurchaseSuggestion(input: PurchaseSuggestionInput): Purchas
 
   const ranked = input.offers
     .map((offer) => {
-      const effectiveQty = Math.max(rawQty, offer.minOrderQty ?? 0);
+      const effectiveQty = Math.max(emergencyQty, offer.minOrderQty ?? 0);
       return { offer, effectiveQty, total: effectiveQty * offer.unitPrice };
     })
     .sort((a, b) => a.total - b.total);
 
   const best = ranked[0] ?? null;
+  const reason = input.onHand <= 0
+    ? input.avgDailySales > 0
+      ? `نافد الآن؛ متوسط الاستهلاك ${input.avgDailySales.toFixed(1)} يوميًا، والكمية تغطي ${coverageDays} أيام + مخزون أمان`
+      : `نافد الآن؛ لا يوجد سجل مبيعات كافٍ، فاستُخدم حد إعادة الطلب كاحتياط`
+    : `بناءً على متوسط بيع ${input.avgDailySales.toFixed(1)} يوميًا وهدف تغطية ${coverageDays} أيام`;
 
   return {
     productId: input.productId,
     productName: input.productName,
-    suggestedQty: best?.effectiveQty ?? rawQty,
+    suggestedQty: best?.effectiveQty ?? emergencyQty,
     selectedSupplier: best?.offer ?? null,
     estimatedTotal: best?.total ?? 0,
-    reason: `بناءً على متوسط بيع ${input.avgDailySales.toFixed(1)} يوميًا وهدف تغطية ${coverageDays} أيام`,
+    reason,
   };
 }
 
