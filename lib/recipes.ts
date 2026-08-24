@@ -134,7 +134,7 @@ export async function loadRecipesForBusiness(businessId: string, saleProductIds?
       ingredientUnit: ingredient.unit,
       ingredientQuantity: Number(ingredient.quantity),
       ingredientAverageCost: Number(ingredient.averageCost),
-      quantity: Number(row.quantity),
+      quantity: Number(row.quantity) * (config.extraOnly ? 2 : 1),
       unit: config.unit,
       canRemove: config.canRemove,
       canExtra: config.canExtra,
