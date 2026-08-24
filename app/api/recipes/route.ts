@@ -104,6 +104,7 @@ export async function POST(request: Request) {
   }
 
   const extraOnly = data.canExtra;
+  const storedQuantity = extraOnly ? data.quantity / 2 : data.quantity;
   const note = JSON.stringify({
     unit: data.unit,
     canRemove: extraOnly ? true : data.canRemove,
@@ -125,7 +126,7 @@ export async function POST(request: Request) {
         where: { id: existing.id },
         data: {
           itemName: ingredient.name,
-          quantity: data.quantity,
+          quantity: storedQuantity,
           previousQuantity: data.extraPrice,
           newQuantity: data.yieldPercent,
           note,
@@ -142,7 +143,7 @@ export async function POST(request: Request) {
           listingId: data.saleProductId,
           orderId: ingredient.id,
           itemName: ingredient.name,
-          quantity: data.quantity,
+          quantity: storedQuantity,
           previousQuantity: data.extraPrice,
           newQuantity: data.yieldPercent,
           note,
