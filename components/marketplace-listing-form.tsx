@@ -50,11 +50,14 @@ export function MarketplaceListingForm() {
         setMessage(data.error === "SUPPLIER_ACCOUNT_REQUIRED" ? "هذه الصفحة لحساب المورد." : "راجع بيانات المنتج وحاول مرة أخرى.");
         return;
       }
-      setMessage("تم نشر المنتج في السوق ✅");
+      setMessage(data.duplicate ? "المنتج منشور بالفعل؛ لم يتم إنشاء نسخة مكررة. ✅" : "تم نشر المنتج في السوق ✅");
       event.currentTarget.reset();
       router.refresh();
     } catch {
-      setMessage("تعذر الاتصال بالخادم.");
+      // The server may have committed successfully before the connection failed.
+      // Do not encourage an immediate duplicate submission.
+      setMessage("تعذر التحقق من نتيجة النشر. حدّث الصفحة أولًا؛ لن ينشئ تِجرا نسخة مكررة من نفس النشر.");
+      router.refresh();
     } finally {
       setLoading(false);
     }
