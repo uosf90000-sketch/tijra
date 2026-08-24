@@ -9,6 +9,9 @@ const schema = z.object({
   barcode: z.string().trim().max(80).optional(),
   countedQuantity: z.coerce.number().nonnegative().max(100000000),
   locationId: z.string().optional(),
+  clientOperationId: z.string().trim().min(1).max(120).optional(),
+  expectedPreviousQuantity: z.coerce.number().nonnegative().max(100000000).optional(),
+  recordedAt: z.coerce.date().optional(),
 }).refine((data) => Boolean(data.productId || data.barcode), { message: "PRODUCT_OR_BARCODE_REQUIRED" });
 
 export async function POST(request: Request) {
@@ -19,12 +22,19 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
 
-  const { productId, barcode, countedQuantity } = parsed.data;
+  const { productId, barcode, countedQuantity, clientOperationId, expectedPreviousQuantity, recordedAt } = parsed.data;
   const defaultLocation = await ensureDefaultLocation(context.business.id);
   const locationId = parsed.data.locationId || defaultLocation.id;
   const locations = await listInventoryLocations(context.business.id);
   const location = locations.find((item) => item.id === locationId && item.active);
   if (!location) return NextResponse.json({ error: "LOCATION_NOT_FOUND" }, { status: 404 });
+
+  if (clientOperationId) {
+    const duplicate = await db.inventoryAuditEvent.findFirst({
+      where: { businessId: context.business.id, action: "OFFLINE_COUNT_SYNC", itemName: clientOperationId },
+    });
+    if (duplicate) return NextResponse.json({ duplicate: true, delta: Number(duplicate.quantity ?? 0), location });
+  }
 
   try {
     const result = await db.$transaction(async (tx) => {
@@ -36,8 +46,9 @@ export async function POST(request: Request) {
       const stockRow = await tx.inventoryAuditEvent.findFirst({
         where: { businessId: context.business.id, action: "LOCATION_STOCK", listingId: locationId, orderId: product.id },
       });
-      const previousLocationQuantity = Number(stockRow?.quantity ?? (location.isDefault ? product.quantity : 0));
-      const delta = countedQuantity - previousLocationQuantity;
+      const currentLocationQuantity = Number(stockRow?.quantity ?? (location.isDefault ? product.quantity : 0));
+      const baselineQuantity = expectedPreviousQuantity ?? currentLocationQuantity;
+      const delta = countedQuantity - baselineQuantity;
 
       if (delta !== 0) {
         await adjustLocationStock(tx, {
@@ -59,7 +70,9 @@ export async function POST(request: Request) {
             unitCost: product.averageCost,
             sourceType: "STOCK_COUNT",
             sourceId: product.id,
-            note: `تسوية جرد ${location.name} بواسطة ${context.user.name}`,
+            note: expectedPreviousQuantity == null
+              ? `تسوية جرد ${location.name} بواسطة ${context.user.name}`
+              : `تسوية جرد محفوظ دون اتصال في ${location.name} بواسطة ${context.user.name}`,
           },
         });
       }
@@ -73,14 +86,34 @@ export async function POST(request: Request) {
           orderId: locationId,
           itemName: product.name,
           quantity: Math.abs(delta),
-          previousQuantity: previousLocationQuantity,
+          previousQuantity: baselineQuantity,
           newQuantity: countedQuantity,
           actorUserId: context.user.id,
           actorName: context.user.name,
           actorRole: context.membership.role,
-          note: delta === 0 ? `جرد ${location.name} مطابق للمخزون` : `فرق جرد ${location.name} ${delta > 0 ? "+" : ""}${delta}`,
+          occurredAt: recordedAt || new Date(),
+          note: delta === 0
+            ? `جرد ${location.name} مطابق للمخزون${expectedPreviousQuantity == null ? "" : " · تمت مزامنته بعد عودة الاتصال"}`
+            : `فرق جرد ${location.name} ${delta > 0 ? "+" : ""}${delta}${expectedPreviousQuantity == null ? "" : " · تمت مزامنته بعد عودة الاتصال"}`,
         },
       });
+
+      if (clientOperationId) {
+        await tx.inventoryAuditEvent.create({
+          data: {
+            businessId: context.business.id,
+            action: "OFFLINE_COUNT_SYNC",
+            listingId: product.id,
+            orderId: locationId,
+            itemName: clientOperationId,
+            quantity: delta,
+            actorUserId: context.user.id,
+            actorName: context.user.name,
+            actorRole: context.membership.role,
+            note: recordedAt ? `وقت الجرد على الجهاز: ${recordedAt.toISOString()}` : "عملية جرد قابلة لإعادة المحاولة بدون تكرار",
+          },
+        });
+      }
 
       return { updated, event, delta, location };
     });
