@@ -14,24 +14,38 @@ export default async function InventoryAuditPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
   await ensureDefaultLocation(context.business.id);
-  const [products, events, locations] = await Promise.all([
+  const locations = await listInventoryLocations(context.business.id);
+  const [products, events, locationStocks] = await Promise.all([
     db.product.findMany({ where: { businessId: context.business.id, active: true }, orderBy: { name: "asc" }, take: 500 }),
     db.inventoryAuditEvent.findMany({ where: { businessId: context.business.id, action: "STORE_COUNT" }, orderBy: { occurredAt: "desc" }, take: 100 }),
-    listInventoryLocations(context.business.id),
+    db.inventoryAuditEvent.findMany({
+      where: { businessId: context.business.id, action: "LOCATION_STOCK", listingId: { in: locations.map((location) => location.id) } },
+      select: { listingId: true, orderId: true, quantity: true },
+    }),
   ]);
   const employees = new Set(events.map((event) => event.actorName)).size;
   const differences = events.filter((event) => Number(event.previousQuantity ?? 0) !== Number(event.newQuantity ?? 0)).length;
   const locationMap = new Map(locations.map((location) => [location.id, location.name]));
+  const locationQuantities: Record<string, Record<string, number>> = {};
+  for (const row of locationStocks) {
+    if (!row.listingId || !row.orderId) continue;
+    locationQuantities[row.listingId] ||= {};
+    locationQuantities[row.listingId][row.orderId] = Number(row.quantity ?? 0);
+  }
 
   return (
     <>
-      <PageHeader eyebrow="المخزون" title="الجرد" description="اختر الفرع أو المستودع، امسح الصنف وأدخل الكمية الفعلية. تِجرا يسوي الفرق فقط ويحافظ على أرصدة بقية المواقع." />
+      <PageHeader eyebrow="المخزون" title="الجرد" description="اختر الفرع أو المستودع، امسح الصنف وأدخل الكمية الفعلية. وإذا انقطع النت تُحفظ النتيجة على الجهاز وتُرفع تلقائيًا عند عودة الاتصال." />
       <section className="metricsGrid three">
         <MetricCard label="عمليات الجرد" value={`${events.length}`} note="آخر 100 عملية" icon={ClipboardCheck} />
         <MetricCard label="فروقات مكتشفة" value={`${differences}`} note="عمليات احتاجت تسوية" icon={History} tone="amber" />
         <MetricCard label="موظفون نفذوا الجرد" value={`${employees}`} note="حسب الحساب المنفذ" icon={UsersRound} tone="blue" />
       </section>
-      <StoreStockCountForm products={products.map((item) => ({ id: item.id, name: item.name, barcode: item.barcode, quantity: Number(item.quantity), unit: item.unit }))} locations={locations.map((location) => ({ id: location.id, name: location.name, isDefault: location.isDefault }))} />
+      <StoreStockCountForm
+        products={products.map((item) => ({ id: item.id, name: item.name, barcode: item.barcode, quantity: Number(item.quantity), unit: item.unit }))}
+        locations={locations.map((location) => ({ id: location.id, name: location.name, isDefault: location.isDefault }))}
+        locationQuantities={locationQuantities}
+      />
       <section className="panel tablePanel workflowTable">
         <div className="panelHeader tableHeader"><div><span className="eyebrow">السجل</span><h2>آخر عمليات الجرد</h2></div></div>
         <div className="tableScroll"><table className="dataTable"><thead><tr><th>الموقع</th><th>الموظف</th><th>الصنف</th><th>قبل</th><th>بعد</th><th>الفرق</th><th>الوقت</th></tr></thead><tbody>
