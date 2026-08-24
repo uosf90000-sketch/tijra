@@ -67,7 +67,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
 
   const items: Item[] = [];
   for (const event of events) {
-    if (["LOCATION_STOCK", "LOCATION_CONFIG", "UNIT_CONVERSION", "LOT_STOCK", "PRODUCT_CONFIG", "RECIPE_COMPONENT"].includes(event.action)) continue;
+    if (["LOCATION_STOCK", "LOCATION_CONFIG", "UNIT_CONVERSION", "LOT_STOCK", "PRODUCT_CONFIG", "RECIPE_COMPONENT", "OFFLINE_COUNT_SYNC"].includes(event.action)) continue;
     items.push({
       id: `event-${event.id}`,
       at: event.occurredAt,
