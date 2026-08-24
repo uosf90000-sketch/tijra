@@ -23,6 +23,7 @@ import "./simple-market.css";
 import "./owner-six-door.css";
 import "./smart-owner-home.css";
 import "./executive-ui.css";
+import "./offline.css";
 
 export const metadata: Metadata = {
   title: {
