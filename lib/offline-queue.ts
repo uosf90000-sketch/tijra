@@ -92,11 +92,16 @@ export async function queueOfflineOperation(input: Omit<OfflineOperation, "attem
     const existing = (await readAll()).find((item) => item.dedupeKey === input.dedupeKey);
     if (existing) {
       const expectedPreviousQuantity = existing.body.expectedPreviousQuantity;
+      const clientOperationId = existing.body.clientOperationId;
       operation = {
         ...operation,
         id: existing.id,
         createdAt: existing.createdAt,
-        body: expectedPreviousQuantity == null ? operation.body : { ...operation.body, expectedPreviousQuantity },
+        body: {
+          ...operation.body,
+          ...(expectedPreviousQuantity == null ? {} : { expectedPreviousQuantity }),
+          ...(clientOperationId == null ? {} : { clientOperationId }),
+        },
       };
     }
   }
