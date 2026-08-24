@@ -33,6 +33,9 @@ export function WasteForm({ products }: { products: ProductOption[] }) {
     }
     setMessage("تم تسجيل الهدر وخصمه من المخزون باسم الموظف المنفذ ✅");
     event.currentTarget.reset();
+    // The page is dynamic and the ledger is server-rendered. Navigate back to
+    // the same route so the newly-created audit event is fetched immediately.
+    router.replace("/inventory/waste");
     router.refresh();
   }
 
