@@ -326,9 +326,116 @@ async function marketplaceFlow() {
   assert(reserved && Number(reserved.quantity) === 45, `supplier stock expected 45 after reservation, got ${reserved?.quantity}`);
 }
 
+async function highVolumeInventoryAndAccountingFlow() {
+  const owner = await register({ activity: "GROCERY", label: "stress" });
+
+  // Seed a realistic catalogue: many products, barcodes, reorder points and stock levels.
+  const seeded = [];
+  for (let index = 1; index <= 60; index += 1) {
+    seeded.push(await createProduct(owner.cookie, {
+      name: `منتج ضغط اختبار ${String(index).padStart(2, "0")}`,
+      barcode: `628${String(index).padStart(10, "0")}`,
+      category: index % 3 === 0 ? "مشروبات" : index % 3 === 1 ? "مواد غذائية" : "منظفات",
+      unit: "حبة",
+      salePrice: 4 + index,
+      averageCost: 2 + index / 2,
+      quantity: 100 + index,
+      reorderPoint: 10,
+      targetCoverageDays: 14,
+    }));
+  }
+
+  const stockPage = await html(owner.cookie, "/inventory");
+  assert(stockPage.includes("المخزون"), "inventory page did not render for a populated catalogue");
+  const catalog = await products(owner.cookie);
+  assert(catalog.length >= 60, `high-volume inventory expected at least 60 products, got ${catalog.length}`);
+
+  // Stress checkout with many different lines in one transaction.
+  const saleItems = seeded.slice(0, 20).map((product, index) => ({
+    productId: product.id,
+    quantity: (index % 3) + 1,
+    unitPrice: Number(product.salePrice),
+  }));
+  await expectJson("/api/sales", {
+    method: "POST",
+    cookie: owner.cookie,
+    body: {
+      paymentMethod: "CARD",
+      invoiceNumber: unique("STRESS-SALE"),
+      items: saleItems,
+    },
+  }, 201);
+
+  const afterSale = await products(owner.cookie);
+  for (let index = 0; index < saleItems.length; index += 1) {
+    const expected = 100 + (index + 1) - saleItems[index].quantity;
+    const actual = Number(afterSale.find((product) => product.id === saleItems[index].productId)?.quantity);
+    assert(actual === expected, `stock mismatch after multi-line sale for product ${index + 1}: expected ${expected}, got ${actual}`);
+  }
+
+  // Accounting stress: several independent expenses must aggregate correctly.
+  const expenseAmounts = [1250, 349.5, 780, 2100, 95.75];
+  for (const [index, amount] of expenseAmounts.entries()) {
+    await expectJson("/api/expenses", {
+      method: "POST",
+      cookie: owner.cookie,
+      body: {
+        category: index % 2 ? "تشغيل" : "إيجار ومرافق",
+        description: `مصروف اختبار معاملة ${index + 1}`,
+        amount,
+      },
+    }, 201);
+  }
+
+  const expenses = await expectJson("/api/expenses", { cookie: owner.cookie }, 200);
+  const expectedExpenseTotal = expenseAmounts.reduce((sum, amount) => sum + amount, 0);
+  const actualExpenseTotal = expenses.data.expenses
+    .filter((expense) => String(expense.description || "").includes("مصروف اختبار معاملة"))
+    .reduce((sum, expense) => sum + Number(expense.amount), 0);
+  assert(Math.abs(actualExpenseTotal - expectedExpenseTotal) < 0.001, `expense aggregation mismatch: expected ${expectedExpenseTotal}, got ${actualExpenseTotal}`);
+
+  const accountingPage = await html(owner.cookie, "/accounting");
+  assert(accountingPage.includes("المحاسبة"), "accounting page did not render after complex transactions");
+  assert(accountingPage.includes("مصروف اختبار معاملة"), "accounting page did not show recent expense activity");
+
+  const staffIds = [];
+  for (let index = 1; index <= 3; index += 1) {
+    const employee = await expectJson("/api/employees", {
+      method: "POST",
+      cookie: owner.cookie,
+      body: {
+        name: `موظف محاسبة اختبار ${index}`,
+        jobTitle: index === 1 ? "مدير" : "موظف",
+        baseSalary: 4500 + index * 500,
+        defaultAllowance: 500,
+        createAccount: false,
+        permissions: ["ACCOUNTING"],
+      },
+    }, 201);
+    staffIds.push(employee.data.employee.id);
+  }
+
+  const payroll = await expectJson("/api/payroll/calculate", {
+    method: "POST",
+    cookie: owner.cookie,
+    body: {
+      employees: staffIds.map((employeeId, index) => ({
+        employeeId,
+        baseSalary: 4500 + (index + 1) * 500,
+        allowances: 500,
+        deductions: index === 1 ? 250 : 0,
+        advances: index === 2 ? 400 : 0,
+      })),
+    },
+  }, 200);
+  assert(payroll.data.items.length === 3, `payroll expected 3 employees, got ${payroll.data.items.length}`);
+  assert(Number(payroll.data.summary.totalNet) > 0, "payroll net total should be positive");
+}
+
 await waitForHealth();
 await groceryAndStaffFlow();
 await restaurantFlow();
 await hardwareFlow();
 await marketplaceFlow();
-console.log("TIJRA release smoke passed: owner/staff, grocery, restaurant recipes/extras, hardware part lookup, marketplace order + receipt.");
+await highVolumeInventoryAndAccountingFlow();
+console.log("TIJRA release smoke passed: owner/staff, grocery barcode cashier, restaurant recipes/extras, hardware part lookup, marketplace order + receipt, 60-product inventory stress, multi-line sale, expenses, accounting, and payroll calculation.");
