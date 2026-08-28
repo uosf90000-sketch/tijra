@@ -4,7 +4,7 @@ import { getSessionContext } from "@/lib/auth";
 import { isFoodActivity, posExperienceFor } from "@/lib/business-experience";
 import { ensureDefaultLocation, listUnitConversions, safeJson } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
-import { loadRecipesForBusiness, recipeMaxServings } from "@/lib/recipes";
+import { loadRecipesForBusiness, recipeMaxServings, requiredStockQuantity, type RecipeState } from "@/lib/recipes";
 
 export const metadata = { title: "الكاشير" };
 export const dynamic = "force-dynamic";
@@ -15,6 +15,20 @@ function cashierCopy(activity: string) {
   if (experience === "PART_LOOKUP") return { title: "الكاشير", note: "اكتب رقم القطعة واعرف المتوفر فورًا." };
   if (experience === "BARCODE") return { title: "الكاشير", note: "امسح الباركود وأكمل البيع." };
   return { title: "الكاشير", note: "ابحث عن المنتج وأكمل البيع." };
+}
+
+function recipeShortages(recipe: RecipeState[]) {
+  const missing: string[] = [];
+  for (const component of recipe) {
+    if (component.extraOnly) continue;
+    try {
+      const needed = requiredStockQuantity(component, 1, 1);
+      if (component.ingredientQuantity + 1e-9 < needed) missing.push(component.ingredientName);
+    } catch {
+      missing.push(`${component.ingredientName} (راجع الوحدة)`);
+    }
+  }
+  return Array.from(new Set(missing));
 }
 
 export default async function SalesPage() {
@@ -67,10 +81,11 @@ export default async function SalesPage() {
       : recipe.length ? (Number.isFinite(maxServings) ? Math.floor(maxServings) : 100000000)
       : saleMode === "SERIAL" && serials.length ? Math.min(Number(item.quantity), serials.length)
       : Number(item.quantity);
+    const shortages = recipe.length && availableQuantity <= 0 ? recipeShortages(recipe) : [];
 
     return {
       id: item.id,
-      name: item.name,
+      name: shortages.length ? `${item.name} — ينقص: ${shortages.slice(0, 2).join("، ")}${shortages.length > 2 ? "…" : ""}` : item.name,
       sku: item.sku,
       barcode: item.barcode,
       imageUrl: item.imageUrl,
