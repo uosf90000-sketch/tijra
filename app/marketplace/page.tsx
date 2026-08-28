@@ -80,6 +80,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         ...(selectedCategory ? { category: selectedCategory } : {}),
         ...(q ? { OR: [
           ...nameSearchFilters,
+          { sku: { contains: q, mode: "insensitive" as const } },
           { category: { contains: q, mode: "insensitive" as const } },
           { seller: { name: { contains: q, mode: "insensitive" as const } } },
           ...(/\d/.test(q) ? [{ barcode: { contains: q } }] : []),
@@ -174,15 +175,15 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
       <PageHeader
         eyebrow="سوق الجملة"
         title="السوق"
-        description="ابحث، اختر الكمية، وأرسل سلة واحدة. تِجرا يقسمها تلقائيًا حسب المورد."
+        description="ابحث بالاسم أو SKU أو الباركود، اختر الكمية، وأرسل سلة واحدة. تِجرا يقسمها تلقائيًا حسب المورد."
         actions={<Link className="button secondary" href="/marketplace/orders"><ClipboardList size={17} /> طلباتي</Link>}
       />
 
       <section className="simpleMarketSearch panel">
-        <div className="simpleMarketSearchTitle"><ShoppingBasket size={22} /><div><strong>وش تحتاج اليوم؟</strong><span>ابحث باسم المنتج أو المورد، ثم أضفه للسلة.</span></div></div>
+        <div className="simpleMarketSearchTitle"><ShoppingBasket size={22} /><div><strong>وش تحتاج اليوم؟</strong><span>ابحث باسم المنتج أو SKU أو الباركود أو المورد، ثم أضفه للسلة.</span></div></div>
         <form className="marketSearch" action="/marketplace">
           <label className="marketCityFilter"><MapPin size={18} /><span className="srOnly">مدينة المورد</span><select name="city" defaultValue={cityParam} aria-label="اختر مدينة المورد"><option value="all">كل المدن</option>{cityOptions.map((city) => <option key={city.key} value={city.key}>{city.label}</option>)}</select></label>
-          <label className="marketQueryField"><Search size={19} /><span className="srOnly">بحث السوق</span><input name="q" defaultValue={q} placeholder="مثال: حليب شوفان، أكواب، مياه..." /></label>
+          <label className="marketQueryField"><Search size={19} /><span className="srOnly">بحث السوق</span><input name="q" defaultValue={q} placeholder="اسم المنتج، SKU، باركود أو مورد..." /></label>
           {selectedCategory ? <input type="hidden" name="category" value={selectedCategory} /> : null}
           <button className="button primary"><PackageSearch size={17} /> بحث</button>
         </form>
