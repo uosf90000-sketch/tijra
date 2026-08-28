@@ -23,8 +23,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const item = order.items.find((row) => row.listing.barcode === parsed.data.barcode);
       if (!item) throw new Error("BARCODE_NOT_IN_ORDER");
 
-      // بدء التجهيز من المورد يُعد قبولًا تشغيليًا للطلب. هذا يمنع بقاء الطلب
-      // عند التاجر بحالة PLACED بينما المورد بدأ فعليًا في تجهيزه.
       if (order.status === "PLACED") {
         await tx.marketplaceOrder.update({
           where: { id: order.id },
@@ -32,10 +30,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         });
       }
 
-      const progress = await tx.inventoryAuditEvent.findFirst({
+      const progressRowsForItem = await tx.inventoryAuditEvent.findMany({
         where: { businessId: auth.context.business.id, action: "PICK_PROGRESS", orderId: order.id, listingId: item.listingId },
+        orderBy: { occurredAt: "desc" },
       });
-      const scannedBefore = Number(progress?.quantity ?? 0);
+      const progress = progressRowsForItem[0] ?? null;
+      const scannedBefore = progressRowsForItem.reduce((max, row) => Math.max(max, Number(row.quantity ?? 0)), 0);
       const required = Number(item.quantity);
       if (scannedBefore >= required) {
         return { kind: "already-complete" as const, required, scanned: scannedBefore };
@@ -74,8 +74,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const progressRows = await tx.inventoryAuditEvent.findMany({
         where: { businessId: auth.context.business.id, action: "PICK_PROGRESS", orderId: order.id },
       });
-      const scanMap = new Map(progressRows.map((row) => [row.listingId, Number(row.quantity ?? 0)]));
-      scanMap.set(item.listingId, scanned);
+      const scanMap = new Map<string | null, number>();
+      for (const row of progressRows) {
+        scanMap.set(row.listingId, Math.max(scanMap.get(row.listingId) ?? 0, Number(row.quantity ?? 0)));
+      }
+      scanMap.set(item.listingId, Math.max(scanMap.get(item.listingId) ?? 0, scanned));
       const completed = order.items.every((row) => (scanMap.get(row.listingId) ?? 0) >= Number(row.quantity));
 
       if (completed) {
