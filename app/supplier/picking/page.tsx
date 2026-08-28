@@ -16,9 +16,14 @@ export default async function SupplierPickingPage() {
   if (!hasAppPermission(context.membership, "INVENTORY")) redirect(firstPermissionHref(context.membership));
   const orders = await db.marketplaceOrder.findMany({ where: { sellerBusinessId: context.business.id, status: { in: ["PLACED", "ACCEPTED"] } }, include: { buyer: true, items: { include: { listing: true } } }, orderBy: { createdAt: "asc" }, take: 100 });
   const ids = orders.map((x) => x.id);
-  const progress = ids.length ? await db.inventoryAuditEvent.findMany({ where: { businessId: context.business.id, action: { in: ["PICK_PROGRESS", "PICK_COMPLETE"] }, orderId: { in: ids } } }) : [];
+  const progress = ids.length ? await db.inventoryAuditEvent.findMany({ where: { businessId: context.business.id, action: { in: ["PICK_PROGRESS", "PICK_COMPLETE"] }, orderId: { in: ids } }, orderBy: { occurredAt: "asc" } }) : [];
   const progressMap = new Map<string, number>(); const complete = new Set<string>();
-  for (const row of progress) { if (!row.orderId) continue; if (row.action === "PICK_COMPLETE") complete.add(row.orderId); else progressMap.set(`${row.orderId}:${row.listingId}`, Number(row.quantity ?? 0)); }
+  for (const row of progress) {
+    if (!row.orderId) continue;
+    if (row.action === "PICK_COMPLETE") { complete.add(row.orderId); continue; }
+    const key = `${row.orderId}:${row.listingId}`;
+    progressMap.set(key, Math.max(progressMap.get(key) ?? 0, Number(row.quantity ?? 0)));
+  }
   const totalRequired = orders.reduce((s, order) => s + order.items.reduce((n, item) => n + Number(item.quantity), 0), 0);
   const totalScanned = orders.reduce((s, order) => s + order.items.reduce((n, item) => n + Math.min(Number(item.quantity), progressMap.get(`${order.id}:${item.listingId}`) ?? 0), 0), 0);
   return <>
