@@ -14,5 +14,5 @@ export default async function SupplierImportPage() {
   if (!context) redirect("/login");
   if (!["SUPPLIER", "BOTH"].includes(context.business.businessType)) redirect("/");
   const count = await db.marketplaceListing.count({ where: { sellerBusinessId: context.business.id } });
-  return <><PageHeader eyebrow="المنتجات" title="استيراد المنتجات" description="بدل إضافة مئات الأصناف يدويًا: ارفع CSV أو انسخ الصفوف من Excel والصقها مباشرة." /><section className="metricsGrid"><MetricCard label="منتجاتك الحالية" value={`${count}`} note="في سوق تِجرا" icon={FileSpreadsheet} /></section><ListingImporter /></>;
+  return <><PageHeader eyebrow="المنتجات" title="استيراد المنتجات" description="بدل إضافة مئات الأصناف يدويًا: ارفع CSV أو انسخ الصفوف من Excel والصقها مباشرة." /><section className="metricsGrid"><MetricCard label="منتجاتك الحالية" value={`${count}`} note="في سوق تِجرا" icon={FileSpreadsheet} /></section><ListingImporter activity={context.business.businessActivity} /></>;
 }
