@@ -31,17 +31,15 @@ export default async function ControlCenterPage() {
     loadRecipesForBusiness(businessId),
   ]);
 
-  // Inventory uses an effective quantity for recipe products (estimated servings),
-  // while the control center previously inspected only the raw product.quantity.
-  // Keep both views aligned so recipe shortages generate the same alerts as stock shortages.
   const inventoryRows = products.map((product) => {
     const recipe = recipeMap.get(product.id) ?? [];
     const isRecipe = recipe.length > 0;
     const effectiveQuantity = isRecipe ? Math.floor(recipeMaxServings(recipe)) : Number(product.quantity);
     const lowThreshold = isRecipe ? 5 : Number(product.reorderPoint);
-    return { ...product, isRecipe, effectiveQuantity, lowThreshold };
+    const status = effectiveQuantity <= Math.max(1, lowThreshold * 0.5) ? "critical" : effectiveQuantity <= lowThreshold ? "low" : "healthy";
+    return { ...product, isRecipe, effectiveQuantity, lowThreshold, status };
   });
-  const low = inventoryRows.filter((x) => x.effectiveQuantity <= Math.max(x.lowThreshold, 0) && x.lowThreshold > 0);
+  const low = inventoryRows.filter((x) => x.status !== "healthy");
   const out = inventoryRows.filter((x) => x.effectiveQuantity <= 0);
   const expiring = lots.filter((x) => x.quantity > 0 && x.expiresAt && daysUntil(x.expiresAt) >= 0 && daysUntil(x.expiresAt) <= 30);
   const expired = lots.filter((x) => x.quantity > 0 && x.expiresAt && daysUntil(x.expiresAt) < 0);
@@ -53,13 +51,13 @@ export default async function ControlCenterPage() {
   const alerts = [
     ...out.slice(0, 8).map((x) => ({ level: "danger", title: `${x.name} نافد`, note: x.isRecipe ? "لا توجد كمية كافية لإنتاج طلب واحد — راجع مكونات الوصفة." : "الرصيد صفر — راجع الشراء أو المورد.", href: "/inventory" })),
     ...low.filter((x) => x.effectiveQuantity > 0).slice(0, 8).map((x) => ({ level: "warning", title: `${x.name} منخفض`, note: x.isRecipe ? `التغطية الحالية تقارب ${x.effectiveQuantity.toLocaleString("ar-SA")} طلبات.` : `المتبقي ${x.effectiveQuantity.toLocaleString("ar-SA")} ${x.unit}.`, href: "/smart-buy" })),
-    ...expired.slice(0, 8).map((x) => ({ level: "danger", title: `دفعة منتهية`, note: `${x.lotNumber} — راجع الدفعات فورًا.`, href: "/inventory/batches" })),
-    ...expiring.slice(0, 8).map((x) => ({ level: "warning", title: `صلاحية قريبة`, note: `${x.lotNumber} تنتهي خلال ${daysUntil(x.expiresAt!)} يوم.`, href: "/inventory/batches" })),
+    ...expired.slice(0, 8).map((x) => ({ level: "danger", title: "دفعة منتهية", note: `${x.lotNumber} — راجع الدفعات فورًا.`, href: "/inventory/batches" })),
+    ...expiring.slice(0, 8).map((x) => ({ level: "warning", title: "صلاحية قريبة", note: `${x.lotNumber} تنتهي خلال ${daysUntil(x.expiresAt!)} يوم.`, href: "/inventory/batches" })),
     ...shiftIssues.slice(0, 5).map((x) => ({ level: "danger", title: `فرق وردية ${x.actorName}`, note: `الفرق ${formatSar((x.actualCash ?? 0) - (x.expectedCash ?? 0))}.`, href: "/sales/shifts" })),
   ].slice(0, 25);
   return <>
     <PageHeader eyebrow="الإدارة" title="مركز الرقابة" description="ملخص واحد لما يحتاج انتباهك الآن: المخزون، الصلاحية، فروقات الورديات، المرتجعات والهدر والطلبات المفتوحة." />
-    <section className="metricsGrid four"><MetricCard label="أصناف منخفضة/نافدة" value={`${new Set([...low, ...out].map((x) => x.id)).size}`} note={`${out.length} نافد`} icon={Boxes} /><MetricCard label="صلاحيات قريبة/منتهية" value={`${expiring.length + expired.length}`} note={`${expired.length} منتهية`} icon={CalendarClock} tone="amber" /><MetricCard label="فروقات ورديات" value={formatSar(totalShiftDifference)} note={`${shiftIssues.length} وردية خلال 30 يوم`} icon={ClipboardCheck} tone="violet" /><MetricCard label="هدر/تالف 7 أيام" value={waste.toLocaleString("ar-SA")} note={`${returns} حركة مرتجع`} icon={RotateCcw} tone="blue" /></section>
+    <section className="metricsGrid four"><MetricCard label="أصناف منخفضة/نافدة" value={`${low.length}`} note={`${out.length} نافد`} icon={Boxes} /><MetricCard label="صلاحيات قريبة/منتهية" value={`${expiring.length + expired.length}`} note={`${expired.length} منتهية`} icon={CalendarClock} tone="amber" /><MetricCard label="فروقات ورديات" value={formatSar(totalShiftDifference)} note={`${shiftIssues.length} وردية خلال 30 يوم`} icon={ClipboardCheck} tone="violet" /><MetricCard label="هدر/تالف 7 أيام" value={waste.toLocaleString("ar-SA")} note={`${returns} حركة مرتجع`} icon={RotateCcw} tone="blue" /></section>
     <section className="workflowGrid two"><article className="panel workflowPanel"><div className="panelHeader"><div><span className="eyebrow"><AlertTriangle size={14} /> يحتاج انتباه</span><h2>تنبيهات التشغيل</h2></div><strong>{alerts.length}</strong></div><div className="alertStack">{alerts.map((alert, index) => <Link key={`${alert.title}-${index}`} href={alert.href} className={`controlAlert ${alert.level}`}><AlertTriangle size={17} /><div><strong>{alert.title}</strong><span>{alert.note}</span></div></Link>)}{!alerts.length && <div className="infoNote">لا توجد إشارات حرجة في البيانات الحالية.</div>}</div></article><article className="panel workflowPanel"><div className="panelHeader"><div><span className="eyebrow"><ShoppingBasket size={14} /> الطلبات</span><h2>الحركة المفتوحة</h2></div></div><div className="insightList"><div><strong>{buyerOrders.length}</strong><span>طلبات شراء كتاجر</span></div><div><strong>{sellerOrders.length}</strong><span>طلبات واردة كمورد</span></div><div><strong>{events.length}</strong><span>حركات استثنائية خلال 7 أيام</span></div><div><strong>{shifts.filter((x) => x.status === "OPEN").length}</strong><span>وردية مفتوحة</span></div></div><div className="pageActionGroup"><Link className="button secondary" href="/inventory/movements">سجل حركة الصنف</Link><Link className="button secondary" href="/activity">مركز النشاط</Link></div></article></section>
     {events.length ? <section className="panel tablePanel"><div className="panelHeader tableHeader"><div><span className="eyebrow">آخر 7 أيام</span><h2>حركات تحتاج مراجعة</h2></div></div><div className="tableScroll"><table className="dataTable"><thead><tr><th>الوقت</th><th>الحركة</th><th>الصنف</th><th>الكمية</th><th>الموظف</th><th>التفاصيل</th></tr></thead><tbody>{events.slice(0, 50).map((e) => <tr key={e.id}><td>{new Intl.DateTimeFormat("ar-SA", { dateStyle: "short", timeStyle: "short" }).format(e.occurredAt)}</td><td>{e.action}</td><td>{e.itemName || "—"}</td><td>{Number(e.quantity ?? 0).toLocaleString("ar-SA")}</td><td>{e.actorName}</td><td>{e.note || "—"}</td></tr>)}</tbody></table></div></section> : null}
   </>;
