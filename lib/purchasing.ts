@@ -35,15 +35,20 @@ export function buildPurchaseSuggestion(input: PurchaseSuggestionInput): Purchas
   const reorderPoint = Math.max(0, input.reorderPoint ?? 0);
   const targetStockFromVelocity = input.avgDailySales * (coverageDays + safetyDays);
 
-  // A stockout must never be reported as "covered" just because there is no
-  // sales history. Use the configured reorder point as a deterministic fallback.
-  // If both velocity and reorder point are unavailable, recommend at least one
-  // unit so the user gets an actionable exception rather than a false zero.
-  const targetStock = Math.max(targetStockFromVelocity, reorderPoint > 0 ? reorderPoint * 2 : 0);
+  // Keep Smart Buy consistent with Inventory/Alerts: a critically-low item must
+  // remain actionable even when its short sales history would otherwise round
+  // the recommendation to zero.
+  const criticalThreshold = Math.max(1, reorderPoint * 0.5);
+  const isCritical = input.onHand <= criticalThreshold;
+  const configuredTarget = reorderPoint > 0 ? reorderPoint * 2 : 0;
+  const targetStock = Math.max(targetStockFromVelocity, configuredTarget);
   const rawQty = roundUp(targetStock - input.onHand);
-  const emergencyQty = input.onHand <= 0 && rawQty === 0 ? 1 : rawQty;
+  const criticalFallbackQty = isCritical && rawQty === 0
+    ? Math.max(1, roundUp(Math.max(configuredTarget, criticalThreshold + 1) - input.onHand))
+    : rawQty;
+  const suggestedBaseQty = input.onHand <= 0 && criticalFallbackQty === 0 ? 1 : criticalFallbackQty;
 
-  if (emergencyQty === 0) {
+  if (suggestedBaseQty === 0) {
     return {
       productId: input.productId,
       productName: input.productName,
@@ -56,7 +61,7 @@ export function buildPurchaseSuggestion(input: PurchaseSuggestionInput): Purchas
 
   const ranked = input.offers
     .map((offer) => {
-      const effectiveQty = Math.max(emergencyQty, offer.minOrderQty ?? 0);
+      const effectiveQty = Math.max(suggestedBaseQty, offer.minOrderQty ?? 0);
       return { offer, effectiveQty, total: effectiveQty * offer.unitPrice };
     })
     .sort((a, b) => a.total - b.total);
@@ -66,12 +71,14 @@ export function buildPurchaseSuggestion(input: PurchaseSuggestionInput): Purchas
     ? input.avgDailySales > 0
       ? `نافد الآن؛ متوسط الاستهلاك ${input.avgDailySales.toFixed(1)} يوميًا، والكمية تغطي ${coverageDays} أيام + مخزون أمان`
       : `نافد الآن؛ لا يوجد سجل مبيعات كافٍ، فاستُخدم حد إعادة الطلب كاحتياط`
-    : `بناءً على متوسط بيع ${input.avgDailySales.toFixed(1)} يوميًا وهدف تغطية ${coverageDays} أيام`;
+    : isCritical
+      ? `المخزون حرج (${input.onHand})؛ أُنشئت توصية إعادة طلب حتى لا تختفي الحالة الحرجة بسبب قلة سجل المبيعات`
+      : `بناءً على متوسط بيع ${input.avgDailySales.toFixed(1)} يوميًا وهدف تغطية ${coverageDays} أيام`;
 
   return {
     productId: input.productId,
     productName: input.productName,
-    suggestedQty: best?.effectiveQty ?? emergencyQty,
+    suggestedQty: best?.effectiveQty ?? suggestedBaseQty,
     selectedSupplier: best?.offer ?? null,
     estimatedTotal: best?.total ?? 0,
     reason,
