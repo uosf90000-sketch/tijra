@@ -24,9 +24,11 @@ export function MarketplaceListingForm() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setLoading(true);
     setMessage("");
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const payload = {
       name: form.get("name"),
       sku: form.get("sku") || undefined,
@@ -45,16 +47,34 @@ export function MarketplaceListingForm() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         setMessage(data.error === "SUPPLIER_ACCOUNT_REQUIRED" ? "هذه الصفحة لحساب المورد." : "راجع بيانات المنتج وحاول مرة أخرى.");
         return;
       }
       setMessage(data.duplicate ? "المنتج منشور بالفعل؛ لم يتم إنشاء نسخة مكررة. ✅" : "تم نشر المنتج في السوق ✅");
-      event.currentTarget.reset();
+      formElement.reset();
       router.refresh();
     } catch {
-      setMessage("تعذر التحقق من نتيجة النشر. حدّث الصفحة أولًا؛ لن ينشئ تِجرا نسخة مكررة من نفس النشر.");
+      // قد ينقطع الاتصال بعد أن تعتمد قاعدة البيانات عملية النشر. تحقق من
+      // النتيجة الفعلية قبل عرض رسالة فشل حتى لا يدفع ذلك المستخدم لإعادة النشر.
+      try {
+        const params = new URLSearchParams();
+        if (payload.barcode) params.set("barcode", String(payload.barcode));
+        else if (payload.sku) params.set("sku", String(payload.sku));
+        else params.set("name", String(payload.name));
+        const verify = await fetch(`/api/marketplace/listings?${params.toString()}`, { cache: "no-store" });
+        const verified = await verify.json().catch(() => ({}));
+        if (verify.ok && verified.exists) {
+          setMessage("تم نشر المنتج في السوق ✅");
+          formElement.reset();
+          router.refresh();
+          return;
+        }
+      } catch {
+        // verification also unavailable; keep the result explicitly uncertain.
+      }
+      setMessage("تعذر الاتصال بالخادم ولم نتمكن من تأكيد النشر. حدّث الصفحة قبل إعادة المحاولة.");
       router.refresh();
     } finally {
       setLoading(false);
