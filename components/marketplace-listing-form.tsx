@@ -17,6 +17,10 @@ const activities = [
   ["OTHER", "أخرى"],
 ] as const;
 
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function MarketplaceListingForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -56,26 +60,33 @@ export function MarketplaceListingForm() {
       formElement.reset();
       router.refresh();
     } catch {
-      // قد ينقطع الاتصال بعد أن تعتمد قاعدة البيانات عملية النشر. تحقق من
-      // النتيجة الفعلية قبل عرض رسالة فشل حتى لا يدفع ذلك المستخدم لإعادة النشر.
-      try {
-        const params = new URLSearchParams();
-        if (payload.barcode) params.set("barcode", String(payload.barcode));
-        else if (payload.sku) params.set("sku", String(payload.sku));
-        else params.set("name", String(payload.name));
-        const verify = await fetch(`/api/marketplace/listings?${params.toString()}`, { cache: "no-store" });
-        const verified = await verify.json().catch(() => ({}));
-        if (verify.ok && verified.exists) {
-          setMessage("تم نشر المنتج في السوق ✅");
-          formElement.reset();
-          router.refresh();
-          return;
+      const params = new URLSearchParams();
+      if (payload.barcode) params.set("barcode", String(payload.barcode));
+      else if (payload.sku) params.set("sku", String(payload.sku));
+      else params.set("name", String(payload.name));
+
+      let confirmed = false;
+      for (const waitMs of [250, 650, 1400]) {
+        await delay(waitMs);
+        try {
+          const verify = await fetch(`/api/marketplace/listings?${params.toString()}`, { cache: "no-store" });
+          const verified = await verify.json().catch(() => ({}));
+          if (verify.ok && verified.exists) {
+            confirmed = true;
+            break;
+          }
+        } catch {
+          // Retry because a committed write can outlive a transient response/network failure.
         }
-      } catch {
-        // verification also unavailable; keep the result explicitly uncertain.
       }
-      setMessage("تعذر الاتصال بالخادم ولم نتمكن من تأكيد النشر. حدّث الصفحة قبل إعادة المحاولة.");
-      router.refresh();
+
+      if (confirmed) {
+        setMessage("تم نشر المنتج في السوق ✅");
+        formElement.reset();
+        router.refresh();
+      } else {
+        setMessage("تعذر الاتصال بالخادم ولم نتمكن من تأكيد النشر. حدّث الصفحة قبل إعادة المحاولة.");
+      }
     } finally {
       setLoading(false);
     }
