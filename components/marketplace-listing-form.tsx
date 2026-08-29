@@ -53,7 +53,12 @@ export function MarketplaceListingForm() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setMessage(data.error === "SUPPLIER_ACCOUNT_REQUIRED" ? "هذه الصفحة لحساب المورد." : "راجع بيانات المنتج وحاول مرة أخرى.");
+        const labels: Record<string, string> = {
+          SUPPLIER_ACCOUNT_REQUIRED: "هذه الصفحة لحساب المورد.",
+          INVALID_INPUT: "راجع بيانات المنتج والكمية والسعر والحد الأدنى ثم حاول مرة أخرى.",
+          LISTING_SAVE_FAILED: "تعذر حفظ العرض. لم يتم اعتماد النشر، ويمكنك المحاولة مرة أخرى.",
+        };
+        setMessage(labels[data.error] ?? "تعذر نشر المنتج. لم يتم اعتماد العملية.");
         return;
       }
       setMessage(data.duplicate ? "المنتج منشور بالفعل؛ لم يتم إنشاء نسخة مكررة. ✅" : "تم نشر المنتج في السوق ✅");
@@ -93,7 +98,7 @@ export function MarketplaceListingForm() {
   }
 
   return (
-    <form className="marketForm" onSubmit={submit}>
+    <form className="marketForm" action="/api/marketplace/listings" method="post" onSubmit={submit}>
       <div className="marketFormGrid">
         <label>اسم المنتج الكامل<input name="name" required minLength={2} placeholder="مثال: بيبسي 330 مل × 24" /></label>
         <label>قسم السوق<select name="activity" defaultValue="GROCERY" required>{activities.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
@@ -106,8 +111,8 @@ export function MarketplaceListingForm() {
         <label>الوحدة<select name="unit" defaultValue="piece" required><option value="piece">حبة / قطعة</option><option value="pack">عبوة / باك</option><option value="carton">كرتون</option><option value="bag">كيس</option><option value="box">صندوق</option><option value="kg">كيلو</option><option value="liter">لتر</option></select></label>
       </div>
       <div className="infoNote">اسم المنتج هو أساس البحث والمقارنة. اكتب العلامة + الحجم + العبوة بوضوح. الباركود اختياري ويستخدم للتأكد من التطابق.</div>
-      <button className="button primary" disabled={loading}>{loading ? "جاري النشر..." : "نشر المنتج في السوق"}</button>
-      {message && <div className="infoNote">{message}</div>}
+      <button className="button primary" type="submit" disabled={loading}>{loading ? "جاري النشر..." : "نشر المنتج في السوق"}</button>
+      {message && <div className="infoNote" role="status">{message}</div>}
     </form>
   );
 }
