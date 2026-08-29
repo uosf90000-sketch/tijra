@@ -42,14 +42,17 @@ export default async function SmartBuyPage() {
         saleItems: { where: { sale: { soldAt: { gte: since } } }, select: { quantity: true } },
         stockMovements: { where: { occurredAt: { gte: since }, sourceType: "RecipeSale" }, select: { quantity: true } },
       },
-      orderBy: { name: "asc" },
-      take: 500,
+      // Smart Buy is an exception queue: always load the lowest stock first so a
+      // critical item cannot disappear merely because the catalog is larger than
+      // the page cap. Alerts use a wider window, so keep both views aligned.
+      orderBy: [{ quantity: "asc" }, { name: "asc" }],
+      take: 2000,
     }),
     db.marketplaceListing.findMany({
       where: { active: true, quantity: { gt: 0 }, sellerBusinessId: { not: context.business.id } },
       include: { seller: true },
       orderBy: { price: "asc" },
-      take: 2500,
+      take: 5000,
     }),
     loadRecipesForBusiness(context.business.id),
   ]);
@@ -61,6 +64,7 @@ export default async function SmartBuyPage() {
     const avgDailySales = (directSold + recipeConsumed) / 30;
     const matching = listings.filter((listing) => {
       if (product.barcode && listing.barcode) return listing.barcode === product.barcode;
+      if (product.sku && listing.sku && product.sku === listing.sku) return true;
       return listing.unit === product.unit && namesMatch(product.name, listing.name);
     });
 
