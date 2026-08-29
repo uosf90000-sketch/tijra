@@ -15,6 +15,28 @@ const listingSchema = z.object({
   minOrderQty: z.coerce.number().positive().max(100000000).default(1),
 });
 
+export async function GET(request: Request) {
+  const auth = await requireApiPermission("INVENTORY");
+  if (auth.response) return auth.response;
+  if (!["SUPPLIER", "BOTH"].includes(auth.context.business.businessType)) {
+    return NextResponse.json({ error: "SUPPLIER_ACCOUNT_REQUIRED" }, { status: 403 });
+  }
+  const url = new URL(request.url);
+  const sku = url.searchParams.get("sku")?.trim();
+  const barcode = url.searchParams.get("barcode")?.trim();
+  const name = url.searchParams.get("name")?.trim();
+  if (!sku && !barcode && !name) return NextResponse.json({ error: "IDENTIFIER_REQUIRED" }, { status: 400 });
+
+  const listing = await db.marketplaceListing.findFirst({
+    where: {
+      sellerBusinessId: auth.context.business.id,
+      ...(barcode ? { barcode } : sku ? { sku } : { name }),
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  return NextResponse.json({ exists: Boolean(listing), listing });
+}
+
 export async function POST(request: Request) {
   const auth = await requireApiPermission("INVENTORY");
   if (auth.response) return auth.response;
@@ -27,9 +49,6 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
 
   const result = await db.$transaction(async (tx) => {
-    // A network timeout can happen after the database commit. Treat an identical
-    // recent listing as the same publish operation so the supplier cannot create
-    // duplicate listings by pressing Publish again.
     const existingListing = await tx.marketplaceListing.findFirst({
       where: {
         sellerBusinessId: context.business.id,
