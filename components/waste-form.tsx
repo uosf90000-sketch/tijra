@@ -3,6 +3,7 @@
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { unitLabel } from "@/lib/unit-label";
 
 type ProductOption = { id: string; name: string; unit: string; quantity: number };
 
@@ -54,7 +55,7 @@ export function WasteForm({ products }: { products: ProductOption[] }) {
   return (
     <form className="panel recipeForm" onSubmit={submit} noValidate>
       <div className="formGrid">
-        <label className="field full"><span>المكوّن / الصنف</span><select name="productId" defaultValue=""><option value="" disabled>اختر الصنف</option>{products.map((item) => <option key={item.id} value={item.id}>{item.name} — متوفر {item.quantity.toLocaleString("ar-SA")} {item.unit}</option>)}</select></label>
+        <label className="field full"><span>المكوّن / الصنف</span><select name="productId" defaultValue=""><option value="" disabled>اختر الصنف</option>{products.map((item) => <option key={item.id} value={item.id}>{item.name} — متوفر {item.quantity.toLocaleString("ar-SA")} {unitLabel(item.unit)}</option>)}</select></label>
         <label className="field"><span>كمية الهدر</span><input name="quantity" type="number" min="0.001" step="0.001" inputMode="decimal" /></label>
         <label className="field"><span>السبب</span><input name="reason" minLength={2} placeholder="مثال: فاقد قص الشاورما / انسكاب صوص" /></label>
       </div>
