@@ -9,6 +9,7 @@ import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
 import { loadRecipesForBusiness, recipeMaxServings, requiredStockQuantity } from "@/lib/recipes";
+import { unitLabel } from "@/lib/unit-label";
 
 export const metadata = { title: "المخزون" };
 export const dynamic = "force-dynamic";
@@ -92,7 +93,7 @@ export default async function InventoryPage() {
                 return (
                   <tr key={item.id}>
                     <td><div className="tablePrimary"><div className={`productThumb ${item.imageUrl ? "hasImage" : ""}`}>{item.imageUrl ? <img src={item.imageUrl} alt="" /> : item.isRecipe ? <ChefHat size={16} /> : item.name.slice(0, 1)}</div><div><strong>{item.name}</strong><span>{item.isRecipe ? "وصفة مرتبطة بالمكونات" : `${item.sku || "بدون SKU"} · ${item.category || "غير مصنف"}`}</span></div></div></td>
-                    <td><strong>{item.quantityNumber.toLocaleString("ar-SA")}</strong> <span className="mutedText">{item.isRecipe ? "طلب تقريبي" : item.unit}</span></td>
+                    <td><strong>{item.quantityNumber.toLocaleString("ar-SA")}</strong> <span className="mutedText">{item.isRecipe ? "طلب تقريبي" : unitLabel(item.unit)}</span></td>
                     <td><StatusPill status={item.status} /></td>
                     <td className="coverageCell">
                       <span>{item.days == null ? "لا توجد حركة كافية" : `${Math.max(0, Math.round(item.days))} يوم`}</span>
