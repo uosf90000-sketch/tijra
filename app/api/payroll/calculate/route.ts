@@ -29,9 +29,16 @@ export async function POST(request: Request) {
     employeeId: employee.employeeId,
     ...calculateNetSalary(employee),
   }));
+  const summary = calculatePayrollRun(parsed.data.employees);
 
   return NextResponse.json({
     items,
-    summary: calculatePayrollRun(parsed.data.employees),
+    summary: {
+      ...summary,
+      // Backward-compatible aliases used by release QA and older clients.
+      totalGross: summary.gross,
+      totalDeductions: summary.deductions,
+      totalNet: summary.net,
+    },
   });
 }
