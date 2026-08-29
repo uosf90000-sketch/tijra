@@ -2,7 +2,7 @@
 
 import { Check, Minus, PackageSearch, Plus, ShoppingCart, Sparkles, Store, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatSar } from "@/lib/format";
 
 type MarketListing = {
@@ -21,6 +21,14 @@ type MarketListing = {
 
 type ReorderSuggestion = MarketListing & { previousQuantity: number };
 type CartState = Record<string, number>;
+type ListingCache = Record<string, MarketListing>;
+
+type StoredCart = {
+  cart: CartState;
+  listings: ListingCache;
+};
+
+const CART_STORAGE_KEY = "tijra-marketplace-cart-v1";
 
 const unitLabels: Record<string, string> = {
   piece: "حبة",
@@ -50,13 +58,45 @@ function clampQuantity(listing: MarketListing, value: number) {
 export function MarketplaceStorefront({ listings, reorders }: { listings: MarketListing[]; reorders: ReorderSuggestion[] }) {
   const router = useRouter();
   const [cart, setCart] = useState<CartState>({});
+  const [cachedListings, setCachedListings] = useState<ListingCache>({});
+  const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const byId = useMemo(() => new Map(listings.concat(reorders).map((listing) => [listing.id, listing])), [listings, reorders]);
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem(CART_STORAGE_KEY);
+      if (raw) {
+        const stored = JSON.parse(raw) as StoredCart;
+        if (stored?.cart && stored?.listings) {
+          setCart(stored.cart);
+          setCachedListings(stored.listings);
+        }
+      }
+    } catch {
+      window.sessionStorage.removeItem(CART_STORAGE_KEY);
+    } finally {
+      setHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const stored: StoredCart = { cart, listings: cachedListings };
+    window.sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify(stored));
+  }, [cart, cachedListings, hydrated]);
+
+  const byId = useMemo(() => {
+    const merged = new Map<string, MarketListing>();
+    for (const listing of Object.values(cachedListings)) merged.set(listing.id, listing);
+    for (const listing of listings) merged.set(listing.id, listing);
+    for (const listing of reorders) merged.set(listing.id, listing);
+    return merged;
+  }, [cachedListings, listings, reorders]);
+
   const cartLines = useMemo(() => Object.entries(cart).map(([id, quantity]) => {
     const listing = byId.get(id);
-    return listing ? { listing, quantity } : null;
+    return listing ? { listing, quantity: clampQuantity(listing, quantity) } : null;
   }).filter((line): line is { listing: MarketListing; quantity: number } => Boolean(line)), [cart, byId]);
 
   const grouped = useMemo(() => {
@@ -71,17 +111,29 @@ export function MarketplaceStorefront({ listings, reorders }: { listings: Market
 
   const total = cartLines.reduce((sum, line) => sum + line.quantity * line.listing.price, 0);
 
+  function remember(listing: MarketListing) {
+    setCachedListings((current) => ({ ...current, [listing.id]: listing }));
+  }
+
   function add(listing: MarketListing, preferredQuantity?: number) {
     setMessage("");
+    remember(listing);
     setCart((current) => ({ ...current, [listing.id]: clampQuantity(listing, preferredQuantity ?? current[listing.id] ?? listing.minOrderQty) }));
   }
 
   function setQuantity(listing: MarketListing, value: number) {
+    remember(listing);
     setCart((current) => ({ ...current, [listing.id]: clampQuantity(listing, value) }));
   }
 
   function remove(id: string) {
     setCart((current) => { const next = { ...current }; delete next[id]; return next; });
+  }
+
+  function clearCart() {
+    setCart({});
+    setCachedListings({});
+    if (typeof window !== "undefined") window.sessionStorage.removeItem(CART_STORAGE_KEY);
   }
 
   async function checkout() {
@@ -96,7 +148,9 @@ export function MarketplaceStorefront({ listings, reorders }: { listings: Market
         return;
       }
       const count = Array.isArray(data.orders) ? data.orders.length : 1;
-      setCart({}); setMessage(`تم إرسال السلة إلى ${count.toLocaleString("ar-SA")} مورد بنجاح ✅`); router.refresh();
+      clearCart();
+      setMessage(`تم إرسال السلة إلى ${count.toLocaleString("ar-SA")} مورد بنجاح ✅`);
+      router.refresh();
     } catch { setMessage("تعذر الاتصال بالخادم."); }
     finally { setLoading(false); }
   }
@@ -128,7 +182,7 @@ export function MarketplaceStorefront({ listings, reorders }: { listings: Market
       </div>
 
       <aside className="simpleMarketCart panel">
-        <div className="simpleCartHead"><div><span className="eyebrow"><ShoppingCart size={13} /> السلة</span><h2>{cartLines.length ? `${cartLines.length.toLocaleString("ar-SA")} أصناف` : "سلة المشتريات"}</h2></div>{cartLines.length ? <button type="button" className="iconButton" onClick={() => setCart({})} aria-label="تفريغ السلة"><Trash2 size={17} /></button> : null}</div>
+        <div className="simpleCartHead"><div><span className="eyebrow"><ShoppingCart size={13} /> السلة</span><h2>{cartLines.length ? `${cartLines.length.toLocaleString("ar-SA")} أصناف` : "سلة المشتريات"}</h2></div>{cartLines.length ? <button type="button" className="iconButton" onClick={clearCart} aria-label="تفريغ السلة"><Trash2 size={17} /></button> : null}</div>
         {!cartLines.length ? <div className="simpleCartEmpty"><ShoppingCart size={24} /><span>أضف المنتجات التي تحتاجها، وتِجرا يقسم الطلب تلقائيًا حسب المورد.</span></div> : <div className="simpleCartGroups">{grouped.map((group) => <div className="simpleCartSupplier" key={group.sellerName}><strong><Store size={14} /> {group.sellerName}</strong>{group.lines.map(({ listing, quantity }) => <div className="simpleCartLine" key={listing.id}><div className="grow"><span>{listing.name}</span><small>{formatSar(listing.price)} / {unitLabel(listing.unit)}</small></div><div className="simpleQtyControl"><button type="button" onClick={() => quantity <= listing.minOrderQty ? remove(listing.id) : setQuantity(listing, quantity - 1)}><Minus size={13} /></button><input aria-label={`كمية ${listing.name}`} type="number" min={listing.minOrderQty} max={listing.quantity} value={quantity} onChange={(event) => setQuantity(listing, Number(event.target.value))} /><button type="button" onClick={() => setQuantity(listing, quantity + 1)}><Plus size={13} /></button></div></div>)}</div>)}</div>}
         <div className="simpleCartFooter"><div><span>الإجمالي المتوقع</span><strong>{formatSar(total)}</strong></div><button type="button" className="button primary fullWidth" disabled={!cartLines.length || loading} onClick={checkout}>{loading ? "جاري إرسال الطلبات..." : "إرسال الطلبات للموردين"}</button>{message ? <div className="infoNote">{message}</div> : null}<small>التوصيل والدفع يتم الاتفاق عليهما مباشرة بينك وبين كل مورد.</small></div>
       </aside>
