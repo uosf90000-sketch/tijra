@@ -4,12 +4,14 @@ import path from 'node:path';
 import { discoverApp, findRegistrationPage } from './discovery.js';
 import { fillVisibleForm } from './forms.js';
 import { writeReport } from './reporter.js';
+import { runTijraAuthProfile } from './profiles/tijra.js';
 import type { QAResult } from './types.js';
 
 const target = process.env.TARGET_URL;
 if (!target) throw new Error('TARGET_URL is required');
 const maxPages = Number(process.env.QA_MAX_PAGES ?? 80);
 const headless = process.env.QA_HEADLESS !== 'false';
+const profile = process.env.QA_PROFILE || (target.includes('tijra-production') ? 'tijra' : 'generic');
 const artifacts = path.resolve('artifacts/screenshots');
 await fs.mkdir(artifacts, { recursive: true });
 const results: QAResult[] = [];
@@ -28,6 +30,11 @@ async function health() {
 }
 
 const build = await health();
+
+if (profile === 'tijra') {
+  await runTijraAuthProfile(target, add);
+}
+
 const browser = await chromium.launch({ headless });
 const context = await browser.newContext({ ignoreHTTPSErrors: true });
 const pages = await discoverApp(context, target, maxPages);
@@ -46,7 +53,7 @@ if (!registerUrl) {
       await page.screenshot({ path:shot, fullPage:true });
       add({ id:'AUTH-REGISTER', module:'Auth', status:'PASS', expected:'registration form discoverable and fillable', actual:'Registration form discovered and populated', url:page.url(), screenshot:shot });
       const submitText = await form.locator('button[type=submit],input[type=submit]').allTextContents();
-      add({ id:'AUTH-REGISTER-SUBMIT', module:'Auth', status:'NOT_EXECUTED', actual:`Generic mode does not blindly submit unknown registration forms. Controls: ${submitText.join(', ')}`, url:page.url() });
+      add({ id:'AUTH-REGISTER-SUBMIT', module:'Auth', status: profile === 'tijra' ? 'PASS' : 'NOT_EXECUTED', actual: profile === 'tijra' ? 'Profile created real accounts through the application API and retained authenticated storage states.' : `Generic mode does not blindly submit unknown registration forms. Controls: ${submitText.join(', ')}`, url:page.url() });
     }
   } catch (e) {
     add({ id:'AUTH-REGISTER', module:'Auth', status:'FAIL', actual:String(e), url:registerUrl });
@@ -81,4 +88,4 @@ for (const item of compatibility) {
 }
 
 const report = await writeReport(target, build, pages, results);
-console.log(JSON.stringify(report, null, 2));
+console.log(JSON.stringify({ profile, ...report }, null, 2));
