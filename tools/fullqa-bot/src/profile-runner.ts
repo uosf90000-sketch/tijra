@@ -42,9 +42,9 @@ export async function runDeclarativeProfile(target: string, profileFile: string,
   }
 
   const browser = await chromium.launch({ headless: process.env.QA_HEADLESS !== 'false', args:launchArgs });
-  const context = await browser.newContext({ ignoreHTTPSErrors:true });
 
   for (const workflow of profile.workflows ?? []) {
+    const context = await browser.newContext({ ignoreHTTPSErrors:true });
     const page = await context.newPage();
     let status: QAStatus = 'PASS';
     let actual = 'Completed';
@@ -79,9 +79,8 @@ export async function runDeclarativeProfile(target: string, profileFile: string,
       await page.screenshot({ path:path.join(dir, `${workflow.id}-failure.png`), fullPage:true }).catch(()=>{});
     }
     add({ id:workflow.id, module:workflow.module || profile.name, status, actual, url:page.url() || target });
-    await page.close();
+    await context.close();
   }
 
-  await context.close();
   await browser.close();
 }
