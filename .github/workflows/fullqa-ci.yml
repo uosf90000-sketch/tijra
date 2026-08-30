@@ -1,0 +1,27 @@
+name: FullQA CI
+
+on:
+  push:
+    paths:
+      - 'tools/fullqa-bot/**'
+      - '.github/workflows/fullqa-ci.yml'
+  pull_request:
+    paths:
+      - 'tools/fullqa-bot/**'
+      - '.github/workflows/fullqa-ci.yml'
+
+jobs:
+  validate-fullqa:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/fullqa-bot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install
+      - name: Typecheck
+        run: npx tsc --noEmit
