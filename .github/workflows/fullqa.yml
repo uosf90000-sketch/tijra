@@ -1,0 +1,75 @@
+name: FullQA Bot
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: Target application URL
+        required: true
+        default: https://tijra-production.up.railway.app
+      mode:
+        description: functional | load-smoke | load-stress
+        required: true
+        default: functional
+      profile:
+        description: Built-in profile name (tijra or generic)
+        required: false
+        default: tijra
+      load_path:
+        description: API path for load tests
+        required: false
+        default: /api/health
+      load_rate:
+        description: Requests per minute for load-smoke
+        required: false
+        default: '100'
+
+jobs:
+  fullqa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: tools/fullqa-bot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install
+      - name: Install browsers
+        if: ${{ inputs.mode == 'functional' }}
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run functional QA
+        if: ${{ inputs.mode == 'functional' }}
+        env:
+          TARGET_URL: ${{ inputs.target_url }}
+          QA_PROFILE: ${{ inputs.profile }}
+          QA_HEADLESS: 'true'
+        run: npm run qa
+      - uses: grafana/setup-k6-action@v1
+        if: ${{ inputs.mode != 'functional' }}
+      - name: Run load smoke
+        if: ${{ inputs.mode == 'load-smoke' }}
+        env:
+          TARGET_URL: ${{ inputs.target_url }}
+          LOAD_PATH: ${{ inputs.load_path }}
+          LOAD_RATE: ${{ inputs.load_rate }}
+        run: npm run load:smoke
+      - name: Run load stress
+        if: ${{ inputs.mode == 'load-stress' }}
+        env:
+          TARGET_URL: ${{ inputs.target_url }}
+          LOAD_PATH: ${{ inputs.load_path }}
+        run: npm run load:stress
+      - name: Upload FullQA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fullqa-${{ github.run_id }}
+          path: |
+            tools/fullqa-bot/artifacts
+            tools/fullqa-bot/playwright-report
+            tools/fullqa-bot/test-results
+          if-no-files-found: ignore
