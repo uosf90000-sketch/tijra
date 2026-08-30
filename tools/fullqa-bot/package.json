@@ -1,0 +1,19 @@
+{
+  "name": "fullqa-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "qa": "tsx src/cli.ts",
+    "qa:tijra": "TARGET_URL=https://tijra-production.up.railway.app tsx src/cli.ts",
+    "test": "playwright test",
+    "load:smoke": "k6 run load/smoke.js",
+    "load:stress": "k6 run load/stress.js"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.55.0",
+    "playwright": "^1.55.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.2"
+  }
+}
