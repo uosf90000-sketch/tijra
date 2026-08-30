@@ -8,9 +8,13 @@ type Step =
   | { type:'fill'; selector:string; value:string }
   | { type:'click'; selector:string }
   | { type:'select'; selector:string; value:string }
+  | { type:'press'; selector:string; key:string }
+  | { type:'uploadFile'; selector:string; file:string }
+  | { type:'grantPermissions'; permissions:string[] }
   | { type:'wait'; ms:number }
   | { type:'expectText'; selector:string; text:string }
   | { type:'expectUrl'; contains:string }
+  | { type:'expectVisible'; selector:string }
   | { type:'screenshot'; name:string };
 
 type Workflow = { id:string; module?:string; steps:Step[] };
@@ -30,7 +34,14 @@ export async function runDeclarativeProfile(target: string, profileFile: string,
     PASSWORD: process.env.QA_PASSWORD || 'QaTest!2026Strong',
     TARGET_URL: target
   };
-  const browser = await chromium.launch({ headless: process.env.QA_HEADLESS !== 'false' });
+
+  const launchArgs: string[] = [];
+  if (process.env.QA_FAKE_CAMERA === 'true') {
+    launchArgs.push('--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream');
+    if (process.env.QA_FAKE_CAMERA_VIDEO) launchArgs.push(`--use-file-for-fake-video-capture=${process.env.QA_FAKE_CAMERA_VIDEO}`);
+  }
+
+  const browser = await chromium.launch({ headless: process.env.QA_HEADLESS !== 'false', args:launchArgs });
   const context = await browser.newContext({ ignoreHTTPSErrors:true });
 
   for (const workflow of profile.workflows ?? []) {
@@ -43,12 +54,17 @@ export async function runDeclarativeProfile(target: string, profileFile: string,
         else if (step.type === 'fill') await page.locator(expand(step.selector, vars)).fill(expand(step.value, vars));
         else if (step.type === 'click') await page.locator(expand(step.selector, vars)).click();
         else if (step.type === 'select') await page.locator(expand(step.selector, vars)).selectOption(expand(step.value, vars));
+        else if (step.type === 'press') await page.locator(expand(step.selector, vars)).press(expand(step.key, vars));
+        else if (step.type === 'uploadFile') await page.locator(expand(step.selector, vars)).setInputFiles(expand(step.file, vars));
+        else if (step.type === 'grantPermissions') await context.grantPermissions(step.permissions, { origin:new URL(target).origin });
         else if (step.type === 'wait') await page.waitForTimeout(step.ms);
         else if (step.type === 'expectText') {
           const text = await page.locator(expand(step.selector, vars)).innerText();
           if (!text.includes(expand(step.text, vars))) throw new Error(`Expected text ${step.text}, got ${text}`);
         } else if (step.type === 'expectUrl') {
           if (!page.url().includes(expand(step.contains, vars))) throw new Error(`Expected URL containing ${step.contains}, got ${page.url()}`);
+        } else if (step.type === 'expectVisible') {
+          if (!await page.locator(expand(step.selector, vars)).isVisible()) throw new Error(`Expected visible: ${step.selector}`);
         } else if (step.type === 'screenshot') {
           const dir = path.resolve('artifacts/screenshots');
           await fs.mkdir(dir, { recursive:true });
