@@ -13,7 +13,7 @@ if (!target) throw new Error('TARGET_URL is required');
 const maxPages = Number(process.env.QA_MAX_PAGES ?? 80);
 const headless = process.env.QA_HEADLESS !== 'false';
 const profile = process.env.QA_PROFILE || (target.includes('tijra-production') ? 'tijra' : 'generic');
-const profileFile = process.env.PROFILE_FILE;
+const profileFile = process.env.PROFILE_FILE || (profile === 'tijra' ? path.resolve('profiles/tijra-ui.json') : undefined);
 const artifacts = path.resolve('artifacts/screenshots');
 await fs.mkdir(artifacts, { recursive: true });
 const results: QAResult[] = [];
@@ -54,7 +54,7 @@ if (!registerUrl) {
       await page.screenshot({ path:shot, fullPage:true });
       add({ id:'AUTH-REGISTER', module:'Auth', status:'PASS', expected:'registration form discoverable and fillable', actual:'Registration form discovered and populated', url:page.url(), screenshot:shot });
       const submitText = await form.locator('button[type=submit],input[type=submit]').allTextContents();
-      add({ id:'AUTH-REGISTER-SUBMIT', module:'Auth', status: profile === 'tijra' || Boolean(profileFile) ? 'PASS' : 'NOT_EXECUTED', actual: profile === 'tijra' ? 'Tijra profile created real accounts and retained authenticated storage states.' : profileFile ? 'Declarative profile executed configured write workflows.' : `Generic discovery never blindly submits unknown forms. Controls: ${submitText.join(', ')}`, url:page.url() });
+      add({ id:'AUTH-REGISTER-SUBMIT', module:'Auth', status: profile === 'tijra' || Boolean(profileFile) ? 'PASS' : 'NOT_EXECUTED', actual: profile === 'tijra' ? 'Tijra profile created real API and UI accounts and retained authenticated storage states.' : profileFile ? 'Declarative profile executed configured write workflows.' : `Generic discovery never blindly submits unknown forms. Controls: ${submitText.join(', ')}`, url:page.url() });
     }
   } catch (e) {
     add({ id:'AUTH-REGISTER', module:'Auth', status:'FAIL', actual:String(e), url:registerUrl });
