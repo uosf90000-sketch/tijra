@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
@@ -113,6 +114,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "ITEM_ALREADY_COMPLETE", required: result.required, scanned: result.scanned }, { status: 409 });
     }
 
+    revalidatePath("/supplier/picking");
     return NextResponse.json({ item: result.item, orderComplete: result.orderComplete, orderStatus: "ACCEPTED" });
   } catch (error) {
     const code = error instanceof Error ? error.message : "PICK_FAILED";
