@@ -15,9 +15,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   try {
     const result = await db.$transaction(async (tx) => {
-      // One order is picked sequentially even when multiple scanners submit at
-      // exactly the same time. This prevents lost PICK_PROGRESS updates.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('tijra-pick-order'), hashtext(${id}))`;
+      // Serialize scans for one order and expose a plain integer column to
+      // Prisma instead of the advisory lock function's void return type.
+      await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(hashtext('tijra-pick-order'), hashtext(${id}))`;
 
       const order = await tx.marketplaceOrder.findFirst({
         where: { id, sellerBusinessId: auth.context.business.id, status: { in: ["PLACED", "ACCEPTED"] } },
