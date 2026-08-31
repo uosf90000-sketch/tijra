@@ -17,10 +17,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   try {
     const result = await db.$transaction(async (tx) => {
-      // Serialize every state transition for one marketplace order. Concurrent
-      // RECEIVE/CANCEL/ACCEPT requests must observe the state committed by the
-      // previous request instead of all acting on the same stale ACCEPTED row.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('tijra-marketplace-order-status'), hashtext(${id}))`;
+      // Serialize state transitions for one order. The SELECT shape deliberately
+      // returns only an integer because Prisma cannot deserialize PostgreSQL void.
+      await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(hashtext('tijra-marketplace-order-status'), hashtext(${id}))`;
 
       const order = await tx.marketplaceOrder.findUnique({
         where: { id },
@@ -120,8 +119,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       });
       if (!pickComplete) throw new Error("PICK_NOT_COMPLETE");
 
-      // This runs only after the order lock is held, so simultaneous first-time
-      // receives cannot race while creating the buyer's default stock location.
+      // Execute default-location initialization only after holding the order lock,
+      // avoiding simultaneous first-receive initialization races.
       const receiptLocation = await ensureDefaultLocation(context.business.id);
       if (!receiptLocation) throw new Error("RECEIPT_LOCATION_NOT_FOUND");
 
