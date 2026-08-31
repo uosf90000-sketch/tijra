@@ -15,6 +15,18 @@ on:
         description: Built-in profile name (tijra or generic)
         required: false
         default: tijra
+      profile_file:
+        description: Optional declarative profile path, e.g. profiles/example.json
+        required: false
+        default: ''
+      allow_writes:
+        description: Allow profile to create accounts/orders/sales (true/false)
+        required: false
+        default: 'true'
+      fake_camera:
+        description: Grant a fake browser camera for camera-permission flows (true/false)
+        required: false
+        default: 'true'
       load_path:
         description: API path for load tests
         required: false
@@ -46,7 +58,10 @@ jobs:
         env:
           TARGET_URL: ${{ inputs.target_url }}
           QA_PROFILE: ${{ inputs.profile }}
+          PROFILE_FILE: ${{ inputs.profile_file }}
           QA_HEADLESS: 'true'
+          QA_SKIP_WRITES: ${{ inputs.allow_writes == 'true' && 'false' || 'true' }}
+          QA_FAKE_CAMERA: ${{ inputs.fake_camera }}
         run: npm run qa
       - uses: grafana/setup-k6-action@v1
         if: ${{ inputs.mode != 'functional' }}
