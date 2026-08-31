@@ -111,6 +111,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (order.status !== "ACCEPTED") throw new Error("INVALID_STATUS");
       if (!receiptLocation) throw new Error("RECEIPT_LOCATION_NOT_FOUND");
 
+      const pickComplete = await tx.inventoryAuditEvent.findFirst({
+        where: { businessId: order.sellerBusinessId, action: "PICK_COMPLETE", orderId: order.id },
+        select: { id: true },
+      });
+      if (!pickComplete) throw new Error("PICK_NOT_COMPLETE");
+
       for (const item of order.items) {
         const listing = item.listing;
         const qty = Number(item.quantity);
@@ -207,7 +213,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ order: result });
   } catch (error) {
     const code = error instanceof Error ? error.message : "UPDATE_FAILED";
-    const status = code === "ORDER_NOT_FOUND" ? 404 : code === "FORBIDDEN" ? 403 : code === "INVALID_STATUS" ? 409 : 500;
+    const status = code === "ORDER_NOT_FOUND" ? 404 : code === "FORBIDDEN" ? 403 : ["INVALID_STATUS", "PICK_NOT_COMPLETE"].includes(code) ? 409 : 500;
     return NextResponse.json({ error: code }, { status });
   }
 }
