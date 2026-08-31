@@ -14,10 +14,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
   const { id } = await params;
-  const receiptLocation = parsed.data.action === "RECEIVE" ? await ensureDefaultLocation(context.business.id) : null;
 
   try {
     const result = await db.$transaction(async (tx) => {
+      // Serialize every state transition for one marketplace order. Concurrent
+      // RECEIVE/CANCEL/ACCEPT requests must observe the state committed by the
+      // previous request instead of all acting on the same stale ACCEPTED row.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('tijra-marketplace-order-status'), hashtext(${id}))`;
+
       const order = await tx.marketplaceOrder.findUnique({
         where: { id },
         include: { items: { include: { listing: true } } },
@@ -109,13 +113,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
       if (!isBuyer || !hasAppPermission(context.membership, "PURCHASES")) throw new Error("FORBIDDEN");
       if (order.status !== "ACCEPTED") throw new Error("INVALID_STATUS");
-      if (!receiptLocation) throw new Error("RECEIPT_LOCATION_NOT_FOUND");
 
       const pickComplete = await tx.inventoryAuditEvent.findFirst({
         where: { businessId: order.sellerBusinessId, action: "PICK_COMPLETE", orderId: order.id },
         select: { id: true },
       });
       if (!pickComplete) throw new Error("PICK_NOT_COMPLETE");
+
+      // This runs only after the order lock is held, so simultaneous first-time
+      // receives cannot race while creating the buyer's default stock location.
+      const receiptLocation = await ensureDefaultLocation(context.business.id);
+      if (!receiptLocation) throw new Error("RECEIPT_LOCATION_NOT_FOUND");
 
       for (const item of order.items) {
         const listing = item.listing;
