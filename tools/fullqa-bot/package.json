@@ -1,9 +1,10 @@
 {
   "name": "fullqa-bot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "tsx src/web.ts",
     "qa": "tsx src/cli.ts",
     "qa:tijra": "TARGET_URL=https://tijra-production.up.railway.app tsx src/cli.ts",
     "test": "playwright test",
