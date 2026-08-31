@@ -29,21 +29,26 @@ export async function POST(request: Request) {
   }
 
   const image = Buffer.from(await file.arrayBuffer());
-  const worker = await createWorker(["ara", "eng"]);
 
   try {
-    const result = await worker.recognize(image);
-    const parsed = parseInvoiceText(result.data.text);
+    const worker = await createWorker(["ara", "eng"]);
+    try {
+      const result = await worker.recognize(image);
+      const parsed = parseInvoiceText(result.data.text);
 
-    return NextResponse.json({
-      provider: "tesseract-local",
-      confidence: result.data.confidence,
-      file: { name: file.name, type: file.type, size: file.size },
-      parsed,
-      reviewRequired: true,
-      note: "راجع الأصناف والكميات والأسعار قبل اعتماد الاستلام وتحديث المخزون.",
-    });
-  } finally {
-    await worker.terminate();
+      return NextResponse.json({
+        provider: "tesseract-local",
+        confidence: result.data.confidence,
+        file: { name: file.name, type: file.type, size: file.size },
+        parsed,
+        reviewRequired: true,
+        note: "راجع الأصناف والكميات والأسعار قبل اعتماد الاستلام وتحديث المخزون.",
+      });
+    } finally {
+      await worker.terminate();
+    }
+  } catch (error) {
+    console.error("Invoice OCR failed", error);
+    return NextResponse.json({ error: "OCR_FAILED" }, { status: 500 });
   }
 }
