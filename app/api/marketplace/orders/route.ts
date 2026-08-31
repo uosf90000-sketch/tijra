@@ -35,10 +35,10 @@ export async function POST(request: Request) {
   try {
     const orders = await db.$transaction(async (tx) => {
       const listingIds = cartItems.map((item) => item.listingId);
-      // Serialize reservations per listing. Sorting keeps multi-listing carts from
-      // acquiring the same advisory locks in different orders and deadlocking.
+      // Serialize reservations per listing. Return an integer column instead of
+      // PostgreSQL's void advisory-lock result so Prisma can deserialize it.
       for (const listingId of [...listingIds].sort()) {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('tijra-marketplace-listing'), hashtext(${listingId}))`;
+        await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(hashtext('tijra-marketplace-listing'), hashtext(${listingId}))`;
       }
 
       const listings = await tx.marketplaceListing.findMany({ where: { id: { in: listingIds } } });
