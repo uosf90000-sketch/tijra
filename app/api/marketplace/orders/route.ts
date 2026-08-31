@@ -35,6 +35,12 @@ export async function POST(request: Request) {
   try {
     const orders = await db.$transaction(async (tx) => {
       const listingIds = cartItems.map((item) => item.listingId);
+      // Serialize reservations per listing. Sorting keeps multi-listing carts from
+      // acquiring the same advisory locks in different orders and deadlocking.
+      for (const listingId of [...listingIds].sort()) {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('tijra-marketplace-listing'), hashtext(${listingId}))`;
+      }
+
       const listings = await tx.marketplaceListing.findMany({ where: { id: { in: listingIds } } });
       const listingMap = new Map(listings.map((listing) => [listing.id, listing]));
 
