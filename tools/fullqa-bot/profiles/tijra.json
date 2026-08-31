@@ -1,9 +1,0 @@
-{
-  "name": "Tijra",
-  "targetUrl": "https://tijra-production.up.railway.app",
-  "healthPath": "/api/health",
-  "roles": ["SUPPLIER", "RETAILER", "BOTH"],
-  "activities": ["GROCERY", "CAFE", "RESTAURANT", "ELECTRONICS"],
-  "criticalFlow": ["register", "login", "supplier-publish", "marketplace-search", "cart", "order", "reservation", "supplier-accept", "picking", "receiving", "inventory", "pos", "accounting", "smart-buy", "alerts"],
-  "notes": ["Attendance/timekeeping is out of scope", "Do not change production configuration or limits"]
-}
