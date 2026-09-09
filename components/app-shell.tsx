@@ -17,6 +17,7 @@ import {
   ClipboardList,
   FileSpreadsheet,
   LayoutDashboard,
+  Landmark,
   LogOut,
   Menu,
   PackageCheck,
@@ -91,6 +92,7 @@ const supplierAlerts: NavItem = { href: "/supplier/alerts", label: "التنبي
 const supplierActivity: NavItem = { href: "/activity?mode=supplier", label: "مركز النشاط", icon: Activity };
 
 const accounting: NavItem = { href: "/accounting", label: "التقارير", icon: Calculator };
+const reconciliation: NavItem = { href: "/accounting/reconciliation", label: "مطابقة الأموال", icon: Landmark };
 const employees: NavItem = { href: "/employees", label: "الموظفون", icon: UsersRound };
 const payroll: NavItem = { href: "/payroll", label: "الرواتب", icon: WalletCards };
 
@@ -146,7 +148,7 @@ function retailerSections(): NavSection[] {
     { label: "البيع", items: [sales, shifts] },
     { label: "المخزون والتشغيل", items: [inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, waste, dayClosing] },
     { label: "الشراء والسوق", items: [market, smartBuy, reorder, catalog, marketplaceSuppliers, smartPrice, smartAlerts, purchases, orders] },
-    { label: "الإدارة", items: [activityCenter, { ...accounting, label: "الملخص المالي" }, employees, payroll] },
+    { label: "الإدارة", items: [activityCenter, { ...accounting, label: "الملخص المالي" }, reconciliation, employees, payroll] },
   ];
 }
 
@@ -155,7 +157,7 @@ function supplierSections(isOwner: boolean): NavSection[] {
     { label: "البيع والطلبات", items: [sales, shifts, sellerOrders, supplierPicking, externalSale] },
     { label: "المخزون", items: [sellerProducts, importProducts, stockUpdate, stockCount, inventory, receiving, returns, locations, units, batches, productSettings, movements] },
     { label: "التجار والتسعير", items: [customers, dormantCustomers, supplierPricing, supplierPrice, supplierForecast, supplierAlerts] },
-    { label: "الإدارة", items: [...(isOwner ? [salesAnalytics, controlCenter] : []), supplierActivity, accounting, employees, payroll] },
+    { label: "الإدارة", items: [...(isOwner ? [salesAnalytics, controlCenter] : []), supplierActivity, accounting, reconciliation, employees, payroll] },
   ];
 }
 
@@ -168,7 +170,7 @@ function staffSections(permissions: Set<Permission>, businessType: "RETAILER" | 
     sections.push({ label: "المخزون", items });
   }
   if (permissions.has("PURCHASES")) sections.push({ label: "الطلبات", items: [orders] });
-  if (permissions.has("ACCOUNTING")) sections.push({ label: "المحاسبة", items: [accounting] });
+  if (permissions.has("ACCOUNTING")) sections.push({ label: "المحاسبة", items: [accounting, reconciliation] });
   return sections;
 }
 

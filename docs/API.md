@@ -49,3 +49,9 @@ Returns salary gross, deductions/advances and net salary per employee plus run t
 ## GET `/api/health`
 
 Returns service scope and explicitly reports `financing: false` and `deliveryManagement: false`.
+
+## مطابقة الأموال
+
+### `POST /api/accounting/settlements`
+
+يتطلب صلاحية `ACCOUNTING`. يقبل تسوية واحدة أو `{ entries: [...] }` حتى 500 تسوية. الحقول الأساسية: `provider`, `paymentMethod`, `salesDate`, `grossAmount`; ويمكن إضافة `fees`, `settledAt`, `reference`, `note`.

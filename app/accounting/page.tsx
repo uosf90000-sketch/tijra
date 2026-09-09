@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowDownLeft, ArrowUpRight, Banknote, CircleDollarSign, ClipboardList, Plus, ReceiptText, ShoppingBag, WalletCards } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Banknote, CircleDollarSign, ClipboardList, Landmark, Plus, ReceiptText, ShoppingBag, WalletCards } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
@@ -16,7 +16,7 @@ export default async function AccountingPage() {
   const businessId = context.business.id;
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
-  const [sales, expenses, payrollRuns, purchaseOrders, supplierOrders, recentSales, recentExpenses, recentPurchases] = await Promise.all([
+  const [sales, expenses, payrollRuns, purchaseOrders, supplierOrders, recentSales, recentExpenses, recentPurchases, nonCashSales, settlementTotals] = await Promise.all([
     db.sale.aggregate({ where: { businessId, soldAt: { gte: monthStart } }, _sum: { total: true, costTotal: true } }),
     db.expense.aggregate({ where: { businessId, expenseDate: { gte: monthStart } }, _sum: { amount: true } }),
     db.payrollRun.findMany({ where: { businessId, periodStart: { gte: monthStart }, status: { in: ["APPROVED", "PAID"] } }, include: { items: true } }),
@@ -25,6 +25,8 @@ export default async function AccountingPage() {
     db.sale.findMany({ where: { businessId }, orderBy: { soldAt: "desc" }, take: 8 }),
     db.expense.findMany({ where: { businessId }, orderBy: { expenseDate: "desc" }, take: 8 }),
     db.marketplaceOrder.findMany({ where: { buyerBusinessId: businessId, status: { not: "CANCELLED" } }, include: { seller: true }, orderBy: { createdAt: "desc" }, take: 8 }),
+    db.sale.aggregate({ where: { businessId, soldAt: { gte: monthStart }, paymentMethod: { in: ["CARD", "TRANSFER", "OTHER"] } }, _sum: { total: true } }),
+    db.paymentSettlement.aggregate({ where: { businessId, salesDate: { gte: monthStart } }, _sum: { grossAmount: true, fees: true, netAmount: true } }),
   ]);
 
   const salesTotal = Number(sales._sum.total ?? 0);
@@ -39,6 +41,11 @@ export default async function AccountingPage() {
   const purchaseCommitmentTotal = purchasesActive.reduce((sum, order) => sum + Number(order.expectedTotal), 0);
   const marketplaceSalesTotal = supplierOrders.reduce((sum, order) => sum + Number(order.expectedTotal), 0);
   const outgoing = cogs + expenseTotal + payrollTotal;
+  const settlementExpected = Number(nonCashSales._sum.total ?? 0);
+  const settlementRecorded = Number(settlementTotals._sum.grossAmount ?? 0);
+  const settlementFees = Number(settlementTotals._sum.fees ?? 0);
+  const settlementNet = Number(settlementTotals._sum.netAmount ?? 0);
+  const settlementGap = settlementExpected - settlementRecorded;
 
   const pnl = [
     { label: "المبيعات المسجلة", value: salesTotal, positive: true },
@@ -56,7 +63,7 @@ export default async function AccountingPage() {
   ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 16);
 
   return <>
-    <PageHeader eyebrow="الإدارة المالية" title="المحاسبة" description="المبيعات، تكلفة البضاعة، مشتريات السوق، المصروفات والرواتب في ملخص واحد قابل للمطابقة." actions={<div className="pageActionGroup"><Link className="button secondary" href="/marketplace/orders"><ShoppingBag size={17} /> مشتريات السوق</Link><Link className="button primary" href="/accounting/expenses/new"><Plus size={17} /> تسجيل مصروف</Link></div>} />
+    <PageHeader eyebrow="الإدارة المالية" title="المحاسبة" description="المبيعات، تكلفة البضاعة، المصروفات والرواتب مع مطابقة ما وصل فعليًا من المدفوعات." actions={<div className="pageActionGroup"><Link className="button secondary" href="/accounting/reconciliation"><Landmark size={17} /> مطابقة الأموال</Link><Link className="button secondary" href="/marketplace/orders"><ShoppingBag size={17} /> مشتريات السوق</Link><Link className="button primary" href="/accounting/expenses/new"><Plus size={17} /> تسجيل مصروف</Link></div>} />
 
     <section className="metricsGrid four">
       <MetricCard label="مبيعات الشهر" value={formatSar(salesTotal)} note={marketplaceSalesTotal ? `طلبات مورد مستلمة ${formatSar(marketplaceSalesTotal)} خارج تحصيل تِجرا` : "من الفواتير المسجلة"} icon={CircleDollarSign} />
@@ -68,6 +75,28 @@ export default async function AccountingPage() {
     <section className="accountingGrid">
       <article className="panel"><div className="panelHeader"><div><span className="eyebrow">هذا الشهر</span><h2>قائمة دخل مبسطة</h2></div></div><div className="pnlList">{pnl.map((item) => <div className={`pnlRow ${item.strong ? "strong" : ""}`} key={item.label}><span>{item.label}</span><strong className={item.positive ? "positive" : ""}>{item.positive ? "" : "-"}{formatSar(Math.abs(item.value))}</strong></div>)}</div><div className="infoNote">مشتريات السوق تزيد المخزون ولا تُخصم من الربح مباشرة؛ تكلفتها تدخل عند بيع البضاعة. الدفع والتسوية مع المورد تتم خارج تِجرا حاليًا، لذلك لا نعرض الطلب على أنه «مدفوع» بدون دليل.</div></article>
       <article className="panel"><div className="panelHeader"><div><span className="eyebrow">الحركة التشغيلية</span><h2>داخل / تكلفة وخارج</h2></div></div><div className="cashflowCards"><div className="cashflowCard in"><ArrowDownLeft size={20} /><span>المبيعات</span><strong>{formatSar(salesTotal)}</strong></div><div className="cashflowCard out"><ArrowUpRight size={20} /><span>التكلفة + المصروفات + الرواتب</span><strong>{formatSar(outgoing)}</strong></div></div><div className="balanceHero"><span>النتيجة التشغيلية</span><strong>{netProfit >= 0 ? "+" : "-"}{formatSar(Math.abs(netProfit))}</strong><small>تقديري للفترة الحالية</small></div></article>
+    </section>
+
+    <section className="panel">
+      <div className="panelHeader">
+        <div><span className="eyebrow"><Landmark size={14} /> مطابقة التحصيل</span><h2>هل وصلت مبيعاتك فعلًا؟</h2></div>
+        <Link className="button secondary" href="/accounting/reconciliation">فتح المطابقة</Link>
+      </div>
+      <div className="cashflowCards">
+        <div className="cashflowCard in"><Banknote size={20} /><span>المتوقع من البطاقة والتحويل</span><strong>{formatSar(settlementExpected)}</strong></div>
+        <div className="cashflowCard out"><Landmark size={20} /><span>التسويات المسجلة</span><strong>{formatSar(settlementRecorded)}</strong></div>
+      </div>
+      <div className="infoNote">
+        {settlementExpected === 0
+          ? "لا توجد مبيعات غير نقدية هذا الشهر حتى الآن."
+          : settlementRecorded === 0
+            ? `لم تُسجل تسويات بعد مقابل ${formatSar(settlementExpected)} من المبيعات غير النقدية.`
+            : Math.abs(settlementGap) <= 0.01
+              ? `التسويات مطابقة للمبيعات. الرسوم ${formatSar(settlementFees)} والصافي المودع ${formatSar(settlementNet)}.`
+              : settlementGap > 0
+                ? `يوجد ${formatSar(settlementGap)} غير مطابق أو بانتظار التسوية. افتح المطابقة لمعرفة الأيام وطرق الدفع المتأثرة.`
+                : `التسويات أعلى من المبيعات المسجلة بـ ${formatSar(Math.abs(settlementGap))}. راجع التواريخ أو العمليات.`}
+      </div>
     </section>
 
     <section className="panel tablePanel"><div className="panelHeader tableHeader"><div><span className="eyebrow"><ClipboardList size={14} /> الحركة</span><h2>آخر المبيعات والمصاريف والمشتريات</h2></div></div><div className="tableScroll"><table className="dataTable"><thead><tr><th>التاريخ</th><th>النوع</th><th>الوصف</th><th>الأثر</th><th>المبلغ</th></tr></thead><tbody>{entries.map((entry) => <tr key={entry.id}><td>{new Intl.DateTimeFormat("ar-SA", { dateStyle: "short", timeStyle: "short" }).format(entry.date)}</td><td><strong>{entry.type}</strong></td><td>{entry.description}</td><td>{entry.direction}</td><td className={entry.direction === "داخل" ? "positive" : ""}>{formatSar(entry.amount)}</td></tr>)}{!entries.length && <tr><td colSpan={5}><div className="infoNote">لا توجد حركات مسجلة بعد.</div></td></tr>}</tbody></table></div></section>
