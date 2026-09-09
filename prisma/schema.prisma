@@ -139,6 +139,7 @@ model Business {
   marketplaceOrdersAsSeller  MarketplaceOrder[]    @relation("MarketplaceSeller")
   favoriteSuppliers          FavoriteSupplier[]    @relation("FavoriteBuyer")
   favoritedBy                FavoriteSupplier[]    @relation("FavoriteSeller")
+  paymentSettlements         PaymentSettlement[]
 }
 
 model Membership {
@@ -418,6 +419,27 @@ model SaleItem {
   product   Product @relation(fields: [productId], references: [id])
 
   @@index([productId])
+}
+
+model PaymentSettlement {
+  id            String        @id @default(cuid())
+  businessId    String
+  provider      String
+  paymentMethod PaymentMethod
+  salesDate     DateTime
+  settledAt     DateTime
+  grossAmount   Decimal       @db.Decimal(12, 2)
+  fees          Decimal       @default(0) @db.Decimal(12, 2)
+  netAmount     Decimal       @db.Decimal(12, 2)
+  reference     String?
+  source        String        @default("MANUAL")
+  note          String?
+  createdAt     DateTime      @default(now())
+  business      Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, salesDate])
+  @@index([businessId, paymentMethod, salesDate])
+  @@index([businessId, settledAt])
 }
 
 model Expense {
