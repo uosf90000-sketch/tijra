@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Activity, BarChart3, Bell, Calculator, UsersRound, WalletCards } from "lucide-react";
+import { Activity, BarChart3, Bell, Calculator, Landmark, UsersRound, WalletCards } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { firstPermissionHref } from "@/lib/access";
 import { getSessionContext } from "@/lib/auth";
@@ -11,6 +11,7 @@ const tools = [
   { href: "/sales/analytics", title: "تحليلات المبيعات", description: "المبيعات والربح ومتوسط الفاتورة واتجاه الأداء.", icon: BarChart3 },
   { href: "/control-center", title: "مركز الرقابة", description: "المخزون المنخفض والهدر والفروقات والتنبيهات المهمة.", icon: Bell },
   { href: "/accounting", title: "الملخص المالي", description: "الإيرادات والمصروفات والنتيجة المالية.", icon: Calculator },
+  { href: "/accounting/reconciliation", title: "مطابقة الأموال", description: "طابق مبيعات البطاقات والتحويلات مع التسويات الفعلية واكشف أي فرق.", icon: Landmark },
   { href: "/employees", title: "الموظفون", description: "الحسابات والصلاحيات ومساحات العمل.", icon: UsersRound },
   { href: "/payroll", title: "الرواتب", description: "إدارة رواتب الموظفين من مكان واحد.", icon: WalletCards },
   { href: "/activity", title: "مركز النشاط", description: "من نفذ كل حركة ومتى وما الذي تغير.", icon: Activity },
