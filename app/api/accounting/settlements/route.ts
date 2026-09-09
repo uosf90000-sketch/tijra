@@ -33,21 +33,24 @@ export async function POST(request: Request) {
   }
 
   const entries = "entries" in parsed.data ? parsed.data.entries : [parsed.data];
-  const created = await db.$transaction(entries.map((entry) => db.paymentSettlement.create({
-    data: {
-      businessId: auth.context.business.id,
-      provider: entry.provider,
-      paymentMethod: entry.paymentMethod,
-      salesDate: entry.salesDate,
-      settledAt: entry.settledAt ?? entry.salesDate,
-      grossAmount: entry.grossAmount,
-      fees: entry.fees,
-      netAmount: Math.max(0, entry.grossAmount - entry.fees),
-      reference: entry.reference || null,
-      note: entry.note || null,
-      source: entry.source ?? (entries.length > 1 ? "CSV" : "MANUAL"),
-    },
-  })));
+  const data = entries.map((entry) => ({
+    businessId: auth.context.business.id,
+    provider: entry.provider,
+    paymentMethod: entry.paymentMethod,
+    salesDate: entry.salesDate,
+    settledAt: entry.settledAt ?? entry.salesDate,
+    grossAmount: entry.grossAmount,
+    fees: entry.fees,
+    netAmount: Math.max(0, entry.grossAmount - entry.fees),
+    reference: entry.reference || null,
+    note: entry.note || null,
+    source: entry.source ?? (entries.length > 1 ? "CSV" : "MANUAL"),
+  }));
 
-  return NextResponse.json({ count: created.length, settlements: created }, { status: 201 });
+  const created = await db.paymentSettlement.createMany({
+    data,
+    skipDuplicates: true,
+  });
+
+  return NextResponse.json({ count: created.count, skipped: entries.length - created.count }, { status: 201 });
 }
