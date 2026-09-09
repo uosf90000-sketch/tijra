@@ -141,7 +141,8 @@ export function SettlementImportForm() {
       if (!entries.length) throw new Error("ملف CSV غير صالح. استخدم الأعمدة: salesDate, provider, paymentMethod, grossAmount, fees.");
       if (entries.length > 500) throw new Error("الحد الأقصى 500 تسوية في الملف الواحد.");
       const result = await postEntries(entries);
-      setMessage(`تم استيراد ${result.count ?? entries.length} تسوية بنجاح.`);
+      const skipped = Number(result.skipped || 0);
+      setMessage(skipped ? `تم استيراد ${result.count ?? 0} تسوية، وتجاوز ${skipped} مكررة.` : `تم استيراد ${result.count ?? entries.length} تسوية بنجاح.`);
       if (fileRef.current) fileRef.current.value = "";
       router.refresh();
     } catch (error) {
@@ -153,7 +154,7 @@ export function SettlementImportForm() {
 
   return (
     <div className="accountingGrid">
-      <form className="panel formStack" action={submitManual}>
+      <form className="panel" action={submitManual}>
         <div className="panelHeader">
           <div><span className="eyebrow"><Landmark size={14} /> تسجيل مباشر</span><h2>أضف تسوية</h2></div>
         </div>
