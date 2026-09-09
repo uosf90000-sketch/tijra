@@ -440,6 +440,7 @@ model PaymentSettlement {
   @@index([businessId, salesDate])
   @@index([businessId, paymentMethod, salesDate])
   @@index([businessId, settledAt])
+  @@unique([businessId, provider, reference])
 }
 
 model Expense {
