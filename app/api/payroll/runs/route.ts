@@ -46,7 +46,8 @@ export async function POST(request: Request) {
 
   const adjustments = new Map(parsed.data.adjustments.map((item) => [item.employeeId, item]));
 
-  const run = await db.$transaction(async (tx) => tx.payrollRun.create({
+  const run = await db.$transaction(async (tx) => {
+    const created = await tx.payrollRun.create({
     data: {
       businessId: auth.context.business.id,
       createdByUserId: auth.context.user.id,
@@ -74,13 +75,15 @@ export async function POST(request: Request) {
       },
     },
     include: { items: { include: { employee: true } } },
-  }));
-  await db.inventoryAuditEvent.create({ data: {
-    businessId: auth.context.business.id, action: "PAYROLL_RUN_CREATED", orderId: run.id,
-    actorUserId: auth.context.user.id, actorName: auth.context.user.name,
-    actorRole: auth.context.membership.role,
-    note: "إنشاء مسير رواتب للمراجعة دون اعتماده أو اعتباره مدفوعًا",
-  } });
+    });
+    await tx.inventoryAuditEvent.create({ data: {
+      businessId: auth.context.business.id, action: "PAYROLL_RUN_CREATED", orderId: created.id,
+      actorUserId: auth.context.user.id, actorName: auth.context.user.name,
+      actorRole: auth.context.membership.role,
+      note: "إنشاء مسير رواتب للمراجعة دون اعتماده أو اعتباره مدفوعًا",
+    } });
+    return created;
+  });
 
   return NextResponse.json({ run }, { status: 201 });
 }
