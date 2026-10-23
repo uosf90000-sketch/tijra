@@ -82,7 +82,7 @@ export async function POST(request: Request) {
         userId = user.id;
       }
 
-      return tx.employee.create({
+      const employee = await tx.employee.create({
         data: {
           businessId: auth.context.business.id,
           userId,
@@ -105,6 +105,18 @@ export async function POST(request: Request) {
           },
         },
       });
+      await tx.inventoryAuditEvent.create({
+        data: {
+          businessId: auth.context.business.id,
+          action: data.createAccount ? "STAFF_ACCOUNT_CREATED" : "EMPLOYEE_CREATED",
+          itemName: employee.name,
+          actorUserId: auth.context.user.id,
+          actorName: auth.context.user.name,
+          actorRole: auth.context.membership.role,
+          note: JSON.stringify({ employeeId: employee.id, userId, permissions: data.createAccount ? data.permissions : [], jobTitle: data.jobTitle || null }),
+        },
+      });
+      return employee;
     });
     return NextResponse.json({ employee }, { status: 201 });
   } catch (error) {
