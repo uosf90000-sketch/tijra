@@ -36,6 +36,16 @@ type SalePlan = {
 
 export async function recordSale(input: RecordSaleInput) {
   return db.$transaction(async (tx) => {
+    if (input.invoiceNumber) {
+      // Serialize same-invoice checkout on PostgreSQL so a double tap or retry
+      // cannot record stock and revenue twice before the first insert is visible.
+      await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(hashtext('tijra-sale-invoice'), hashtext(${input.businessId + ":" + input.invoiceNumber}))`;
+      const exists = await tx.sale.findFirst({
+        where: { businessId: input.businessId, invoiceNumber: input.invoiceNumber },
+        select: { id: true },
+      });
+      if (exists) throw new Error("DUPLICATE_INVOICE_NUMBER");
+    }
     const productIds = Array.from(new Set(input.items.map((item) => item.productId)));
     const products = await tx.product.findMany({
       where: { businessId: input.businessId, id: { in: productIds }, active: true },
