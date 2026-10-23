@@ -30,6 +30,7 @@ const categories: Record<string, string> = {
   QUICK_STOCK_IN: "إضافة سريعة للمخزون",
   QUICK_STOCK_OUT: "إخراج سريع من المخزون",
   LOCATION_TRANSFER: "تحويل بين المواقع",
+  LOCATION_ACCESS_CHANGED: "تغيير مواقع الموظف",
   SALE_PRICE_OVERRIDE: "خصم أو تعديل على سعر الكاشير",
 };
 const auditedActions = Object.keys(categories);
@@ -61,6 +62,7 @@ export default async function GovernancePage() {
     db.business.findUniqueOrThrow({
       where: { id: businessId },
       select: {
+        locationAccessEnforced: true,
         purchaseApprovalEnabled: true, purchaseApprovalThreshold: true,
         payrollDualApprovalEnabled: true, stockReasonRequired: true,
         stockValueReviewThreshold: true, expenseOwnerThreshold: true, cashierMaxDiscountPercent: true,
@@ -89,6 +91,7 @@ export default async function GovernancePage() {
     </div>
     <section style={{ display: "grid", gap: 18 }}>
       <GovernancePolicyForm initial={{
+        locationAccessEnforced: policy.locationAccessEnforced,
         purchaseApprovalEnabled: policy.purchaseApprovalEnabled,
         purchaseApprovalThreshold: Number(policy.purchaseApprovalThreshold),
         payrollDualApprovalEnabled: policy.payrollDualApprovalEnabled,
