@@ -23,7 +23,7 @@ export default async function WorkspacePage() {
   return <>
     <PageHeader eyebrow="الإعدادات" title="مساحة العمل والشركات"
       description="نظام واحد يمكن تبسيط واجهته لفود ترك أو توسيعها لشركة، مع شركات مستقلة لكل عضوية مخولة."
-      actions={<Link className="button secondary" href="/management"><ArrowRight size={17} /> الإدارة</Link>} />
+      actions={<><Link className="button secondary" href="/account/security">أمان الحساب والمصادقة الثنائية</Link><Link className="button secondary" href="/management"><ArrowRight size={17} /> الإدارة</Link></>} />
     {context.membership.role === "OWNER" && (
       <section style={{ marginBottom: 22 }}>
         <WorkspaceProfileForm
