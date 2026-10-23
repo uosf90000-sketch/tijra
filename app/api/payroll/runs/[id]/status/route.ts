@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiRoles } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { payrollTransitionViolation } from "@/lib/governance-checks";
 
 const schema = z.object({
   action: z.enum(["APPROVE", "MARK_PAID"]),
@@ -29,19 +30,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!run) throw new Error("PAYROLL_RUN_NOT_FOUND");
       const actorId = auth.context.user.id;
       const dual = policy.payrollDualApprovalEnabled;
-      if (parsed.data.action === "APPROVE") {
-        if (run.status !== "DRAFT") throw new Error("RUN_NOT_DRAFT");
-        if (dual && (!run.createdByUserId || run.createdByUserId === actorId)) {
-          throw new Error("SECOND_REVIEWER_REQUIRED");
-        }
-      } else {
-        if (run.status !== "APPROVED") throw new Error("RUN_NOT_APPROVED");
-        if (dual && auth.context.membership.role !== "OWNER") throw new Error("OWNER_PAYMENT_CONFIRMATION_REQUIRED");
-        if (dual && run.approvedByUserId === actorId) throw new Error("SECOND_PAYMENT_CHECKER_REQUIRED");
-        if (!parsed.data.reference || parsed.data.reference.length < 4) {
-          throw new Error("PAYMENT_REFERENCE_REQUIRED");
-        }
-      }
+      const violation = payrollTransitionViolation({
+        action: parsed.data.action,
+        status: run.status,
+        actorId, actorRole: auth.context.membership.role,
+        createdByUserId: run.createdByUserId,
+        approvedByUserId: run.approvedByUserId,
+        dualApproval: dual,
+        paymentReference: parsed.data.reference,
+      });
+      if (violation) throw new Error(violation);
       const nextStatus = parsed.data.action === "APPROVE" ? "APPROVED" : "PAID";
       const updated = await tx.payrollRun.updateMany({
         where: { id, businessId: auth.context.business.id, status: run.status },
