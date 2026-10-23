@@ -25,10 +25,10 @@ const messages: Record<string, string> = {
   INVALID_INPUT: "راجع البيانات المدخلة وحاول مرة أخرى.",
   NO_BUSINESS_ACCESS: "الحساب غير مرتبط بمنشأة.",
   MFA_REQUIRED: "أدخل الرمز من تطبيق المصادقة لإكمال تسجيل الدخول.",
-  INVALID_MFA_CODE: "الرمز غير صحيح. تأكد من الوقت في جهازك.",
   MFA_LOCKED: "تم تعليق التحقق مؤقتًا بعد محاولات فاشلة. حاول لاحقًا.",
   MFA_CODE_ALREADY_USED: "هذا الرمز استخدم مسبقًا. استخدم الرمز التالي.",
   INVALID_MFA_CODE: "رمز التحقق أو الاسترداد غير صالح.",
+  LOGIN_RATE_LIMITED: "تم إيقاف محاولات الدخول مؤقتًا لحماية الحساب. حاول بعد 15 دقيقة.",
 };
 
 export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
