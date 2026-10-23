@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
   const order = await db.purchaseOrder.findUnique({ where: { id: payload.orderId } });
   if (!order) return NextResponse.json({ error: "PURCHASE_ORDER_NOT_FOUND" }, { status: 404 });
-  if (["RECEIVED", "CANCELLED"].includes(order.status)) {
+  if (!["SENT", "CONFIRMED"].includes(order.status)) {
     return NextResponse.json({ error: "ORDER_ALREADY_CLOSED" }, { status: 409 });
   }
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   // Conditional update prevents an already-cancelled order being reopened by a
   // supplier link response racing an owner's cancellation.
   const updated = await db.purchaseOrder.updateMany({
-    where: { id: order.id, status: { notIn: ["RECEIVED", "CANCELLED"] } },
+    where: { id: order.id, status: { in: ["SENT", "CONFIRMED"] } },
     data: {
       status,
       notes: [order.notes, parsed.data.action === "CONFIRM" ? "أكد المورد الطلب من الرابط المشترك." : "اعتذر المورد عن تنفيذ الطلب من الرابط المشترك."].filter(Boolean).join("\n"),
