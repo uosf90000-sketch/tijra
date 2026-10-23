@@ -4,6 +4,7 @@ import { Boxes, Check, Store, Tags, UsersRound } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { resolveWorkspaceModules } from "@/lib/workspace-profile";
 
 export const metadata = { title: "تهيئة المنشأة" };
 export const dynamic = "force-dynamic";
@@ -19,11 +20,18 @@ export default async function OnboardingPage() {
     db.supplierProduct.count({ where: { supplier: { businessId } } }),
   ]);
 
+  const activeModules = new Set(resolveWorkspaceModules(
+    context.business.businessScale, context.business.operatingModel, context.business.workspaceModules,
+  ));
   const steps = [
-    { title: "أضف المنتجات", text: "ابدأ بالرصيد الحالي والتكلفة وسعر البيع ونقطة إعادة الطلب.", done: products > 0, href: "/inventory/new", icon: Boxes },
-    { title: "أضف مورديك الحاليين", text: "لا نغيّر طريقة التوصيل؛ فقط ننظم الطلبات والأسعار.", done: suppliers > 0, href: "/suppliers/new", icon: Store },
-    { title: "سجّل أسعار الموردين", text: "اربط الصنف بالمورد حتى تعمل المقارنة والمشتريات الذكية.", done: prices > 0, href: "/suppliers/prices/new", icon: Tags },
-    { title: "أضف الموظفين", text: "الراتب الأساسي والبدلات تمهيدًا لأول مسير.", done: employees > 0, href: "/employees/new", icon: UsersRound },
+    { title: "خصص مساحة العمل", text: "راجع الأدوات الظاهرة حسب نشاطك وحجم منشأتك.", done: true, href: "/management/workspace", icon: Store },
+    ...(activeModules.has("INVENTORY")
+      ? [{ title: "أضف المنتجات", text: "سجّل الأرصدة والأسعار لتبدأ إدارة المخزون.", done: products > 0, href: "/inventory/new", icon: Boxes }] : []),
+    ...(activeModules.has("PURCHASING")
+      ? [{ title: "أضف مورديك", text: "نظم عروض الموردين ومشترياتك.", done: suppliers > 0, href: "/suppliers/new", icon: Store },
+         { title: "سجّل أسعار الموردين", text: "فعّل مقارنة الأسعار والشراء الذكي.", done: prices > 0, href: "/suppliers/prices/new", icon: Tags }] : []),
+    ...(activeModules.has("STAFF")
+      ? [{ title: "أضف الموظفين", text: "هيّئ حسابات العاملين ورواتبهم.", done: employees > 0, href: "/employees/new", icon: UsersRound }] : []),
   ];
   const completed = steps.filter((item) => item.done).length;
 
@@ -32,7 +40,7 @@ export default async function OnboardingPage() {
       <PageHeader
         eyebrow="البداية"
         title={`تهيئة ${context.business.name}`}
-        description="أكمل الخطوات الأساسية، وبعدها تصبح لوحة تِجرا مبنية على بيانات منشأتك الفعلية."
+        description="نبدأ فقط بالأدوات التي يحتاجها نشاطك، ويمكنك زيادة الوحدات من إعدادات مساحة العمل في أي وقت."
       />
 
       <section className="onboardingGrid">
