@@ -365,6 +365,7 @@ export async function receivePurchaseOrder(input: ReceivePurchaseInput) {
 
     if (!order) throw new Error("PURCHASE_ORDER_NOT_FOUND");
     if (order.status === "CANCELLED") throw new Error("PURCHASE_ORDER_CANCELLED");
+    if (!["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"].includes(order.status)) throw new Error("PURCHASE_ORDER_NOT_APPROVED");
     if (order.status === "RECEIVED") throw new Error("PURCHASE_ORDER_ALREADY_RECEIVED");
 
     const invoiceKey = makeInvoiceKey(input.businessId, order.supplierId, input.invoiceNumber);
