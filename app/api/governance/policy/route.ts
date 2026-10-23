@@ -10,6 +10,7 @@ const schema = z.object({
   stockReasonRequired: z.boolean(),
   stockValueReviewThreshold: z.number().finite().nonnegative().max(999999999),
   expenseOwnerThreshold: z.number().finite().nonnegative().max(999999999),
+  cashierMaxDiscountPercent: z.number().finite().min(0).max(100),
 }).strict();
 
 const fields = {
@@ -19,6 +20,7 @@ const fields = {
   stockReasonRequired: true,
   stockValueReviewThreshold: true,
   expenseOwnerThreshold: true,
+  cashierMaxDiscountPercent: true,
 } as const;
 
 function serialize(policy: {
@@ -28,6 +30,7 @@ function serialize(policy: {
   stockReasonRequired: boolean;
   stockValueReviewThreshold: { toString(): string };
   expenseOwnerThreshold: { toString(): string };
+  cashierMaxDiscountPercent: { toString(): string };
 }) {
   return {
     purchaseApprovalEnabled: policy.purchaseApprovalEnabled,
@@ -36,6 +39,7 @@ function serialize(policy: {
     stockReasonRequired: policy.stockReasonRequired,
     stockValueReviewThreshold: Number(policy.stockValueReviewThreshold),
     expenseOwnerThreshold: Number(policy.expenseOwnerThreshold),
+    cashierMaxDiscountPercent: Number(policy.cashierMaxDiscountPercent),
   };
 }
 
