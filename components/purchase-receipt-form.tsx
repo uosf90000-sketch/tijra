@@ -50,7 +50,14 @@ export function PurchaseReceiptForm({ orders }: { orders: Order[] }) {
   function setLine(item: OrderItem, field: keyof EditableLine, value: number) {
     setLines((previous) => ({
       ...previous,
-      [item.productId]: { ...getLine(item), [field]: value },
+      [item.productId]: {
+        ...(previous[item.productId] ?? {
+          receivedQty: remaining(item),
+          invoicedQty: remaining(item),
+          unitCost: item.unitCost,
+        }),
+        [field]: value,
+      },
     }));
     setAcknowledged(false);
   }
