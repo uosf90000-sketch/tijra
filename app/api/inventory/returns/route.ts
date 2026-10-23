@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
 import { adjustLocationStock, actorFromContext, ensureDefaultLocation, syncListingForProduct } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
+import { locationAuthorized } from "@/lib/location-access";
 
 const schema = z.object({
   productId: z.string().min(1),
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
   const businessId = auth.context.business.id;
   const defaultLocation = await ensureDefaultLocation(businessId);
   const locationId = parsed.data.locationId || defaultLocation.id;
+  if (!(await locationAuthorized(auth.context, locationId))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
   const delta = parsed.data.type === "CUSTOMER_RETURN" ? parsed.data.quantity : -parsed.data.quantity;
 
   try {
