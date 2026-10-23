@@ -24,12 +24,17 @@ const messages: Record<string, string> = {
   EMAIL_ALREADY_EXISTS: "يوجد حساب بهذا البريد الإلكتروني مسبقًا.",
   INVALID_INPUT: "راجع البيانات المدخلة وحاول مرة أخرى.",
   NO_BUSINESS_ACCESS: "الحساب غير مرتبط بمنشأة.",
+  MFA_REQUIRED: "أدخل الرمز من تطبيق المصادقة لإكمال تسجيل الدخول.",
+  INVALID_MFA_CODE: "الرمز غير صحيح. تأكد من الوقت في جهازك.",
+  MFA_LOCKED: "تم تعليق التحقق مؤقتًا بعد محاولات فاشلة. حاول لاحقًا.",
+  MFA_CODE_ALREADY_USED: "هذا الرمز استخدم مسبقًا. استخدم الرمز التالي.",
 };
 
 export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [loading, setLoading] = useState(false);
+  const [showTotp, setShowTotp] = useState(false);
   const [error, setError] = useState("");
   const [businessType, setBusinessType] = useState("RETAILER");
   const [businessActivity, setBusinessActivity] = useState("GROCERY");
@@ -38,7 +43,7 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
   const register = mode === "register";
 
   function switchMode(next: Mode) {
-    setMode(next); setError("");
+    setMode(next); setError(""); setShowTotp(false);
     window.history.replaceState(null, "", next === "register" ? "/login?mode=register" : "/login");
   }
 
@@ -49,6 +54,7 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
     const email = String(form.get("email") || "").trim();
     const password = String(form.get("password") || "");
     const name = String(form.get("name") || "").trim();
+    const totpCode = String(form.get("totpCode") || "").trim();
     const businessName = String(form.get("businessName") || "").trim();
 
     if (!email) return setError("أدخل البريد الإلكتروني.");
@@ -59,12 +65,12 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
     if (register && businessName.length < 2) return setError("أدخل اسم المنشأة.");
 
     setLoading(true); setError("");
-    const payload = register ? { name, email, password, phone: form.get("phone") || undefined, businessName, businessType, businessActivity, businessScale, operatingModel, city: form.get("city") || undefined, taxNumber: form.get("taxNumber") || undefined } : { email, password };
+    const payload = register ? { name, email, password, phone: form.get("phone") || undefined, businessName, businessType, businessActivity, businessScale, operatingModel, city: form.get("city") || undefined, taxNumber: form.get("taxNumber") || undefined } : { email, password, ...(totpCode ? { totpCode } : {}) };
 
     try {
       const response = await fetch(`/api/auth/${register ? "register" : "login"}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) { setError(messages[result.error] ?? "تعذر إكمال العملية. حاول مرة أخرى."); return; }
+      if (!response.ok) { if (result.error === "MFA_REQUIRED" || result.error === "INVALID_MFA_CODE" || result.error === "MFA_CODE_ALREADY_USED") setShowTotp(true); setError(messages[result.error] ?? "تعذر إكمال العملية. حاول مرة أخرى."); return; }
       router.replace(register ? "/onboarding" : "/");
       router.refresh();
     } catch { setError("تعذر الاتصال بالخادم. تحقق من الاتصال وحاول مرة أخرى."); }
@@ -96,6 +102,7 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
           </>}
           <div className={styles.field}><label htmlFor="email">البريد الإلكتروني</label><input id="email" name="email" type="email" autoComplete="email" dir="ltr" placeholder="example@tijra.com" /></div>
           <div className={styles.field}><label htmlFor="password">كلمة المرور</label><input id="password" name="password" type="password" autoComplete={register ? "new-password" : "current-password"} dir="ltr" /></div>
+          {!register && showTotp && <div className={styles.field}><label htmlFor="totpCode">رمز التحقق من تطبيق المصادقة</label><input id="totpCode" name="totpCode" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required placeholder="000000" dir="ltr" /></div>}
           {error && <div className={styles.error} role="alert">{error}</div>}
           <button className={styles.submit} disabled={loading}>{loading ? "جاري الحفظ..." : register ? "إنشاء الحساب والمتابعة" : "تسجيل الدخول"}</button>
         </form>
