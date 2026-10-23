@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { expenseViolation } from "@/lib/governance-checks";
 
 const expenseSchema = z.object({
   category: z.string().trim().min(2).max(100),
@@ -31,14 +32,15 @@ export async function POST(request: Request) {
     where: { id: auth.context.business.id },
     select: { expenseOwnerThreshold: true },
   });
-  if (parsed.data.amount >= Number(policy.expenseOwnerThreshold) &&
-      auth.context.membership.role !== "OWNER") {
-    return NextResponse.json({ error: "OWNER_REQUIRED_FOR_LARGE_EXPENSE" }, { status: 403 });
-  }
-  if (parsed.data.amount >= Number(policy.expenseOwnerThreshold) &&
-      (!parsed.data.description || parsed.data.description.length < 8)) {
-    return NextResponse.json({ error: "EXPENSE_REASON_REQUIRED" }, { status: 400 });
-  }
+  const policyError = expenseViolation({
+    role: auth.context.membership.role,
+    amount: parsed.data.amount,
+    threshold: Number(policy.expenseOwnerThreshold),
+    description: parsed.data.description,
+  });
+  if (policyError) return NextResponse.json({ error: policyError }, {
+    status: policyError === "OWNER_REQUIRED_FOR_LARGE_EXPENSE" ? 403 : 400,
+  });
   const expense = await db.$transaction(async (tx) => {
     const created = await tx.expense.create({
       data: {
