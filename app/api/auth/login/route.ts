@@ -77,7 +77,7 @@ export async function POST(request: Request) {
         id: user.id,
         OR: [{ mfaLastVerifiedStep: null }, { mfaLastVerifiedStep: { lt: step! } }],
       },
-      data: { mfaLastVerifiedStep: step, mfaFailedAttempts: 0, mfaLockedUntil: null },
+      data: { mfaLastVerifiedStep: step!, mfaFailedAttempts: 0, mfaLockedUntil: null },
     });
     if (accepted.count !== 1) {
       return NextResponse.json({ error: "MFA_CODE_ALREADY_USED" }, { status: 409 });
