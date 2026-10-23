@@ -8,6 +8,7 @@ const schema = z.object({
   barcode: z.string().trim().min(1).max(80),
   direction: z.enum(["IN", "OUT"]),
   quantity: z.coerce.number().positive().max(100000000),
+  reason: z.string().trim().max(500).optional(),
 });
 
 export async function POST(request: Request) {
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { barcode, direction, quantity } = parsed.data;
+  const { barcode, direction, quantity, reason } = parsed.data;
   const businessId = auth.context.business.id;
   const location = await ensureDefaultLocation(businessId);
 
@@ -30,6 +31,17 @@ export async function POST(request: Request) {
       });
       if (!product) throw new Error("PRODUCT_NOT_FOUND");
 
+      const businessPolicy = await tx.business.findUniqueOrThrow({
+        where: { id: businessId }, select: { stockReasonRequired: true, stockValueReviewThreshold: true },
+      });
+      const value = quantity * Number(product.averageCost);
+      if (businessPolicy.stockReasonRequired && (!reason || reason.length < 8)) {
+        throw new Error("STOCK_REASON_REQUIRED");
+      }
+      if (value >= Number(businessPolicy.stockValueReviewThreshold) &&
+          !["OWNER", "MANAGER"].includes(auth.context.membership.role)) {
+        throw new Error("SUPERVISOR_REQUIRED_FOR_LARGE_STOCK_ADJUSTMENT");
+      }
       const before = Number(product.quantity);
       const delta = direction === "IN" ? quantity : -quantity;
 
@@ -86,7 +98,8 @@ export async function POST(request: Request) {
           actorUserId: auth.context.user.id,
           actorName: auth.context.user.name,
           actorRole: auth.context.membership.role,
-          note: `${direction === "IN" ? "إدخال" : "إخراج"} ${quantity} ${product.unit}`,
+          note: JSON.stringify({ movement: direction, quantity, unit: product.unit, value,
+            reason: reason || null }),
         },
       });
 
@@ -96,7 +109,9 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   } catch (error) {
     const code = error instanceof Error ? error.message : "QUICK_ADJUST_FAILED";
-    const status = code === "PRODUCT_NOT_FOUND" ? 404 : code === "INSUFFICIENT_STOCK" ? 409 : 500;
+    const status = code === "PRODUCT_NOT_FOUND" ? 404 : code === "INSUFFICIENT_STOCK" ? 409 :
+      code === "SUPERVISOR_REQUIRED_FOR_LARGE_STOCK_ADJUSTMENT" ? 403 :
+      code === "STOCK_REASON_REQUIRED" ? 400 : 500;
     return NextResponse.json({ error: code }, { status });
   }
 }
