@@ -22,7 +22,9 @@ test("authenticator secret uses authenticated encryption at rest", () => {
     const encrypted = encryptTotpSecret(secret);
     assert.ok(!encrypted.includes(secret));
     assert.equal(decryptTotpSecret(encrypted), secret);
-    const tampered = encrypted.slice(0, -1) + (encrypted.endsWith("A") ? "B" : "A");
+    const blocks = encrypted.split(".");
+    blocks[1] = (blocks[1].startsWith("A") ? "B" : "A") + blocks[1].slice(1);
+    const tampered = blocks.join(".");
     assert.throws(() => decryptTotpSecret(tampered));
   } finally {
     if (old == null) delete process.env.MFA_ENCRYPTION_KEY;
