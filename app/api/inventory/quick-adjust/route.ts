@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
 import { adjustLocationStock, ensureDefaultLocation, syncListingForProduct } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
+import { stockAdjustmentViolation } from "@/lib/governance-checks";
 
 const schema = z.object({
   barcode: z.string().trim().min(1).max(80),
@@ -35,13 +36,13 @@ export async function POST(request: Request) {
         where: { id: businessId }, select: { stockReasonRequired: true, stockValueReviewThreshold: true },
       });
       const value = quantity * Number(product.averageCost);
-      if (businessPolicy.stockReasonRequired && (!reason || reason.length < 8)) {
-        throw new Error("STOCK_REASON_REQUIRED");
-      }
-      if (value >= Number(businessPolicy.stockValueReviewThreshold) &&
-          !["OWNER", "MANAGER"].includes(auth.context.membership.role)) {
-        throw new Error("SUPERVISOR_REQUIRED_FOR_LARGE_STOCK_ADJUSTMENT");
-      }
+      const policyError = stockAdjustmentViolation({
+        role: auth.context.membership.role,
+        quantity, averageCost: Number(product.averageCost), reason,
+        reasonRequired: businessPolicy.stockReasonRequired,
+        valueThreshold: Number(businessPolicy.stockValueReviewThreshold),
+      });
+      if (policyError) throw new Error(policyError);
       const before = Number(product.quantity);
       const delta = direction === "IN" ? quantity : -quantity;
 
