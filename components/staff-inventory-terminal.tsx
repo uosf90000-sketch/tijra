@@ -7,9 +7,10 @@ import { FormEvent, useMemo, useRef, useState } from "react";
 type Product = { id: string; name: string; barcode: string | null; unit: string; quantity: number };
 type ScannerControls = { stop: () => void };
 
-export function StaffInventoryTerminal({ products }: { products: Product[] }) {
+export function StaffInventoryTerminal({ products, locations }: { products: Product[]; locations: Array<{ id: string; name: string }> }) {
   const [barcode, setBarcode] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const [locationId, setLocationId] = useState(locations[0]?.id || "");
   const [reason, setReason] = useState("");
   const [direction, setDirection] = useState<"IN" | "OUT">("IN");
   const [message, setMessage] = useState("");
@@ -59,6 +60,7 @@ export function StaffInventoryTerminal({ products }: { products: Product[] }) {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (!locationId) return setMessage("ليس لديك موقع مخزون مصرح به.");
     if (!barcode || !product) {
       setMessage("امسح باركود صنف مسجل أولًا.");
       return;
@@ -75,7 +77,7 @@ export function StaffInventoryTerminal({ products }: { products: Product[] }) {
       const response = await fetch("/api/inventory/quick-adjust", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ barcode, direction, quantity: numericQuantity, reason: reason.trim() || undefined }),
+        body: JSON.stringify({ barcode, direction, quantity: numericQuantity, locationId, reason: reason.trim() || undefined }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -119,6 +121,7 @@ export function StaffInventoryTerminal({ products }: { products: Product[] }) {
         <button type="button" className={direction === "OUT" ? "active" : ""} onClick={() => setDirection("OUT")}><ArrowUpFromLine size={19} /> إخراج</button>
       </div>
 
+      <label className="staffQuantityField"><span>الموقع المسموح</span><select value={locationId} onChange={(event) => setLocationId(event.target.value)}>{locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
       <label className="staffQuantityField">
         <span>الكمية</span>
         <input value={quantity} onChange={(event) => setQuantity(event.target.value)} type="number" min="0.001" step="0.001" inputMode="decimal" />
@@ -131,7 +134,7 @@ export function StaffInventoryTerminal({ products }: { products: Product[] }) {
       </label>
       {message ? <div className="staffActionMessage">{message}</div> : null}
 
-      <button className="staffPrimaryAction" disabled={loading || !product}>
+      <button className="staffPrimaryAction" disabled={loading || !product || !locationId}>
         {loading ? "جاري الحفظ..." : direction === "IN" ? "حفظ الإدخال" : "حفظ الإخراج"}
       </button>
 
