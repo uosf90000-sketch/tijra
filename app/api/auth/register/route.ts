@@ -41,6 +41,7 @@ export async function POST(request: Request) {
           purchaseApprovalEnabled: parsed.data.businessScale === "ENTERPRISE",
           payrollDualApprovalEnabled: parsed.data.businessScale === "ENTERPRISE",
           stockReasonRequired: parsed.data.businessScale === "ENTERPRISE",
+          cashierMaxDiscountPercent: parsed.data.businessScale === "ENTERPRISE" ? 0 : 100,
           city: parsed.data.city,
           taxNumber: parsed.data.taxNumber,
         },
