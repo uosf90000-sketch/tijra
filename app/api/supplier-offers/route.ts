@@ -23,7 +23,11 @@ export async function POST(request: Request) {
   ]);
   if (!supplier || !product) return NextResponse.json({ error: "SUPPLIER_OR_PRODUCT_NOT_FOUND" }, { status: 404 });
 
-  const offer = await db.supplierProduct.upsert({
+  const offer = await db.$transaction(async (tx) => {
+    const existing = await tx.supplierProduct.findUnique({
+      where: { supplierId_productId: { supplierId: supplier.id, productId: product.id } },
+    });
+    const updated = await tx.supplierProduct.upsert({
     where: { supplierId_productId: { supplierId: supplier.id, productId: product.id } },
     create: {
       supplierId: supplier.id,
@@ -38,6 +42,23 @@ export async function POST(request: Request) {
       minOrderQty: parsed.data.minOrderQty,
       lastQuotedAt: new Date(),
     },
+    });
+    // Append an immutable price observation only when the quoted price or MOQ changes.
+    // First quotes establish a baseline rather than a fake price increase.
+    if (!existing || Number(existing.price) !== parsed.data.price ||
+        Number(existing.minOrderQty ?? 0) !== Number(parsed.data.minOrderQty ?? 0)) {
+      await tx.supplierPriceHistory.create({
+        data: {
+          businessId: auth.context.business.id,
+          supplierId: supplier.id,
+          productId: product.id,
+          price: parsed.data.price,
+          minOrderQty: parsed.data.minOrderQty,
+          source: "QUOTE",
+        },
+      });
+    }
+    return updated;
   });
 
   return NextResponse.json({ offer }, { status: 201 });
