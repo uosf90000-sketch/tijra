@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { SmartOrderButton } from "@/components/smart-order-button";
 import { StatusPill } from "@/components/status-pill";
 import { SupplierShareButton } from "@/components/supplier-share-button";
+import { CancelSupplierOrderButton } from "@/components/cancel-supplier-order-button";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
@@ -109,7 +110,7 @@ export default async function PurchasesPage() {
         <div className="panelHeader tableHeader"><div><span className="eyebrow">السجل</span><h2>طلبات الشراء</h2></div></div>
         <div className="tableScroll">
           <table className="dataTable">
-            <thead><tr><th>رقم الطلب</th><th>المورد</th><th>الأصناف</th><th>القيمة</th><th>الحالة</th><th>التاريخ</th><th>إرسال للمورد</th></tr></thead>
+            <thead><tr><th>رقم الطلب</th><th>المورد</th><th>الأصناف</th><th>القيمة</th><th>الحالة</th><th>التاريخ</th><th>إرسال للمورد</th><th>إدارة الطلب</th></tr></thead>
             <tbody>
               {purchaseOrders.map((order) => (
                 <tr key={order.id}>
@@ -120,9 +121,12 @@ export default async function PurchasesPage() {
                   <td><StatusPill status={order.status.toLowerCase()} /> <span className="mutedText">{statusLabels[order.status]}</span></td>
                   <td>{new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium" }).format(order.createdAt)}</td>
                   <td>{["RECEIVED", "CANCELLED"].includes(order.status) ? <span className="mutedText">مغلق</span> : <SupplierShareButton orderId={order.id} />}</td>
+                  <td>{context.membership.role === "OWNER" && !["RECEIVED", "CANCELLED"].includes(order.status) && order.items.every((item) => Number(item.receivedQty) <= 0)
+                    ? <CancelSupplierOrderButton orderId={order.id} />
+                    : <span className="mutedText">—</span>}</td>
                 </tr>
               ))}
-              {!purchaseOrders.length && <tr><td colSpan={7}><div className="infoNote">لا توجد طلبات شراء بعد.</div></td></tr>}
+              {!purchaseOrders.length && <tr><td colSpan={8}><div className="infoNote">لا توجد طلبات شراء بعد.</div></td></tr>}
             </tbody>
           </table>
         </div>
