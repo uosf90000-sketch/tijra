@@ -41,3 +41,15 @@ export function payrollTransitionViolation(input: {
   if (!input.paymentReference || input.paymentReference.trim().length < 4) return "PAYMENT_REFERENCE_REQUIRED";
   return null;
 }
+
+
+export function cashierDiscountViolation(input: {
+  role: string; listedPrice: number; chargedBasePrice: number; maxDiscountPercent: number;
+}): string | null {
+  if (!Number.isFinite(input.listedPrice) || !Number.isFinite(input.chargedBasePrice) ||
+      input.listedPrice < 0 || input.chargedBasePrice < 0) return "INVALID_SALE_PRICE";
+  if (["OWNER", "MANAGER"].includes(input.role)) return null;
+  if (input.listedPrice === 0) return null;
+  const allowedMinimum = input.listedPrice * (1 - Math.min(100, Math.max(0, input.maxDiscountPercent)) / 100);
+  return input.chargedBasePrice < allowedMinimum - 0.009 ? "CASHIER_DISCOUNT_LIMIT_EXCEEDED" : null;
+}
