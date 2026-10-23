@@ -9,11 +9,13 @@ import {
 } from "@/lib/workspace-profile";
 
 export function WorkspaceProfileForm({
-  initialScale, initialModel, initialModules,
+  initialScale, initialModel, initialModules, initialApprovalEnabled, initialApprovalThreshold,
 }: {
   initialScale: BusinessScaleValue;
   initialModel: OperatingModelValue;
   initialModules: string[];
+  initialApprovalEnabled: boolean;
+  initialApprovalThreshold: number;
 }) {
   const router = useRouter();
   const [scale, setScale] = useState<BusinessScaleValue>(initialScale);
@@ -21,6 +23,8 @@ export function WorkspaceProfileForm({
   const [modules, setModules] = useState<WorkspaceModuleKey[]>(
     resolveWorkspaceModules(initialScale, initialModel, initialModules),
   );
+  const [approvalEnabled, setApprovalEnabled] = useState(initialApprovalEnabled);
+  const [approvalThreshold, setApprovalThreshold] = useState(String(initialApprovalThreshold));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -43,7 +47,8 @@ export function WorkspaceProfileForm({
     try {
       const response = await fetch("/api/business/workspace", {
         method: "PATCH", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ businessScale: scale, operatingModel: model, workspaceModules: modules }),
+        body: JSON.stringify({ businessScale: scale, operatingModel: model, workspaceModules: modules,
+          purchaseApprovalEnabled: approvalEnabled, purchaseApprovalThreshold: Number(approvalThreshold) }),
       });
       if (!response.ok) throw new Error("SAVE_FAILED");
       setMessage("تم حفظ مساحة العمل لهذه المنشأة. تتحدث الأدوات الظاهرة حسب اختياراتك.");
@@ -82,7 +87,18 @@ export function WorkspaceProfileForm({
         </label>
       ))}
     </div>
-    {message && <div className="infoNote">{message}</div>}
+    <section className="panel" style={{ display: "grid", gap: 12 }}>
+      <div className="panelHeader"><div><span className="eyebrow">حوكمة المشتريات</span><h2>موافقة الإدارة قبل إرسال الطلبيات الكبيرة</h2></div></div>
+      <label style={{ display: "flex", alignItems: "center", gap: 9 }}>
+        <input type="checkbox" checked={approvalEnabled} onChange={(event) => setApprovalEnabled(event.target.checked)} />
+        تفعيل الموافقة الإلزامية على المشتريات الكبيرة
+      </label>
+      <label className="field"><span>سقف الموافقة (ريال)</span>
+        <input type="number" min="0" max="999999999" step="0.01" value={approvalThreshold} onChange={(event) => setApprovalThreshold(event.target.value)} disabled={!approvalEnabled}/>
+      </label>
+      <p className="policyNote">يُعلق الطلب إذا بلغ هذا المبلغ ويحتاج اعتماد مدير أو مالك آخر مختلف عن منشئ الطلب. لا يرسل النظام الطلب للمورد قبل الموافقة.</p>
+    </section>
+    {message && <div className="infoNote">{message}</div>
     <div className="formActions"><button type="button" className="button primary" disabled={saving} onClick={save}>
       {saving ? <Save size={17} /> : <CheckCircle2 size={17} />}
       {saving ? "جاري الحفظ..." : "حفظ إعدادات المنشأة"}
