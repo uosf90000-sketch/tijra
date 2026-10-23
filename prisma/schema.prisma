@@ -91,6 +91,29 @@ enum PurchaseInvoiceStatus {
   APPROVED
 }
 
+enum LedgerAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum FiscalPeriodStatus {
+  OPEN
+  CLOSED
+}
+
+enum JournalStatus {
+  DRAFT
+  POSTED
+}
+
+enum JournalSide {
+  DEBIT
+  CREDIT
+}
+
 enum PayrollStatus {
   DRAFT
   APPROVED
@@ -190,6 +213,9 @@ model Business {
   favoriteSuppliers          FavoriteSupplier[]    @relation("FavoriteBuyer")
   favoritedBy                FavoriteSupplier[]    @relation("FavoriteSeller")
   paymentSettlements         PaymentSettlement[]
+  financialAccounts          FinancialAccount[]
+  fiscalPeriods              FiscalPeriod[]
+  journalEntries             JournalEntry[]
 
   @@index([organizationId])
 }
@@ -550,6 +576,71 @@ model PaymentSettlement {
   @@index([businessId, paymentMethod, salesDate])
   @@index([businessId, settledAt])
   @@unique([businessId, provider, reference])
+}
+
+/// Manual double-entry foundation. This does not automatically post existing sales
+/// or purchases; it remains separate until reconciled integration is implemented.
+model FinancialAccount {
+  id          String            @id @default(cuid())
+  businessId  String
+  code        String
+  name        String
+  kind        LedgerAccountType
+  active      Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  business    Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  lines       JournalLine[]
+
+  @@unique([businessId, code])
+  @@index([businessId, active])
+}
+
+model FiscalPeriod {
+  id             String             @id @default(cuid())
+  businessId     String
+  title          String
+  periodStart    DateTime
+  periodEnd      DateTime
+  status         FiscalPeriodStatus @default(OPEN)
+  closedAt       DateTime?
+  closedByUserId String?
+  business       Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  entries        JournalEntry[]
+
+  @@index([businessId, periodStart, periodEnd])
+}
+
+model JournalEntry {
+  id                String        @id @default(cuid())
+  businessId        String
+  periodId          String
+  entryDate         DateTime
+  description       String
+  reference         String?
+  status            JournalStatus @default(DRAFT)
+  createdByUserId   String
+  postedByUserId    String?
+  postedAt          DateTime?
+  createdAt         DateTime      @default(now())
+  business          Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  period            FiscalPeriod  @relation(fields: [periodId], references: [id])
+  lines             JournalLine[]
+
+  @@index([businessId, status, entryDate])
+  @@index([periodId, status])
+}
+
+model JournalLine {
+  id             String      @id @default(cuid())
+  journalEntryId String
+  accountId      String
+  side           JournalSide
+  amount         Decimal     @db.Decimal(18, 2)
+  description    String?
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account        FinancialAccount @relation(fields: [accountId], references: [id])
+
+  @@index([accountId, journalEntryId])
 }
 
 model Expense {
