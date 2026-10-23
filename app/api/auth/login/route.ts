@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSession, verifyPassword } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { hashRecoveryCode } from "@/lib/mfa-recovery";
 import { decryptTotpSecret, matchTotpStep } from "@/lib/totp";
 
 const schema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(1).max(128),
   totpCode: z.string().regex(/^\d{6}$/).optional(),
+  recoveryCode: z.string().trim().max(80).optional(),
 });
 
 export async function POST(request: Request) {
@@ -27,11 +29,40 @@ export async function POST(request: Request) {
     if (user.mfaLockedUntil && user.mfaLockedUntil.getTime() > Date.now()) {
       return NextResponse.json({ error: "MFA_LOCKED" }, { status: 429 });
     }
-    if (!parsed.data.totpCode) {
+    if (!parsed.data.totpCode && !parsed.data.recoveryCode) {
       return NextResponse.json({ error: "MFA_REQUIRED" }, { status: 401 });
     }
-    const step = matchTotpStep(decryptTotpSecret(user.totpSecretEncrypted), parsed.data.totpCode);
-    if (step === null) {
+    let step: number | null = null;
+    let recoveryAccepted = false;
+    if (parsed.data.recoveryCode) {
+      // Consume one recovery code atomically, even for simultaneous requests.
+      try {
+        const codeHash = hashRecoveryCode(parsed.data.recoveryCode);
+        recoveryAccepted = await db.$transaction(async (tx) => {
+          const consumed = await tx.mfaRecoveryCode.updateMany({
+            where: { userId: user.id, codeHash, usedAt: null },
+            data: { usedAt: new Date() },
+          });
+          if (consumed.count !== 1) return false;
+          const membership = user.memberships[0];
+          if (!membership) throw new Error("NO_BUSINESS_ACCESS");
+          await tx.user.update({ where: { id: user.id }, data: { mfaFailedAttempts: 0, mfaLockedUntil: null } });
+          await tx.inventoryAuditEvent.create({ data: {
+            businessId: membership.businessId, action: "MFA_RECOVERY_LOGIN",
+            actorUserId: user.id, actorName: user.name, actorRole: membership.role,
+            note: "A single-use MFA recovery code was consumed during login",
+          } });
+          return true;
+        });
+      } catch (error) {
+        if (error instanceof Error && error.message === "NO_BUSINESS_ACCESS")
+          return NextResponse.json({ error: "NO_BUSINESS_ACCESS" }, { status: 403 });
+        recoveryAccepted = false;
+      }
+    } else if (parsed.data.totpCode) {
+      step = matchTotpStep(decryptTotpSecret(user.totpSecretEncrypted), parsed.data.totpCode);
+    }
+    if (!recoveryAccepted && step === null) {
       const attempts = user.mfaLockedUntil && user.mfaLockedUntil.getTime() <= Date.now()
         ? 1 : user.mfaFailedAttempts + 1;
       await db.user.update({ where: { id: user.id }, data: {
@@ -41,10 +72,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "INVALID_MFA_CODE" }, { status: attempts >= 5 ? 429 : 401 });
     }
     // Atomically consume the OTP step to prevent replay, even with parallel login requests.
-    const accepted = await db.user.updateMany({
+    const accepted = recoveryAccepted ? { count: 1 } : await db.user.updateMany({
       where: {
         id: user.id,
-        OR: [{ mfaLastVerifiedStep: null }, { mfaLastVerifiedStep: { lt: step } }],
+        OR: [{ mfaLastVerifiedStep: null }, { mfaLastVerifiedStep: { lt: step! } }],
       },
       data: { mfaLastVerifiedStep: step, mfaFailedAttempts: 0, mfaLockedUntil: null },
     });
