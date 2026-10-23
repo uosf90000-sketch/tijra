@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
 import { adjustLocationStock, ensureDefaultLocation, listInventoryLocations, syncListingForProduct } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
+import { locationAuthorized } from "@/lib/location-access";
 
 const schema = z.object({
   productId: z.string().trim().optional(),
@@ -28,6 +29,7 @@ export async function POST(request: Request) {
   const locations = await listInventoryLocations(context.business.id);
   const location = locations.find((item) => item.id === locationId && item.active);
   if (!location) return NextResponse.json({ error: "LOCATION_NOT_FOUND" }, { status: 404 });
+  if (!(await locationAuthorized(context, locationId))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
 
   if (clientOperationId) {
     const duplicate = await db.inventoryAuditEvent.findFirst({
