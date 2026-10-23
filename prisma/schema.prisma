@@ -158,6 +158,7 @@ model Business {
   stockReasonRequired        Boolean               @default(false)
   stockValueReviewThreshold  Decimal               @default(5000) @db.Decimal(12, 2)
   expenseOwnerThreshold      Decimal               @default(5000) @db.Decimal(12, 2)
+  cashierMaxDiscountPercent  Decimal               @default(100) @db.Decimal(5, 2)
   organizationId             String?
   organization               Organization?         @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   createdAt                  DateTime              @default(now())
