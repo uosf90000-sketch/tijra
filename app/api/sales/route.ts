@@ -5,6 +5,7 @@ import { ensureDefaultLocation } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
 import { decodeRecipeNote } from "@/lib/recipes";
 import { recordSale } from "@/lib/stock-operations";
+import { locationAuthorized } from "@/lib/location-access";
 
 const saleSchema = z.object({
   invoiceNumber: z.string().trim().min(1).max(80).optional(),
@@ -93,12 +94,14 @@ export async function POST(request: Request) {
   });
 
   const defaultLocation = await ensureDefaultLocation(auth.context.business.id);
+  const saleLocationId = parsed.data.locationId || defaultLocation.id;
+  if (!(await locationAuthorized(auth.context, saleLocationId))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
   try {
     const { recordedAt, ...saleData } = parsed.data;
     const sale = await recordSale({
       ...saleData,
       items: normalizedItems,
-      locationId: parsed.data.locationId || defaultLocation.id,
+      locationId: saleLocationId,
       businessId: auth.context.business.id,
       actorUserId: auth.context.user.id,
       actorName: auth.context.user.name,
