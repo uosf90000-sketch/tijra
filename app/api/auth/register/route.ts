@@ -38,6 +38,7 @@ export async function POST(request: Request) {
           businessActivity: parsed.data.businessActivity,
           businessScale: parsed.data.businessScale,
           operatingModel: parsed.data.operatingModel,
+          purchaseApprovalEnabled: parsed.data.businessScale === "ENTERPRISE",
           city: parsed.data.city,
           taxNumber: parsed.data.taxNumber,
         },
