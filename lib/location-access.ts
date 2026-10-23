@@ -3,16 +3,7 @@ import type { SessionContext } from "@/lib/auth";
 import { listInventoryLocations } from "@/lib/commerce-ops";
 
 /** Server-side, tenant-scoped authorization. Hiding locations in the UI is not sufficient. */
-export function hasLocationGrant(input: {
-  enforced: boolean;
-  role: string;
-  locationId: string | null | undefined;
-  grantedLocationIds: readonly string[];
-}) {
-  if (!input.enforced || input.role === "OWNER") return true;
-  if (!input.locationId) return false;
-  return input.grantedLocationIds.includes(input.locationId);
-}
+export { hasLocationGrant } from "@/lib/location-policy";
 
 export async function locationAuthorized(context: SessionContext, locationId: string): Promise<boolean> {
   if (!context.business.locationAccessEnforced || context.membership.role === "OWNER") return true;
