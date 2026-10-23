@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/page-header";
 import { GovernancePolicyForm } from "@/components/governance-policy-form";
 import { GovernanceAccessMatrix } from "@/components/governance-access-matrix";
 import { RevokeOtherSessionsButton } from "@/components/revoke-other-sessions-button";
+import { LocationGovernanceMatrix } from "@/components/location-governance-matrix";
+import { listInventoryLocations } from "@/lib/commerce-ops";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -43,7 +45,7 @@ export default async function GovernancePage() {
   if (!context) redirect("/login");
   if (context.membership.role !== "OWNER") redirect("/management/workspace");
   const businessId = context.business.id;
-  const [memberships, pendingOrders, draftPayrolls, recentEvents, recentExpenses, policy, sessions] = await Promise.all([
+  const [memberships, pendingOrders, draftPayrolls, recentEvents, recentExpenses, policy, sessions, locations, locationGrants] = await Promise.all([
     db.membership.findMany({
       where: { businessId },
       select: { id: true, userId: true, role: true, permissions: true,
@@ -69,6 +71,8 @@ export default async function GovernancePage() {
       },
     }),
     db.session.count({ where: { userId: context.user.id, expiresAt: { gt: new Date() } } }),
+    listInventoryLocations(businessId),
+    db.membershipLocationGrant.findMany({ where: { businessId }, select: { membershipId: true, locationId: true } }),
   ]);
 
   return <>
@@ -101,6 +105,7 @@ export default async function GovernancePage() {
         cashierMaxDiscountPercent: Number(policy.cashierMaxDiscountPercent),
       }}/>
       <GovernanceAccessMatrix members={memberships}/>
+      <LocationGovernanceMatrix members={memberships.map((x) => ({ id: x.id, role: x.role, user: { name: x.user.name } }))} locations={locations} grants={locationGrants} enforced={context.business.locationAccessEnforced}/>
       <RevokeOtherSessionsButton activeCount={sessions}/>
       <section className="panel tablePanel">
         <div className="panelHeader"><div><span className="eyebrow">أثر كل قرار</span><h2>آخر 100 حركة حوكمة</h2></div>
