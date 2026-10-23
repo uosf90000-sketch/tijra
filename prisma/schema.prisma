@@ -77,6 +77,7 @@ enum MarketplaceOrderStatus {
 
 enum PurchaseOrderStatus {
   DRAFT
+  PENDING_APPROVAL
   SENT
   CONFIRMED
   PARTIALLY_RECEIVED
@@ -151,6 +152,8 @@ model Business {
   businessScale              BusinessScale         @default(SMALL)
   operatingModel             OperatingModel        @default(SHOP)
   workspaceModules           String[]              @default([])
+  purchaseApprovalEnabled    Boolean               @default(false)
+  purchaseApprovalThreshold  Decimal               @default(5000) @db.Decimal(12, 2)
   organizationId             String?
   organization               Organization?         @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   createdAt                  DateTime              @default(now())
@@ -159,6 +162,7 @@ model Business {
   products                   Product[]
   suppliers                  Supplier[]
   purchaseOrders             PurchaseOrder[]
+  purchaseOrderApprovals      PurchaseOrderApproval[]
   purchaseInvoices           PurchaseInvoice[]
   supplierPriceHistory       SupplierPriceHistory[]
   stockMovements             StockMovement[]
@@ -342,6 +346,7 @@ model PurchaseOrder {
   businessId       String
   supplierId       String
   orderNumber      String?
+  requestedByUserId String?
   status           PurchaseOrderStatus @default(DRAFT)
   expectedTotal    Decimal             @default(0) @db.Decimal(12, 2)
   notes            String?
@@ -353,9 +358,26 @@ model PurchaseOrder {
   supplier         Supplier            @relation(fields: [supplierId], references: [id])
   items            PurchaseOrderItem[]
   purchaseInvoices PurchaseInvoice[]
+  approvals        PurchaseOrderApproval[]
 
   @@index([businessId, status])
   @@index([supplierId, createdAt])
+}
+
+model PurchaseOrderApproval {
+  id            String        @id @default(cuid())
+  businessId    String
+  purchaseOrderId String
+  actorUserId   String
+  actorName     String
+  decision      String
+  reason        String?
+  decidedAt     DateTime      @default(now())
+  business      Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, decidedAt])
+  @@index([purchaseOrderId, decidedAt])
 }
 
 model PurchaseOrderItem {
