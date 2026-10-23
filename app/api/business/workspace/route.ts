@@ -11,6 +11,8 @@ const updateSchema = z.object({
     "FOOD_TRUCK", "SHOP", "RESTAURANT", "WHOLESALE", "SERVICES", "MANUFACTURING", "LOGISTICS", "MIXED",
   ]),
   workspaceModules: z.array(moduleSchema).max(moduleKeys.length),
+  purchaseApprovalEnabled: z.boolean().optional(),
+  purchaseApprovalThreshold: z.number().nonnegative().max(999999999).optional(),
 });
 
 export async function GET() {
@@ -22,6 +24,8 @@ export async function GET() {
     businessScale: business.businessScale,
     operatingModel: business.operatingModel,
     workspaceModules: business.workspaceModules,
+    purchaseApprovalEnabled: business.purchaseApprovalEnabled,
+    purchaseApprovalThreshold: Number(business.purchaseApprovalThreshold),
     effectiveModules: resolveWorkspaceModules(business.businessScale, business.operatingModel, business.workspaceModules),
   });
 }
@@ -35,7 +39,7 @@ export async function PATCH(request: Request) {
   const updated = await db.$transaction(async (tx) => {
     const before = await tx.business.findUniqueOrThrow({
       where: { id: context.business.id },
-      select: { businessScale: true, operatingModel: true, workspaceModules: true },
+      select: { businessScale: true, operatingModel: true, workspaceModules: true, purchaseApprovalEnabled: true, purchaseApprovalThreshold: true },
     });
     const business = await tx.business.update({
       where: { id: context.business.id },
@@ -43,8 +47,10 @@ export async function PATCH(request: Request) {
         businessScale: parsed.data.businessScale,
         operatingModel: parsed.data.operatingModel,
         workspaceModules: [...new Set(parsed.data.workspaceModules)],
+        ...(parsed.data.purchaseApprovalEnabled !== undefined ? { purchaseApprovalEnabled: parsed.data.purchaseApprovalEnabled } : {}),
+        ...(parsed.data.purchaseApprovalThreshold !== undefined ? { purchaseApprovalThreshold: parsed.data.purchaseApprovalThreshold } : {}),
       },
-      select: { id: true, businessScale: true, operatingModel: true, workspaceModules: true },
+      select: { id: true, businessScale: true, operatingModel: true, workspaceModules: true, purchaseApprovalEnabled: true, purchaseApprovalThreshold: true },
     });
     await tx.inventoryAuditEvent.create({
       data: {
@@ -59,6 +65,8 @@ export async function PATCH(request: Request) {
             businessScale: business.businessScale,
             operatingModel: business.operatingModel,
             workspaceModules: business.workspaceModules,
+            purchaseApprovalEnabled: business.purchaseApprovalEnabled,
+            purchaseApprovalThreshold: Number(business.purchaseApprovalThreshold),
           },
         }),
       },
