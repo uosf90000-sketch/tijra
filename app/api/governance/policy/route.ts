@@ -4,6 +4,7 @@ import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 const schema = z.object({
+  locationAccessEnforced: z.boolean(),
   purchaseApprovalEnabled: z.boolean(),
   purchaseApprovalThreshold: z.number().finite().nonnegative().max(999999999),
   payrollDualApprovalEnabled: z.boolean(),
@@ -14,6 +15,7 @@ const schema = z.object({
 }).strict();
 
 const fields = {
+  locationAccessEnforced: true,
   purchaseApprovalEnabled: true,
   purchaseApprovalThreshold: true,
   payrollDualApprovalEnabled: true,
@@ -24,6 +26,7 @@ const fields = {
 } as const;
 
 function serialize(policy: {
+  locationAccessEnforced: boolean;
   purchaseApprovalEnabled: boolean;
   purchaseApprovalThreshold: { toString(): string };
   payrollDualApprovalEnabled: boolean;
@@ -33,6 +36,7 @@ function serialize(policy: {
   cashierMaxDiscountPercent: { toString(): string };
 }) {
   return {
+    locationAccessEnforced: policy.locationAccessEnforced,
     purchaseApprovalEnabled: policy.purchaseApprovalEnabled,
     purchaseApprovalThreshold: Number(policy.purchaseApprovalThreshold),
     payrollDualApprovalEnabled: policy.payrollDualApprovalEnabled,
