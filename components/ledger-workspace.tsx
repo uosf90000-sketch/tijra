@@ -131,7 +131,7 @@ export function LedgerWorkspace({
           {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
         </select></label>
         <label className="field"><span>المبلغ بالريال (منزلتان عشريتان)</span>
-          <input name="amount" required pattern="\\d+(\\.\\d{1,2})?" placeholder="100.00" /></label>
+          <input name="amount" required pattern="[0-9]+([.][0-9]{1,2})?" placeholder="100.00" /></label>
         <div className="formActions"><button className="button primary" disabled={busy || accounts.length < 2 || !periods.some((p) => p.status === "OPEN")}>حفظ القيد للمراجعة</button></div>
       </form>
     </section>
