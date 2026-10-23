@@ -7,6 +7,7 @@ import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
 import { buildSmartPriceAlerts } from "@/lib/price-intelligence";
+import { summarizeSuppliers } from "@/lib/operating-intelligence";
 
 export const metadata = { title: "الموردون" };
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export default async function SuppliersPage() {
   if (!context) redirect("/login");
   const businessId = context.business.id;
 
-  const [suppliers, offers, openOrders] = await Promise.all([
+  const [suppliers, offers, openOrders, supplierOrders] = await Promise.all([
     db.supplier.findMany({
       where: { businessId },
       include: {
@@ -32,7 +33,27 @@ export default async function SuppliersPage() {
       take: 1000,
     }),
     db.purchaseOrder.count({ where: { businessId, status: { in: ["DRAFT", "SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } } }),
+    db.purchaseOrder.findMany({
+      where: { businessId },
+      select: {
+        supplierId: true, status: true, orderedAt: true, receivedAt: true,
+        items: { select: { orderedQty: true, receivedQty: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 1500,
+    }),
   ]);
+
+  const supplierPerformance = summarizeSuppliers(supplierOrders.map((order) => ({
+    supplierId: order.supplierId,
+    status: order.status,
+    orderedAt: order.orderedAt,
+    receivedAt: order.receivedAt,
+    items: order.items.map((line) => ({
+      orderedQty: Number(line.orderedQty),
+      receivedQty: Number(line.receivedQty),
+    })),
+  })), new Date());
 
   const smartAlerts = buildSmartPriceAlerts(offers.map((offer) => ({
     productId: offer.productId,
@@ -106,13 +127,38 @@ export default async function SuppliersPage() {
             </div>
             <div className="supplierStats">
               <div><span>طلبات مفتوحة</span><strong>{supplier.purchaseOrders.length}</strong></div>
-              <div><span>طريقة التوصيل</span><strong>بينكما</strong></div>
+              <div><span>طلبات مكتملة</span><strong>{supplierPerformance.get(supplier.id)?.completed ?? 0}</strong></div>
             </div>
             <div className="supplierContact"><Phone size={15} /> {supplier.phone || "لا يوجد رقم مسجل"}</div>
+            <div className="logisticsNote">
+              متوسط مدة الطلب المكتمل: {supplierPerformance.get(supplier.id)?.averageDaysToComplete ?? "—"} يوم
+              {" · "}طلبات مفتوحة منذ أكثر من 7 أيام: {supplierPerformance.get(supplier.id)?.openBeyond7Days ?? 0}
+              {" · "}ملغاة: {supplierPerformance.get(supplier.id)?.canceled ?? 0}
+            </div>
             <div className="logisticsNote">{supplier.notes || "لا توجد ملاحظات لهذا المورد."}</div>
           </article>
         ))}
         {!suppliers.length && <article className="panel"><div className="infoNote">لم تضف موردين بعد. أضف موردك الحالي أولًا ثم سجّل أسعاره.</div></article>}
+      </section>
+
+      <section className="panel tablePanel" id="supplier-performance">
+        <div className="panelHeader tableHeader">
+          <div><span className="eyebrow">من طلبات الشراء والاستلام</span><h2>أداء الموردين التشغيلي</h2></div>
+          <Link className="textLink" href="/purchases">مراجعة الطلبات</Link>
+        </div>
+        <div className="infoNote">المدة محسوبة من إصدار الطلب إلى اكتمال استلامه، وليست نسبة الالتزام بالموعد؛ لأن مواعيد التسليم المتفق عليها غير مسجلة. يشمل العرض أحدث 1,500 طلب.</div>
+        <div className="tableScroll"><table className="dataTable"><thead><tr><th>المورد</th><th>الطلبات</th><th>مكتملة</th><th>ملغاة</th><th>مفتوحة</th><th>منتظرة +7 أيام</th><th>متوسط الإكمال</th></tr></thead><tbody>
+          {suppliers.map((supplier) => {
+            const m = supplierPerformance.get(supplier.id);
+            return <tr key={supplier.id}>
+              <td><strong>{supplier.name}</strong></td>
+              <td>{m?.totalOrders ?? 0}</td><td>{m?.completed ?? 0}</td><td>{m?.canceled ?? 0}</td>
+              <td>{m?.open ?? 0}</td><td>{m?.openBeyond7Days ?? 0}</td>
+              <td>{m?.averageDaysToComplete == null ? "—" : m.averageDaysToComplete + " يوم"}</td>
+            </tr>;
+          })}
+          {!suppliers.length && <tr><td colSpan={7}>لا يوجد موردون مرتبطون بالمنشأة.</td></tr>}
+        </tbody></table></div>
       </section>
 
       <section className="panel tablePanel">
