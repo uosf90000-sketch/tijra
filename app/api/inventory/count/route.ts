@@ -47,8 +47,14 @@ export async function POST(request: Request) {
         where: { businessId: context.business.id, action: "LOCATION_STOCK", listingId: locationId, orderId: product.id },
       });
       const currentLocationQuantity = Number(stockRow?.quantity ?? (location.isDefault ? product.quantity : 0));
-      const baselineQuantity = expectedPreviousQuantity ?? currentLocationQuantity;
+      if (expectedPreviousQuantity != null && Math.abs(expectedPreviousQuantity - currentLocationQuantity) > 0.001) {
+        throw new Error("STALE_STOCK_BASELINE");
+      }
+      const baselineQuantity = currentLocationQuantity;
       const delta = countedQuantity - baselineQuantity;
+      if (Number(product.quantity) + delta < -0.001) {
+        throw new Error("INSUFFICIENT_GLOBAL_STOCK");
+      }
 
       if (delta !== 0) {
         await adjustLocationStock(tx, {
@@ -58,7 +64,7 @@ export async function POST(request: Request) {
           productName: product.name,
           delta,
         });
-        const newTotal = Math.max(0, Number(product.quantity) + delta);
+        const newTotal = Number(product.quantity) + delta;
         await tx.product.update({ where: { id: product.id }, data: { quantity: newTotal } });
         await syncListingForProduct(tx, { businessId: context.business.id, productId: product.id, delta });
         await tx.stockMovement.create({
@@ -91,10 +97,10 @@ export async function POST(request: Request) {
           actorUserId: context.user.id,
           actorName: context.user.name,
           actorRole: context.membership.role,
-          occurredAt: recordedAt || new Date(),
-          note: delta === 0
-            ? `جرد ${location.name} مطابق للمخزون${expectedPreviousQuantity == null ? "" : " · تمت مزامنته بعد عودة الاتصال"}`
-            : `فرق جرد ${location.name} ${delta > 0 ? "+" : ""}${delta}${expectedPreviousQuantity == null ? "" : " · تمت مزامنته بعد عودة الاتصال"}`,
+          occurredAt: new Date(),
+          note: JSON.stringify({ location: location.name, delta,
+            offlineRecordedAt: recordedAt?.toISOString() || null,
+            syncedOffline: expectedPreviousQuantity != null }),
         },
       });
 
@@ -121,6 +127,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ product: result.updated, event: result.event, delta: result.delta, location: result.location });
   } catch (error) {
     const code = error instanceof Error ? error.message : "COUNT_FAILED";
-    return NextResponse.json({ error: code }, { status: code === "PRODUCT_NOT_FOUND" ? 404 : code.startsWith("INSUFFICIENT_LOCATION_STOCK") ? 409 : 500 });
+    return NextResponse.json({ error: code }, { status: code === "PRODUCT_NOT_FOUND" ? 404 :
+      ["STALE_STOCK_BASELINE", "INSUFFICIENT_GLOBAL_STOCK"].includes(code) || code.startsWith("INSUFFICIENT_LOCATION_STOCK") ? 409 : 500 });
   }
 }
