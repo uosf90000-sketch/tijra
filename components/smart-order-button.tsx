@@ -27,7 +27,7 @@ export function SmartOrderButton() {
         router.refresh();
         return;
       }
-      setMessage(`تم إنشاء ${result.orders.length} طلب شراء حسب المورد، مع استبعاد الكميات قيد التوريد.`);
+      setMessage(`تم إنشاء ${result.orders.length} طلب شراء حسب المورد. الطلبات فوق سقف الموافقة تنتظر اعتماد الإدارة قبل إرسالها.`);
       router.refresh();
     } catch {
       setMessage("تعذر الاتصال. راجع سجل الطلبات قبل المحاولة لتجنب التكرار.");
