@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     const conflict = message.startsWith("RECEIVED_QTY_EXCEEDS_ORDER") ||
       message.startsWith("PURCHASE_REVIEW_REQUIRED") ||
       message === "DUPLICATE_SUPPLIER_INVOICE" ||
-      message.includes("CANCELLED") || message.includes("ALREADY_RECEIVED");
+      message.includes("CANCELLED") || message.includes("ALREADY_RECEIVED") || message === "PURCHASE_ORDER_NOT_APPROVED";
     return NextResponse.json({ error: message }, { status: notFound ? 404 : conflict ? 409 : 500 });
   }
 }
