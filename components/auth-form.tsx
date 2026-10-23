@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Building2, Store, UsersRound } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { TijraLogo } from "@/components/tijra-logo";
+import { scaleOptions, modelOptions } from "@/lib/workspace-profile";
 import styles from "./auth-form.module.css";
 
 type Mode = "login" | "register";
@@ -32,6 +33,8 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
   const [error, setError] = useState("");
   const [businessType, setBusinessType] = useState("RETAILER");
   const [businessActivity, setBusinessActivity] = useState("GROCERY");
+  const [businessScale, setBusinessScale] = useState("SMALL");
+  const [operatingModel, setOperatingModel] = useState("SHOP");
   const register = mode === "register";
 
   function switchMode(next: Mode) {
@@ -56,13 +59,13 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
     if (register && businessName.length < 2) return setError("أدخل اسم المنشأة.");
 
     setLoading(true); setError("");
-    const payload = register ? { name, email, password, phone: form.get("phone") || undefined, businessName, businessType, businessActivity, city: form.get("city") || undefined, taxNumber: form.get("taxNumber") || undefined } : { email, password };
+    const payload = register ? { name, email, password, phone: form.get("phone") || undefined, businessName, businessType, businessActivity, businessScale, operatingModel, city: form.get("city") || undefined, taxNumber: form.get("taxNumber") || undefined } : { email, password };
 
     try {
       const response = await fetch(`/api/auth/${register ? "register" : "login"}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) { setError(messages[result.error] ?? "تعذر إكمال العملية. حاول مرة أخرى."); return; }
-      router.replace(register ? (businessType === "SUPPLIER" ? "/marketplace/seller" : "/marketplace") : "/");
+      router.replace(register ? "/onboarding" : "/");
       router.refresh();
     } catch { setError("تعذر الاتصال بالخادم. تحقق من الاتصال وحاول مرة أخرى."); }
     finally { setLoading(false); }
@@ -79,6 +82,14 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
           {register && <>
             <div className={styles.typeGrid} role="radiogroup" aria-label="نوع الحساب">{accountTypes.map(([value, title, note, Icon]) => <button key={value} type="button" className={`${styles.typeCard} ${businessType === value ? styles.typeCardActive : ""}`} onClick={() => setBusinessType(value)} aria-pressed={businessType === value}><span className={styles.typeIcon}><Icon size={18} /></span><strong>{title}</strong><span>{note}</span></button>)}</div>
             <div className={styles.field}><label htmlFor="businessActivity">نشاط المنشأة</label><select id="businessActivity" value={businessActivity} onChange={(event) => setBusinessActivity(event.target.value)}>{activities.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            <div className={styles.grid2}>
+              <div className={styles.field}><label htmlFor="businessScale">حجم المنشأة</label>
+                <select id="businessScale" value={businessScale} onChange={(event) => setBusinessScale(event.target.value)}>{scaleOptions.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select>
+              </div>
+              <div className={styles.field}><label htmlFor="operatingModel">النشاط التشغيلي</label>
+                <select id="operatingModel" value={operatingModel} onChange={(event) => setOperatingModel(event.target.value)}>{modelOptions.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select>
+              </div>
+            </div>
             <div className={styles.grid2}><div className={styles.field}><label htmlFor="name">اسمك</label><input id="name" name="name" autoComplete="name" /></div><div className={styles.field}><label htmlFor="phone">الجوال</label><input id="phone" name="phone" inputMode="tel" autoComplete="tel" /></div></div>
             <div className={styles.field}><label htmlFor="businessName">اسم المنشأة</label><input id="businessName" name="businessName" /></div>
             <div className={styles.grid2}><div className={styles.field}><label htmlFor="city">المدينة</label><input id="city" name="city" placeholder="مثال: جدة" /></div><div className={styles.field}><label htmlFor="taxNumber">الرقم الضريبي <span>اختياري</span></label><input id="taxNumber" name="taxNumber" inputMode="numeric" /></div></div>
