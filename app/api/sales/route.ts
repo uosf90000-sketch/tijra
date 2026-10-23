@@ -37,14 +37,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  if (parsed.data.invoiceNumber) {
-    const existingSale = await db.sale.findFirst({
-      where: { businessId: auth.context.business.id, invoiceNumber: parsed.data.invoiceNumber },
-      include: { items: true },
-    });
-    if (existingSale) return NextResponse.json({ sale: existingSale, duplicate: true });
-  }
-
   const productIds = Array.from(new Set(parsed.data.items.map((item) => item.productId)));
   const recipeRows = productIds.length ? await db.inventoryAuditEvent.findMany({
     where: {
@@ -96,6 +88,15 @@ export async function POST(request: Request) {
   const defaultLocation = await ensureDefaultLocation(auth.context.business.id);
   const saleLocationId = parsed.data.locationId || defaultLocation.id;
   if (!(await locationAuthorized(auth.context, saleLocationId))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
+  if (parsed.data.invoiceNumber) {
+    const existingSale = await db.sale.findFirst({
+      where: { businessId: auth.context.business.id, invoiceNumber: parsed.data.invoiceNumber },
+      include: { items: true },
+    });
+    if (existingSale && existingSale.locationId !== saleLocationId)
+      return NextResponse.json({ error: "INVOICE_NUMBER_USED_IN_OTHER_LOCATION" }, { status: 409 });
+    if (existingSale) return NextResponse.json({ sale: existingSale, duplicate: true });
+  }
   try {
     const { recordedAt, ...saleData } = parsed.data;
     const sale = await recordSale({
@@ -113,7 +114,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ sale: finalSale }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "SALE_FAILED";
-    const status = message === "CASHIER_DISCOUNT_LIMIT_EXCEEDED" ? 403
+    const status = message === "DUPLICATE_INVOICE_NUMBER" ? 409
+      : message === "CASHIER_DISCOUNT_LIMIT_EXCEEDED" ? 403
       : message === "INVALID_SALE_PRICE" ? 400
       : message.startsWith("INSUFFICIENT_STOCK") || message.startsWith("INSUFFICIENT_LOCATION_STOCK") ? 409
       : message === "PRODUCT_NOT_FOUND" ? 404
