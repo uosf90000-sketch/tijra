@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSession, hashPassword } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { modelOptions, scaleOptions } from "@/lib/workspace-profile";
 
 const schema = z.object({
   name: z.string().trim().min(2).max(100),
@@ -12,6 +13,8 @@ const schema = z.object({
   businessName: z.string().trim().min(2).max(140),
   businessType: z.enum(["RETAILER", "SUPPLIER", "BOTH"]),
   businessActivity: z.enum(["GROCERY", "ELECTRONICS", "PHARMACY", "RESTAURANT", "CAFE", "FASHION", "BEAUTY", "HARDWARE", "OFFICE", "OTHER"]),
+  businessScale: z.enum(scaleOptions.map((x) => x.value) as ["MICRO", "SMALL", "MEDIUM", "ENTERPRISE"]).default("SMALL"),
+  operatingModel: z.enum(modelOptions.map((x) => x.value) as ["FOOD_TRUCK", "SHOP", "RESTAURANT", "WHOLESALE", "SERVICES", "MANUFACTURING", "LOGISTICS", "MIXED"]).default("SHOP"),
   city: z.string().trim().max(100).optional(),
   taxNumber: z.string().trim().max(30).optional(),
 });
@@ -33,6 +36,8 @@ export async function POST(request: Request) {
           commercialName: parsed.data.businessName,
           businessType: parsed.data.businessType,
           businessActivity: parsed.data.businessActivity,
+          businessScale: parsed.data.businessScale,
+          operatingModel: parsed.data.operatingModel,
           city: parsed.data.city,
           taxNumber: parsed.data.taxNumber,
         },
