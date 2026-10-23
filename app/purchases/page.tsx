@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic";
 
 const statusLabels: Record<string, string> = {
   DRAFT: "مسودة",
+  PENDING_APPROVAL: "بانتظار موافقة الإدارة",
   SENT: "مرسل",
   CONFIRMED: "مؤكد",
   PARTIALLY_RECEIVED: "استلام جزئي",
@@ -42,7 +43,7 @@ export default async function PurchasesPage() {
       take: 100,
     }),
     db.purchaseOrder.findMany({
-      where: { businessId, status: { in: ["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
+      where: { businessId, status: { in: ["PENDING_APPROVAL", "SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
       select: { status: true, items: { select: { productId: true, orderedQty: true, receivedQty: true } } },
     }),
     db.marketplaceOrder.findMany({
@@ -95,7 +96,7 @@ export default async function PurchasesPage() {
         eyebrow="المشتريات الذكية"
         title="المشتريات"
         description="تِجرا يقترح الكمية، يقسم الطلب حسب المورد، ثم تعطي المورد رابطًا يؤكد منه بدون حساب."
-        actions={<><Link className="button secondary" href="/purchases/insights"><Sparkles size={17} /> مراقب المشتريات</Link><Link className="button secondary" href="/purchases/invoice"><Camera size={17} /> مطابقة فاتورة</Link><Link className="button primary" href="/suppliers/prices/new"><CirclePlus size={17} /> إضافة سعر مورد</Link></>}
+        actions={<><Link className="button secondary" href="/purchases/approvals">الموافقات</Link><Link className="button secondary" href="/purchases/insights"><Sparkles size={17} /> مراقب المشتريات</Link><Link className="button secondary" href="/purchases/invoice"><Camera size={17} /> مطابقة فاتورة</Link><Link className="button primary" href="/suppliers/prices/new"><CirclePlus size={17} /> إضافة سعر مورد</Link></>}
       />
 
       <div className="infoNote">الكميات قيد التوريد من الموردين وطلبات السوق المتطابقة بباركود ووحدة فريدين خُصمت من الاحتياج. لا تُضاف هذه الكميات للمخزون الفعلي إلا عند اعتماد الاستلام.</div>
@@ -135,7 +136,7 @@ export default async function PurchasesPage() {
                   <td>{formatSar(Number(order.expectedTotal))}</td>
                   <td><StatusPill status={order.status.toLowerCase()} /> <span className="mutedText">{statusLabels[order.status]}</span></td>
                   <td>{new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium" }).format(order.createdAt)}</td>
-                  <td>{["RECEIVED", "CANCELLED"].includes(order.status) ? <span className="mutedText">مغلق</span> : <SupplierShareButton orderId={order.id} />}</td>
+                  <td>{["RECEIVED", "CANCELLED", "PENDING_APPROVAL", "DRAFT"].includes(order.status) ? <span className="mutedText">{order.status === "PENDING_APPROVAL" ? "بانتظار الاعتماد" : "غير قابل للإرسال"}</span> : <SupplierShareButton orderId={order.id} />}</td>
                   <td>{context.membership.role === "OWNER" && !["RECEIVED", "CANCELLED"].includes(order.status) && order.items.every((item) => Number(item.receivedQty) <= 0)
                     ? <CancelSupplierOrderButton orderId={order.id} />
                     : <span className="mutedText">—</span>}</td>
