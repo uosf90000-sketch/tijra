@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  getIncomingPurchaseQuantities, buildMarginAlerts, summarizeSuppliers, describePurchaseActions,
+  getIncomingPurchaseQuantities, getMarketplaceIncomingQuantities, combineIncomingQuantities, buildMarginAlerts, summarizeSuppliers, describePurchaseActions,
 } from "../lib/operating-intelligence.ts";
 import { buildPurchaseSuggestion } from "../lib/purchasing.ts";
 
@@ -67,4 +67,31 @@ test("supplier score does not claim a promised date and uses actual receiving ti
 
 test("navigation points to existing operational actions", () => {
   assert.deepEqual(describePurchaseActions(1, 2, 3).map((x) => x.count), [1, 2, 3]);
+});
+
+
+test("marketplace incoming counts only unique barcode + same unit and open states", () => {
+  const products = [
+    { id: "p", barcode: "1234", unit: "كرتون" },
+    { id: "dup1", barcode: "9999", unit: "حبة" },
+    { id: "dup2", barcode: "9999", unit: "حبة" },
+    { id: "no-code", barcode: null, unit: "حبة" },
+  ];
+  const entries = [
+    { status: "PLACED", items: [
+      { barcode: "1234", unit: "كرتون", quantity: 4 },
+      { barcode: "1234", unit: "حبة", quantity: 20 },
+      { barcode: "9999", unit: "حبة", quantity: 5 },
+      { barcode: null, unit: "حبة", quantity: 7 },
+    ] },
+    { status: "ACCEPTED", items: [{ barcode: "1234", unit: "كرتون", quantity: 3 }] },
+    { status: "RECEIVED", items: [{ barcode: "1234", unit: "كرتون", quantity: 2 }] },
+    { status: "CANCELLED", items: [{ barcode: "1234", unit: "كرتون", quantity: 20 }] },
+  ];
+  const inbound = getMarketplaceIncomingQuantities(products, entries);
+  assert.equal(inbound.get("p"), 7);
+  assert.equal(inbound.has("dup1"), false);
+  assert.equal(inbound.has("no-code"), false);
+  const total = combineIncomingQuantities(inbound, new Map([["p", 8]]));
+  assert.equal(total.get("p"), 15);
 });
