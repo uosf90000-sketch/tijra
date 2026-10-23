@@ -9,6 +9,7 @@ import { SupplierShareButton } from "@/components/supplier-share-button";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
+import { getIncomingPurchaseQuantities } from "@/lib/operating-intelligence";
 
 export const metadata = { title: "المشتريات" };
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export default async function PurchasesPage() {
   if (!context) redirect("/login");
   const businessId = context.business.id;
 
-  const [products, purchaseOrders] = await Promise.all([
+  const [products, purchaseOrders, pendingOrderLines] = await Promise.all([
     db.product.findMany({
       where: { businessId, active: true },
       include: { supplierItems: { include: { supplier: true }, orderBy: { price: "asc" } } },
@@ -39,19 +40,33 @@ export default async function PurchasesPage() {
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
+    db.purchaseOrder.findMany({
+      where: { businessId, status: { in: ["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
+      select: { status: true, items: { select: { productId: true, orderedQty: true, receivedQty: true } } },
+    }),
   ]);
+  const incoming = getIncomingPurchaseQuantities(pendingOrderLines.map((order) => ({
+    status: order.status,
+    items: order.items.map((item) => ({
+      productId: item.productId,
+      orderedQty: Number(item.orderedQty),
+      receivedQty: Number(item.receivedQty),
+    })),
+  })));
 
   const suggestions = products.flatMap((product) => {
     const current = Number(product.quantity);
     const reorder = Number(product.reorderPoint);
     const offer = product.supplierItems[0];
+    const alreadyIncoming = incoming.get(product.id) ?? 0;
     if (current > reorder || !offer) return [];
     const target = Math.max(reorder * 2, reorder + 1);
-    const rawQty = Math.max(0, Math.ceil(target - current));
+    const rawQty = Math.max(0, Math.ceil(target - current - alreadyIncoming));
+    if (rawQty <= 0) return [];
     const minOrderQty = offer.minOrderQty == null ? 0 : Number(offer.minOrderQty);
     const suggested = Math.max(rawQty, minOrderQty);
     if (suggested <= 0) return [];
-    return [{ productId: product.id, product: product.name, current, reorder, suggested, unit: product.unit, supplier: offer.supplier.name, unitPrice: Number(offer.price) }];
+    return [{ productId: product.id, product: product.name, current, reorder, alreadyIncoming, suggested, unit: product.unit, supplier: offer.supplier.name, unitPrice: Number(offer.price) }];
   });
 
   const suggestionTotal = suggestions.reduce((sum, item) => sum + item.suggested * item.unitPrice, 0);
@@ -67,6 +82,7 @@ export default async function PurchasesPage() {
         actions={<><Link className="button secondary" href="/purchases/insights"><Sparkles size={17} /> مراقب المشتريات</Link><Link className="button secondary" href="/purchases/invoice"><Camera size={17} /> مطابقة فاتورة</Link><Link className="button primary" href="/suppliers/prices/new"><CirclePlus size={17} /> إضافة سعر مورد</Link></>}
       />
 
+      <div className="infoNote">الكميات قيد التوريد خُصمت من الاحتياج قبل إنشاء الطلبات، لمنع الشراء المكرر. طلب التوريد ليس كمية متاحة للبيع حتى يصل ويُعتمد الاستلام.</div>
       <section className="metricsGrid three">
         <MetricCard label="الطلبية المقترحة" value={formatSar(suggestionTotal)} note={`${suggestions.length} أصناف`} icon={Sparkles} />
         <MetricCard label="موردون في الخطة" value={`${supplierCount}`} note="حسب أفضل سعر مسجل" icon={Check} tone="blue" />
@@ -78,7 +94,7 @@ export default async function PurchasesPage() {
         <div className="smartOrderList">
           {suggestions.map((item) => (
             <div className="smartOrderRow" key={item.productId}>
-              <div className="grow"><strong>{item.product}</strong><span>الموجود {item.current} · نقطة الطلب {item.reorder} · {item.supplier}</span></div>
+              <div className="grow"><strong>{item.product}</strong><span>الموجود {item.current} · قيد التوريد {item.alreadyIncoming} · نقطة الطلب {item.reorder} · {item.supplier}</span></div>
               <div className="qtyBadge">{item.suggested} {item.unit}</div>
               <div className="priceStack"><strong>{formatSar(item.suggested * item.unitPrice)}</strong><span>{formatSar(item.unitPrice)} للوحدة</span></div>
             </div>
