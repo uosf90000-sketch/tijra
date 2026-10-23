@@ -9,6 +9,7 @@ import { resolveWorkspaceModules } from "@/lib/workspace-profile";
 export const metadata = { title: "الإدارة" };
 
 const tools = [
+  { href: "/account/security", title: "أمان الحساب", description: "تفعيل تطبيق المصادقة الثنائية وإدارة حماية الدخول.", icon: ShieldCheck, module: "ALWAYS" },
   { href: "/management/governance", title: "مركز الحوكمة والرقابة", description: "حدود الموافقات، الصلاحيات، سجل القرارات والعمليات الحساسة.", icon: ShieldCheck, module: "ALWAYS" },
   { href: "/management/workspace", title: "الشركات ومساحة العمل", description: "خصص الواجهة حسب حجم المنشأة ونشاطها، وبدّل بين شركات المجموعة.", icon: Building2, module: "ALWAYS" },
   { href: "/sales/analytics", title: "تحليلات المبيعات", description: "المبيعات والربح ومتوسط الفاتورة واتجاه الأداء.", icon: BarChart3, module: "INSIGHTS" },
