@@ -70,6 +70,7 @@ const sales: NavItem = { href: "/sales", label: "الكاشير", icon: Shopping
 const salesAnalytics: NavItem = { href: "/sales/analytics", label: "تحليلات المبيعات", icon: BarChart3 };
 const shifts: NavItem = { href: "/sales/shifts", label: "الورديات", icon: ClipboardCheck };
 const purchases: NavItem = { href: "/purchases", label: "المشتريات", icon: ShoppingBasket };
+const purchaseGuardian: NavItem = { href: "/purchases/insights", label: "مراقب المشتريات", icon: Tags };
 const activityCenter: NavItem = { href: "/activity", label: "مركز النشاط", icon: Activity };
 const controlCenter: NavItem = { href: "/control-center", label: "مركز الرقابة", icon: Bell };
 const staffInventory: NavItem = { href: "/staff/inventory", label: "إدخال وإخراج المخزون", icon: ScanBarcode };
@@ -147,7 +148,7 @@ function retailerSections(): NavSection[] {
   return [
     { label: "البيع", items: [sales, shifts] },
     { label: "المخزون والتشغيل", items: [inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, waste, dayClosing] },
-    { label: "الشراء والسوق", items: [market, smartBuy, reorder, catalog, marketplaceSuppliers, smartPrice, smartAlerts, purchases, orders] },
+    { label: "الشراء والسوق", items: [market, smartBuy, reorder, catalog, marketplaceSuppliers, smartPrice, smartAlerts, purchases, purchaseGuardian, orders] },
     { label: "الإدارة", items: [activityCenter, { ...accounting, label: "الملخص المالي" }, reconciliation, employees, payroll] },
   ];
 }
