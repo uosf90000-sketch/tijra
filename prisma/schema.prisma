@@ -152,6 +152,8 @@ model Business {
   businessScale              BusinessScale         @default(SMALL)
   operatingModel             OperatingModel        @default(SHOP)
   workspaceModules           String[]              @default([])
+  locationAccessEnforced     Boolean               @default(false)
+  locationAccessGrants       MembershipLocationGrant[]
   purchaseApprovalEnabled    Boolean               @default(false)
   purchaseApprovalThreshold  Decimal               @default(5000) @db.Decimal(12, 2)
   payrollDualApprovalEnabled Boolean               @default(false)
@@ -192,11 +194,27 @@ model Membership {
   businessId  String
   role        UserRole
   permissions AppPermission[] @default([])
+  locationGrants MembershipLocationGrant[]
   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   business    Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@unique([userId, businessId])
   @@index([businessId, role])
+}
+
+/// A location is the tenant-local stable UUID from LOCATION_CONFIG; a grant
+/// must always be checked alongside membership.businessId on every operation.
+model MembershipLocationGrant {
+  id           String      @id @default(cuid())
+  businessId   String
+  membershipId String
+  locationId   String
+  createdAt    DateTime    @default(now())
+  business     Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  membership   Membership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, locationId])
+  @@index([businessId, locationId])
 }
 
 model FavoriteSupplier {
