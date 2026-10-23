@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionContext, verifyPassword } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { generateRecoveryCodes, hashRecoveryCode } from "@/lib/mfa-recovery";
 import {
   authenticatorUri, decryptTotpSecret, encryptTotpSecret, generateTotpSecret, matchTotpStep,
 } from "@/lib/totp";
@@ -23,11 +24,12 @@ export async function GET() {
   if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   const user = await db.user.findUniqueOrThrow({
     where: { id: context.user.id },
-    select: { totpEnabledAt: true, totpPendingSecretEncrypted: true },
+    select: { totpEnabledAt: true, totpPendingSecretEncrypted: true, mfaRecoveryCodes: { where: { usedAt: null }, select: { id: true } } },
   });
   return NextResponse.json({
     enabled: Boolean(user.totpEnabledAt),
     pending: Boolean(user.totpPendingSecretEncrypted),
+    remainingRecoveryCodes: user.mfaRecoveryCodes.length,
     enrollmentAvailable: allowedToEnroll(),
   });
 }
@@ -79,6 +81,9 @@ export async function PATCH(request: Request) {
         } });
         return { ok: false as const };
       }
+      const recoveryCodes = generateRecoveryCodes();
+      await tx.mfaRecoveryCode.deleteMany({ where: { userId: user.id } });
+      await tx.mfaRecoveryCode.createMany({ data: recoveryCodes.map((code) => ({ userId: user.id, codeHash: hashRecoveryCode(code) })) });
       await tx.user.update({ where: { id: user.id }, data: {
         totpSecretEncrypted: user.totpPendingSecretEncrypted,
         totpPendingSecretEncrypted: null,
@@ -94,9 +99,9 @@ export async function PATCH(request: Request) {
         note: "Authenticator-based second factor enabled after a verified code",
       } });
       await tx.session.deleteMany({ where: { userId: user.id, id: { not: context.sessionId } } });
-      return { ok: true as const };
+      return { ok: true as const, recoveryCodes };
     });
-    return outcome.ok ? NextResponse.json({ enabled: true })
+    return outcome.ok ? NextResponse.json({ enabled: true, recoveryCodes: outcome.recoveryCodes })
       : NextResponse.json({ error: "INVALID_CODE" }, { status: 401 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "MFA_CONFIRM_FAILED";
@@ -126,6 +131,7 @@ export async function DELETE(request: Request) {
       totpSecretEncrypted: null, totpPendingSecretEncrypted: null,
       totpEnabledAt: null, mfaFailedAttempts: 0, mfaLockedUntil: null, mfaLastVerifiedStep: null,
     } });
+    await tx.mfaRecoveryCode.deleteMany({ where: { userId: user.id } });
     await tx.session.deleteMany({ where: { userId: user.id, id: { not: context.sessionId } } });
     await tx.inventoryAuditEvent.create({ data: {
       businessId: context.business.id, action: "MFA_DISABLED",
