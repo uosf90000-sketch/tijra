@@ -3,6 +3,7 @@ import { CheckCircle2, FileText, WalletCards } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { PayrollCreateButton } from "@/components/payroll-create-button";
+import { PayrollGovernanceActions } from "@/components/payroll-governance-actions";
 import { StatusPill } from "@/components/status-pill";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -82,7 +83,7 @@ export default async function PayrollPage() {
         <div className="panelHeader tableHeader"><div><span className="eyebrow">السجل</span><h2>المسيرات السابقة</h2></div></div>
         <div className="tableScroll">
           <table className="dataTable">
-            <thead><tr><th>الفترة</th><th>الموظفون</th><th>الإجمالي</th><th>الخصومات والسلف</th><th>الصافي</th><th>الحالة</th></tr></thead>
+            <thead><tr><th>الفترة</th><th>الموظفون</th><th>الإجمالي</th><th>الخصومات والسلف</th><th>الصافي</th><th>الحالة</th><th>المراجعة والاعتماد</th></tr></thead>
             <tbody>
               {runs.map((run) => {
                 const gross = run.items.reduce((sum, item) => sum + Number(item.baseSalary) + Number(item.allowances), 0);
@@ -96,10 +97,11 @@ export default async function PayrollPage() {
                     <td>{formatSar(deductions)}</td>
                     <td><strong>{formatSar(net)}</strong></td>
                     <td><StatusPill status={run.status.toLowerCase()} /></td>
+                    <td><PayrollGovernanceActions run={{ id: run.id, status: run.status, createdByUserId: run.createdByUserId, approvedByUserId: run.approvedByUserId }} actorId={context.user.id} role={context.membership.role} dualApproval={context.business.payrollDualApprovalEnabled}/></td>
                   </tr>
                 );
               })}
-              {!runs.length && <tr><td colSpan={6}><div className="infoNote">لا توجد مسيرات محفوظة بعد.</div></td></tr>}
+              {!runs.length && <tr><td colSpan={7}><div className="infoNote">لا توجد مسيرات محفوظة بعد.</div></td></tr>}
             </tbody>
           </table>
         </div>
