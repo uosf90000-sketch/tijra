@@ -30,6 +30,7 @@ const categories: Record<string, string> = {
   QUICK_STOCK_IN: "إضافة سريعة للمخزون",
   QUICK_STOCK_OUT: "إخراج سريع من المخزون",
   LOCATION_TRANSFER: "تحويل بين المواقع",
+  SALE_PRICE_OVERRIDE: "خصم أو تعديل على سعر الكاشير",
 };
 const auditedActions = Object.keys(categories);
 const formatDate = (date: Date) => new Intl.DateTimeFormat("ar-SA", {
@@ -62,7 +63,7 @@ export default async function GovernancePage() {
       select: {
         purchaseApprovalEnabled: true, purchaseApprovalThreshold: true,
         payrollDualApprovalEnabled: true, stockReasonRequired: true,
-        stockValueReviewThreshold: true, expenseOwnerThreshold: true,
+        stockValueReviewThreshold: true, expenseOwnerThreshold: true, cashierMaxDiscountPercent: true,
       },
     }),
     db.session.count({ where: { userId: context.user.id, expiresAt: { gt: new Date() } } }),
@@ -94,6 +95,7 @@ export default async function GovernancePage() {
         stockReasonRequired: policy.stockReasonRequired,
         stockValueReviewThreshold: Number(policy.stockValueReviewThreshold),
         expenseOwnerThreshold: Number(policy.expenseOwnerThreshold),
+        cashierMaxDiscountPercent: Number(policy.cashierMaxDiscountPercent),
       }}/>
       <GovernanceAccessMatrix members={memberships}/>
       <RevokeOtherSessionsButton activeCount={sessions}/>
