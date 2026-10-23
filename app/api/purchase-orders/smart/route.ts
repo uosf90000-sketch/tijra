@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { needsPurchaseApproval } from "@/lib/purchase-approval";
 import { combineIncomingQuantities, getIncomingPurchaseQuantities, getMarketplaceIncomingQuantities } from "@/lib/operating-intelligence";
 
 /**
@@ -16,7 +17,7 @@ export async function POST() {
 
   try {
     const orders = await db.$transaction(async (tx) => {
-      const [products, openOrders, pendingMarketplaceOrders] = await Promise.all([
+      const [products, openOrders, pendingMarketplaceOrders, businessPolicy] = await Promise.all([
         tx.product.findMany({
           where: { businessId, active: true },
           include: {
@@ -28,7 +29,7 @@ export async function POST() {
           },
         }),
         tx.purchaseOrder.findMany({
-          where: { businessId, status: { in: ["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
+          where: { businessId, status: { in: ["PENDING_APPROVAL", "SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
           select: {
             status: true,
             items: { select: { productId: true, orderedQty: true, receivedQty: true } },
@@ -39,6 +40,10 @@ export async function POST() {
           select: { status: true, items: { select: {
             quantity: true, listing: { select: { barcode: true, unit: true } },
           } } },
+        }),
+        tx.business.findUniqueOrThrow({
+          where: { id: businessId },
+          select: { purchaseApprovalEnabled: true, purchaseApprovalThreshold: true },
         }),
       ]);
       const purchaseIncoming = getIncomingPurchaseQuantities(openOrders.map((order) => ({
@@ -87,15 +92,22 @@ export async function POST() {
       const created = [];
       for (const group of groups.values()) {
         const expectedTotal = group.items.reduce((sum, item) => sum + item.orderedQty * item.unitCost, 0);
+        const awaitingApproval = needsPurchaseApproval(expectedTotal, {
+          enabled: businessPolicy.purchaseApprovalEnabled,
+          threshold: Number(businessPolicy.purchaseApprovalThreshold),
+        });
         const order = await tx.purchaseOrder.create({
           data: {
             businessId,
+            requestedByUserId: auth.context.user.id,
             supplierId: group.supplierId,
             orderNumber: "AUTO-" + Date.now() + "-" + group.supplierId.slice(-4),
-            status: "SENT",
+            status: awaitingApproval ? "PENDING_APPROVAL" : "SENT",
             expectedTotal,
-            orderedAt: new Date(),
-            notes: "طلب ذكي بعد خصم كميات الموردين وطلبات السوق ذات التطابق الموثوق؛ التوصيل بين التاجر والمورد.",
+            orderedAt: awaitingApproval ? null : new Date(),
+            notes: awaitingApproval
+              ? "قيد موافقة مسؤول آخر قبل مشاركة المورد؛ لم يُرسل طلب التوريد."
+              : "طلب ذكي بعد خصم كميات الموردين وطلبات السوق ذات التطابق الموثوق؛ التوصيل بين التاجر والمورد.",
             items: { create: group.items },
           },
           include: { supplier: true, items: true },
