@@ -57,7 +57,7 @@ export default async function SmartBuyPage() {
     }),
     loadRecipesForBusiness(context.business.id),
     db.purchaseOrder.findMany({
-      where: { businessId: context.business.id, status: { in: ["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
+      where: { businessId: context.business.id, status: { in: ["PENDING_APPROVAL", "SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
       select: { status: true, items: { select: { productId: true, orderedQty: true, receivedQty: true } } },
     }),
     db.marketplaceOrder.findMany({
