@@ -66,7 +66,7 @@ export default async function GovernancePage() {
       select: {
         locationAccessEnforced: true,
         purchaseApprovalEnabled: true, purchaseApprovalThreshold: true,
-        payrollDualApprovalEnabled: true, stockReasonRequired: true,
+        payrollDualApprovalEnabled: true, journalDualApprovalEnabled: true, stockReasonRequired: true,
         stockValueReviewThreshold: true, expenseOwnerThreshold: true, cashierMaxDiscountPercent: true,
       },
     }),
@@ -99,6 +99,7 @@ export default async function GovernancePage() {
         purchaseApprovalEnabled: policy.purchaseApprovalEnabled,
         purchaseApprovalThreshold: Number(policy.purchaseApprovalThreshold),
         payrollDualApprovalEnabled: policy.payrollDualApprovalEnabled,
+        journalDualApprovalEnabled: policy.journalDualApprovalEnabled,
         stockReasonRequired: policy.stockReasonRequired,
         stockValueReviewThreshold: Number(policy.stockValueReviewThreshold),
         expenseOwnerThreshold: Number(policy.expenseOwnerThreshold),
