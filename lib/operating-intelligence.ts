@@ -104,15 +104,17 @@ export function summarizeSuppliers(orders: SupplierOrderStat[], now: Date) {
       record.receivedUnits += item.receivedQty;
     }
   }
-  return new Map([...grouped.entries()].map(([id, record]) => [
-    id, {
-      ...record,
-      averageDaysToComplete: record.completionDays.length
-        ? Math.round(record.completionDays.reduce((sum, days) => sum + days, 0) / record.completionDays.length * 10) / 10
-        : null,
-      completionDays: undefined,
-    } as SupplierPerformance,
-  ]));
+  return new Map<string, SupplierPerformance>(
+    Array.from(grouped.entries(), ([id, record]): [string, SupplierPerformance] => {
+      const { completionDays, ...stats } = record;
+      return [id, {
+        ...stats,
+        averageDaysToComplete: completionDays.length
+          ? Math.round(completionDays.reduce((sum, days) => sum + days, 0) / completionDays.length * 10) / 10
+          : null,
+      }];
+    }),
+  );
 }
 
 /** The owner can investigate these links; calculations do not automatically alter prices. */
