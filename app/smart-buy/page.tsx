@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
 import { buildPurchasePlan } from "@/lib/purchasing";
 import { loadRecipesForBusiness } from "@/lib/recipes";
+import { getIncomingPurchaseQuantities } from "@/lib/operating-intelligence";
 
 export const metadata = { title: "مشتريات الأسبوع" };
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ export default async function SmartBuyPage() {
   const since = new Date();
   since.setDate(since.getDate() - 30);
 
-  const [products, listings, recipeMap] = await Promise.all([
+  const [products, listings, recipeMap, pendingOrders] = await Promise.all([
     db.product.findMany({
       where: { businessId: context.business.id, active: true },
       include: {
@@ -55,8 +56,20 @@ export default async function SmartBuyPage() {
       take: 5000,
     }),
     loadRecipesForBusiness(context.business.id),
+    db.purchaseOrder.findMany({
+      where: { businessId: context.business.id, status: { in: ["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
+      select: { status: true, items: { select: { productId: true, orderedQty: true, receivedQty: true } } },
+    }),
   ]);
 
+  const incoming = getIncomingPurchaseQuantities(pendingOrders.map((order) => ({
+    status: order.status,
+    items: order.items.map((item) => ({
+      productId: item.productId,
+      orderedQty: Number(item.orderedQty),
+      receivedQty: Number(item.receivedQty),
+    })),
+  })));
   const stockProducts = products.filter((product) => !recipeMap.has(product.id));
   const plan = buildPurchasePlan(stockProducts.map((product) => {
     const directSold = product.saleItems.reduce((sum, item) => sum + Number(item.quantity), 0);
@@ -72,6 +85,7 @@ export default async function SmartBuyPage() {
       productId: product.id,
       productName: product.name,
       onHand: Number(product.quantity),
+      incomingQty: incoming.get(product.id) ?? 0,
       avgDailySales,
       reorderPoint: Number(product.reorderPoint),
       targetCoverageDays: product.targetCoverageDays,
@@ -90,7 +104,8 @@ export default async function SmartBuyPage() {
 
   return (
     <>
-      <PageHeader eyebrow="الشراء الذكي" title="وفّر لي مشتريات هذا الأسبوع" description="تِجرا يقرأ البيع المباشر واستهلاك مكونات الوصفات خلال 30 يومًا، يلتقط حالات النفاد حتى بدون سجل مبيعات، ثم يقترح الكمية ويختار أقل مورد تكلفة." actions={<Link className="button secondary" href="/catalog"><Sparkles size={17} /> الكتالوج الموحد</Link>} />
+      <PageHeader eyebrow="الشراء الذكي" title="وفّر لي مشتريات هذا الأسبوع" description="تِجرا يقرأ البيع المباشر واستهلاك مكونات الوصفات خلال 30 يومًا، يلتقط حالات النفاد حتى بدون سجل مبيعات، ثم يقترح الكمية ويختار أقل مورد تكلفة." actions={<><Link className="button secondary" href="/purchases/insights">مراقب المشتريات</Link><Link className="button secondary" href="/catalog"><Sparkles size={17} /> الكتالوج الموحد</Link></>} />
+      <div className="infoNote">حُسبت الكميات الموجودة في طلبات التوريد المفتوحة قبل اقتراح شراء جديد. إذا تأخر المورد فراجع الطلب من صفحة المشتريات؛ هذه الكميات ليست مخزونًا مستلمًا.</div>
       <section className="metricsGrid four">
         <MetricCard label="أصناف مقترحة" value={`${plan.suggestions.length}`} note="مواد ومخزون تحتاج تغطية" icon={ShoppingBasket} />
         <MetricCard label="لها مورد مناسب" value={`${suggestionsWithSupplier.length}`} note="يمكن شراؤها من السوق" icon={PackageCheck} tone="blue" />
