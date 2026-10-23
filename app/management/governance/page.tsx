@@ -4,6 +4,7 @@ import { ShieldCheck, UsersRound, WalletCards, ShoppingBasket } from "lucide-rea
 import { PageHeader } from "@/components/page-header";
 import { GovernancePolicyForm } from "@/components/governance-policy-form";
 import { GovernanceAccessMatrix } from "@/components/governance-access-matrix";
+import { RevokeOtherSessionsButton } from "@/components/revoke-other-sessions-button";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -15,6 +16,9 @@ const categories: Record<string, string> = {
   WORKSPACE_PROFILE_UPDATED: "تغيير مساحة العمل",
   COMPANY_SWITCH: "تبديل الشركة",
   STAFF_PERMISSIONS_CHANGED: "تعديل صلاحيات موظف",
+  STAFF_ACCOUNT_CREATED: "إنشاء حساب موظف",
+  EMPLOYEE_CREATED: "إضافة موظف",
+  OTHER_SESSIONS_REVOKED: "إنهاء جلسات الدخول الأخرى",
   PAYROLL_RUN_CREATED: "إنشاء مسير رواتب",
   PAYROLL_APPROVED: "اعتماد مسير رواتب",
   PAYROLL_MARKED_PAID: "تسجيل إثبات دفع رواتب",
@@ -92,6 +96,7 @@ export default async function GovernancePage() {
         expenseOwnerThreshold: Number(policy.expenseOwnerThreshold),
       }}/>
       <GovernanceAccessMatrix members={memberships}/>
+      <RevokeOtherSessionsButton activeCount={sessions}/>
       <section className="panel tablePanel">
         <div className="panelHeader"><div><span className="eyebrow">أثر كل قرار</span><h2>آخر 100 حركة حوكمة</h2></div>
           <Link className="textLink" href="/activity">سجل التشغيل</Link></div>
