@@ -8,6 +8,7 @@ const schema = z.object({
   purchaseApprovalEnabled: z.boolean(),
   purchaseApprovalThreshold: z.number().finite().nonnegative().max(999999999),
   payrollDualApprovalEnabled: z.boolean(),
+  journalDualApprovalEnabled: z.boolean(),
   stockReasonRequired: z.boolean(),
   stockValueReviewThreshold: z.number().finite().nonnegative().max(999999999),
   expenseOwnerThreshold: z.number().finite().nonnegative().max(999999999),
@@ -19,6 +20,7 @@ const fields = {
   purchaseApprovalEnabled: true,
   purchaseApprovalThreshold: true,
   payrollDualApprovalEnabled: true,
+  journalDualApprovalEnabled: true,
   stockReasonRequired: true,
   stockValueReviewThreshold: true,
   expenseOwnerThreshold: true,
@@ -30,6 +32,7 @@ function serialize(policy: {
   purchaseApprovalEnabled: boolean;
   purchaseApprovalThreshold: { toString(): string };
   payrollDualApprovalEnabled: boolean;
+  journalDualApprovalEnabled: boolean;
   stockReasonRequired: boolean;
   stockValueReviewThreshold: { toString(): string };
   expenseOwnerThreshold: { toString(): string };
@@ -40,6 +43,7 @@ function serialize(policy: {
     purchaseApprovalEnabled: policy.purchaseApprovalEnabled,
     purchaseApprovalThreshold: Number(policy.purchaseApprovalThreshold),
     payrollDualApprovalEnabled: policy.payrollDualApprovalEnabled,
+    journalDualApprovalEnabled: policy.journalDualApprovalEnabled,
     stockReasonRequired: policy.stockReasonRequired,
     stockValueReviewThreshold: Number(policy.stockValueReviewThreshold),
     expenseOwnerThreshold: Number(policy.expenseOwnerThreshold),
