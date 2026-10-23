@@ -11,8 +11,9 @@ const beginSchema = z.object({ password: z.string().min(1).max(128) });
 const confirmSchema = z.object({ code: z.string().regex(/^\d{6}$/) });
 const disableSchema = z.object({
   password: z.string().min(1).max(128),
-  code: z.string().regex(/^\d{6}$/),
-});
+  code: z.string().regex(/^\d{6}$/).optional(),
+  recoveryCode: z.string().trim().max(80).optional(),
+}).refine((data) => Boolean(data.code || data.recoveryCode));
 
 function allowedToEnroll() {
   // Fail closed unless a 32-byte random key has been explicitly configured.
@@ -123,15 +124,38 @@ export async function DELETE(request: Request) {
   if (!user.passwordHash || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
     return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
   }
-  if (matchTotpStep(decryptTotpSecret(user.totpSecretEncrypted), parsed.data.code) === null)
+  const step = parsed.data.code
+    ? matchTotpStep(decryptTotpSecret(user.totpSecretEncrypted), parsed.data.code) : null;
+  let recoveryHash: string | null = null;
+  if (parsed.data.recoveryCode) {
+    try { recoveryHash = hashRecoveryCode(parsed.data.recoveryCode); } catch { recoveryHash = null; }
+  }
+  if (step === null && recoveryHash === null)
     return NextResponse.json({ error: "INVALID_CODE" }, { status: 401 });
 
-  await db.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: user.id }, data: {
-      totpSecretEncrypted: null, totpPendingSecretEncrypted: null,
-      totpEnabledAt: null, mfaFailedAttempts: 0, mfaLockedUntil: null, mfaLastVerifiedStep: null,
-    } });
-    await tx.mfaRecoveryCode.deleteMany({ where: { userId: user.id } });
+  try {
+    await db.$transaction(async (tx) => {
+      if (step !== null) {
+        const consumed = await tx.user.updateMany({
+          where: { id: user.id, OR: [
+            { mfaLastVerifiedStep: null },
+            { mfaLastVerifiedStep: { lt: step } },
+          ] },
+          data: { mfaLastVerifiedStep: step },
+        });
+        if (consumed.count !== 1) throw new Error("MFA_CODE_ALREADY_USED");
+      } else {
+        const consumed = await tx.mfaRecoveryCode.updateMany({
+          where: { userId: user.id, codeHash: recoveryHash!, usedAt: null },
+          data: { usedAt: new Date() },
+        });
+        if (consumed.count !== 1) throw new Error("RECOVERY_CODE_INVALID_OR_USED");
+      }
+      await tx.user.update({ where: { id: user.id }, data: {
+        totpSecretEncrypted: null, totpPendingSecretEncrypted: null,
+        totpEnabledAt: null, mfaFailedAttempts: 0, mfaLockedUntil: null, mfaLastVerifiedStep: null,
+      } });
+      await tx.mfaRecoveryCode.deleteMany({ where: { userId: user.id } });
     await tx.session.deleteMany({ where: { userId: user.id, id: { not: context.sessionId } } });
     await tx.inventoryAuditEvent.create({ data: {
       businessId: context.business.id, action: "MFA_DISABLED",
@@ -139,6 +163,13 @@ export async function DELETE(request: Request) {
       actorRole: context.membership.role,
       note: "Authenticator second factor disabled with password and current TOTP code",
     } });
-  });
-  return NextResponse.json({ enabled: false });
+    });
+    return NextResponse.json({ enabled: false });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    if (["MFA_CODE_ALREADY_USED", "RECOVERY_CODE_INVALID_OR_USED"].includes(code))
+      return NextResponse.json({ error: code }, { status: 409 });
+    console.error("MFA disable failed", error);
+    return NextResponse.json({ error: "MFA_DISABLE_FAILED" }, { status: 500 });
+  }
 }
