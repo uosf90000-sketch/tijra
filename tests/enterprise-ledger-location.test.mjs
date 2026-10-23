@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { amountHalalas, balancedJournal, canPostJournal, dateWithinPeriod } from "../lib/financial-ledger.ts";
-import { hasLocationGrant } from "../lib/location-access.ts";
+import { hasLocationGrant } from "../lib/location-policy.ts";
 
 test("money calculations use exact halalas and reject unbalanced journals", () => {
   assert.equal(amountHalalas("100.25"), 10025n);
