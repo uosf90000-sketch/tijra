@@ -23,14 +23,14 @@ One Arabic-first operating platform for food trucks, shops, restaurants, service
 
 ## Enterprise gap register — not implemented yet
 ### Security and governance
-1. Branch/department scoped authorization **at API and database query level**, not sidebar visibility.
-2. Enterprise SSO (OIDC/SAML), MFA, provision/deprovision (SCIM), security-key support.
+1. Branch grants now cover core inventory and POS APIs, but department ACL and complete API enforcement remain.
+2. Optional TOTP MFA was added, while enforced SSO, MFA recovery, SCIM and security-key support remain.
 3. Delegated administration, maker-checker rules and multi-level purchasing/payment approvals.
 4. Expanded audit trails and retention, export, tamper-evidence, backup/restore drills.
 5. Tenant isolation penetration tests, access review and robust row-level policies.
 
 ### Finance and statutory
-6. Proper accounting ledger with double-entry journals, fiscal periods and close.
+6. Manual double-entry journal, fiscal periods and close were added; automated postings, consolidated reports and financial reconciliations remain.
 7. Multi-currency accounting, exchange rates, tax jurisdictions and intercompany transfers.
 8. Corporate group consolidation with eliminations, subsidiary hierarchy, and intercompany reconciliation.
 9. Saudi ZATCA Phase Two e-invoicing and verification (XML, cryptographic stamps, clearance/reporting), **not delivered or certified**.
