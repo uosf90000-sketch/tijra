@@ -11,6 +11,7 @@ const schema = z.object({
   direction: z.enum(["IN", "OUT"]),
   quantity: z.coerce.number().positive().max(100000000),
   reason: z.string().trim().max(500).optional(),
+  locationId: z.string().min(1).optional(),
 });
 
 export async function POST(request: Request) {
@@ -24,8 +25,9 @@ export async function POST(request: Request) {
 
   const { barcode, direction, quantity, reason } = parsed.data;
   const businessId = auth.context.business.id;
-  const location = await ensureDefaultLocation(businessId);
-  if (!(await locationAuthorized(auth.context, location.id))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
+  const defaultLocation = await ensureDefaultLocation(businessId);
+  const locationId = parsed.data.locationId || defaultLocation.id;
+  if (!(await locationAuthorized(auth.context, locationId))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
 
   try {
     const result = await db.$transaction(async (tx) => {
@@ -63,7 +65,7 @@ export async function POST(request: Request) {
 
       await adjustLocationStock(tx, {
         businessId,
-        locationId: location.id,
+        locationId,
         productId: product.id,
         productName: product.name,
         delta,
