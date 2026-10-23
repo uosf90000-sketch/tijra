@@ -1,4 +1,5 @@
 import { makeInvoiceKey, reviewPurchase } from "@/lib/purchase-guardian";
+import { cashierDiscountViolation } from "@/lib/governance-checks";
 import { db } from "@/lib/db";
 import { adjustLocationStock, consumeLots, receiveLot, safeJson, syncListingForProduct } from "@/lib/commerce-ops";
 import { decodeRecipeNote, requiredStockQuantity, type RecipeState } from "@/lib/recipes";
@@ -41,6 +42,24 @@ export async function recordSale(input: RecordSaleInput) {
     });
     const productMap = new Map(products.map((product) => [product.id, product]));
     if (productMap.size !== productIds.length) throw new Error("PRODUCT_NOT_FOUND");
+
+    const pricingPolicy = await tx.business.findUniqueOrThrow({
+      where: { id: input.businessId }, select: { cashierMaxDiscountPercent: true },
+    });
+    const priceOverrides: Array<{ productId: string; productName: string; listed: number; charged: number }> = [];
+    for (const item of input.items) {
+      const product = productMap.get(item.productId)!;
+      const listedPrice = Number(product.salePrice);
+      const errorCode = cashierDiscountViolation({
+        role: input.actorRole || "",
+        listedPrice, chargedBasePrice: item.unitPrice,
+        maxDiscountPercent: Number(pricingPolicy.cashierMaxDiscountPercent),
+      });
+      if (errorCode) throw new Error(errorCode);
+      if (item.unitPrice < listedPrice - 0.009) {
+        priceOverrides.push({ productId: product.id, productName: product.name, listed: listedPrice, charged: item.unitPrice });
+      }
+    }
 
     const [recipeRows, configRows] = await Promise.all([
       tx.inventoryAuditEvent.findMany({
@@ -170,6 +189,22 @@ export async function recordSale(input: RecordSaleInput) {
       },
       include: { items: true },
     });
+
+    for (const changed of priceOverrides) {
+      await tx.inventoryAuditEvent.create({
+        data: {
+          businessId: input.businessId,
+          action: "SALE_PRICE_OVERRIDE",
+          orderId: sale.id,
+          listingId: changed.productId,
+          itemName: changed.productName,
+          actorUserId: input.actorUserId,
+          actorName: input.actorName || "النظام",
+          actorRole: input.actorRole,
+          note: JSON.stringify({ listedPrice: changed.listed, chargedPrice: changed.charged }),
+        },
+      });
+    }
 
     for (const plan of plans) {
       if (plan.skipStock) {
