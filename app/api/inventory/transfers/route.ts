@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
 import { adjustLocationStock, actorFromContext, ensureDefaultLocation, listInventoryLocations } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
+import { locationAuthorized } from "@/lib/location-access";
 
 const schema = z.object({
   sourceLocationId: z.string().min(1),
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
   const source = locations.find((item) => item.id === parsed.data.sourceLocationId && item.active);
   const destination = locations.find((item) => item.id === parsed.data.destinationLocationId && item.active);
   if (!source || !destination) return NextResponse.json({ error: "LOCATION_NOT_FOUND" }, { status: 404 });
+  if (!(await locationAuthorized(auth.context, source.id)) || !(await locationAuthorized(auth.context, destination.id))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
 
   try {
     const result = await db.$transaction(async (tx) => {
