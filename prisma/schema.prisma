@@ -154,6 +154,10 @@ model Business {
   workspaceModules           String[]              @default([])
   purchaseApprovalEnabled    Boolean               @default(false)
   purchaseApprovalThreshold  Decimal               @default(5000) @db.Decimal(12, 2)
+  payrollDualApprovalEnabled Boolean               @default(false)
+  stockReasonRequired        Boolean               @default(false)
+  stockValueReviewThreshold  Decimal               @default(5000) @db.Decimal(12, 2)
+  expenseOwnerThreshold      Decimal               @default(5000) @db.Decimal(12, 2)
   organizationId             String?
   organization               Organization?         @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   createdAt                  DateTime              @default(now())
@@ -526,6 +530,7 @@ model PaymentSettlement {
 model Expense {
   id          String   @id @default(cuid())
   businessId  String
+  createdByUserId String?
   category    String
   description String?
   amount      Decimal  @db.Decimal(12, 2)
@@ -560,6 +565,9 @@ model Employee {
 model PayrollRun {
   id          String        @id @default(cuid())
   businessId  String
+  createdByUserId String?
+  approvedByUserId String?
+  paidByUserId String?
   periodStart DateTime
   periodEnd   DateTime
   status      PayrollStatus @default(DRAFT)
