@@ -39,6 +39,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CommandPalette } from "@/components/command-palette";
 import { TijraLogo } from "@/components/tijra-logo";
+import { resolveWorkspaceModules } from "@/lib/workspace-profile";
 
 type Permission = "CASHIER" | "INVENTORY" | "PURCHASES" | "ACCOUNTING";
 type TradeMode = "retailer" | "supplier";
@@ -76,6 +77,7 @@ const controlCenter: NavItem = { href: "/control-center", label: "مركز ال�
 const staffInventory: NavItem = { href: "/staff/inventory", label: "إدخال وإخراج المخزون", icon: ScanBarcode };
 const productsHub: NavItem = { href: "/products", label: "المنتجات", icon: PackageSearch };
 const managementHub: NavItem = { href: "/management", label: "الإدارة والمحاسبة", icon: UsersRound };
+const workspaceSetup: NavItem = { href: "/management/workspace", label: "الشركات ومساحة العمل", icon: Store };
 
 const sellerProducts: NavItem = { href: "/marketplace/seller", label: "المنتجات", icon: Store };
 const importProducts: NavItem = { href: "/supplier/import", label: "استيراد Excel / CSV", icon: FileSpreadsheet };
@@ -172,13 +174,19 @@ function staffSections(permissions: Set<Permission>, businessType: "RETAILER" | 
   }
   if (permissions.has("PURCHASES")) sections.push({ label: "الطلبات", items: [orders] });
   if (permissions.has("ACCOUNTING")) sections.push({ label: "المحاسبة", items: [accounting, reconciliation] });
+  sections.push({ label: "الشركة", items: [workspaceSetup] });
   return sections;
 }
 
 type Viewer = {
   user: { name: string; email: string };
   membership: { role: string; permissions: Permission[] };
-  business: { name: string; businessType: "RETAILER" | "SUPPLIER" | "BOTH" };
+  business: {
+    name: string; businessType: "RETAILER" | "SUPPLIER" | "BOTH";
+    businessScale: "MICRO" | "SMALL" | "MEDIUM" | "ENTERPRISE";
+    operatingModel: "FOOD_TRUCK" | "SHOP" | "RESTAURANT" | "WHOLESALE" | "SERVICES" | "MANUFACTURING" | "LOGISTICS" | "MIXED";
+    workspaceModules: string[];
+  };
 };
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -206,6 +214,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     const isStaff = viewer.membership.role === "STAFF";
     const isOwner = viewer.membership.role === "OWNER";
     const permissions = new Set(viewer.membership.permissions ?? []);
+    const enabled = new Set(resolveWorkspaceModules(
+      viewer.business.businessScale, viewer.business.operatingModel, viewer.business.workspaceModules,
+    ));
 
     if (isStaff) {
       const sections = staffSections(permissions, businessType);
@@ -226,8 +237,28 @@ export function AppShell({ children }: { children: ReactNode }) {
     const homeHref = businessType === "BOTH" && effectiveMode === "supplier" ? "/?mode=supplier" : "/";
     const homeItem = { ...home, href: homeHref };
     const ownerRetailer = isOwner && effectiveMode === "retailer";
-    const directItems: NavItem[] = ownerRetailer ? [sales, inventory, productsHub, market, managementHub] : [];
-    const sections = ownerRetailer ? [] : effectiveMode === "supplier" ? supplierSections(isOwner) : retailerSections();
+    const directItems: NavItem[] = ownerRetailer ? [
+      ...(enabled.has("SALES") ? [sales] : []),
+      ...(enabled.has("INVENTORY") ? [inventory, productsHub] : []),
+      ...(enabled.has("MARKETPLACE") ? [market] : []),
+      managementHub,
+    ] : [];
+    const sourceSections = effectiveMode === "supplier" ? supplierSections(isOwner) : retailerSections();
+    // Adaptive menus are presentation preferences only; API authorization remains membership-based.
+    const hidden = (href: string) => {
+      const path = cleanHref(href);
+      if (path.startsWith("/sales")) return !enabled.has("SALES");
+      if (path.startsWith("/inventory")) return !enabled.has("INVENTORY");
+      if (path.startsWith("/marketplace")) return !enabled.has("MARKETPLACE");
+      if (path.startsWith("/purchases") || path === "/smart-buy" || path === "/reorder") return !enabled.has("PURCHASING");
+      if (path.startsWith("/employees") || path.startsWith("/payroll")) return !enabled.has("STAFF");
+      if (path.startsWith("/accounting")) return !enabled.has("ACCOUNTING");
+      if (path === "/alerts" || path === "/smart-alerts" || path.startsWith("/control-center")) return !enabled.has("INSIGHTS");
+      return false;
+    };
+    const sections = ownerRetailer ? [] : sourceSections.map((section) => ({
+      ...section, items: section.items.filter((item) => !hidden(item.href)),
+    })).filter((section) => section.items.length > 0);
 
     return {
       sections,
@@ -389,13 +420,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="tradeModeSwitch" aria-label="تبديل وضع الحساب">
             <button type="button" className={tradeMode === "retailer" ? "active" : ""} onClick={() => chooseMode("retailer")}><ShoppingBag size={15} /> وضع التاجر</button>
             <button type="button" className={tradeMode === "supplier" ? "active" : ""} onClick={() => chooseMode("supplier")}><Store size={15} /> وضع المورد</button>
+            <Link href="/management/workspace" className="button secondary" aria-label="اختيار الشركة">الشركات</Link>
           </div>
         ) : (
-          <div className="workspaceSwitcher staticWorkspace">
+          <Link href="/management/workspace" className="workspaceSwitcher staticWorkspace" aria-label="اختيار الشركة ومساحة العمل">
             <div className="workspaceIcon"><Store size={17} /></div>
             <div><span>{businessTypeLabels[viewer.business.businessType]}</span><strong>{viewer.business.name}</strong></div>
             <ChevronDown size={15} />
-          </div>
+          </Link>
         )}
 
         <nav ref={sideNavRef} className={`sideNav compactSideNav ${directOwnerNav ? "ownerDirectNav" : ""}`} aria-label="التنقل الرئيسي">
