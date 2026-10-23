@@ -10,6 +10,7 @@ export type GovernancePolicyValue = {
   stockReasonRequired: boolean;
   stockValueReviewThreshold: number;
   expenseOwnerThreshold: number;
+  cashierMaxDiscountPercent: number;
 };
 
 export function GovernancePolicyForm({ initial }: { initial: GovernancePolicyValue }) {
@@ -45,6 +46,10 @@ export function GovernancePolicyForm({ initial }: { initial: GovernancePolicyVal
   return <section className="panel" style={{ display: "grid", gap: 16 }}>
     <div className="panelHeader"><div><span className="eyebrow">السياسات الإلزامية</span><h2>التحكم في الموافقات والعمليات الحساسة</h2></div></div>
     <div className="formGrid">
+      <label className="field"><span>أقصى خصم يسمح به الكاشير (%)</span>
+        <input type="number" min="0" max="100" step="0.01"
+          value={policy.cashierMaxDiscountPercent}
+          onChange={(event) => set("cashierMaxDiscountPercent", Number(event.target.value))}/></label>
       <label className="field"><span>سقف مشتريات يحتاج موافقة (ر.س)</span>
         <input type="number" min="0" max="999999999" step="0.01"
           value={policy.purchaseApprovalThreshold}
