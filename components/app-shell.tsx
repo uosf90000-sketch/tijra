@@ -62,7 +62,6 @@ const locations: NavItem = { href: "/inventory/locations", label: "الفروع 
 const units: NavItem = { href: "/inventory/units", label: "وحدات البيع", icon: Tags };
 const batches: NavItem = { href: "/inventory/batches", label: "الدفعات والصلاحية", icon: PackageSearch };
 const productSettings: NavItem = { href: "/inventory/product-settings", label: "إعدادات البيع", icon: Calculator };
-const ownerPricing: NavItem = { href: "/products/pricing", label: "هوامش الربح", icon: Calculator };
 const movements: NavItem = { href: "/inventory/movements", label: "سجل حركة الصنف", icon: Activity };
 const recipes: NavItem = { href: "/recipes", label: "الوصفات والمكونات", icon: ChefHat };
 const waste: NavItem = { href: "/inventory/waste", label: "الهدر والتالف", icon: Trash2 };
@@ -148,7 +147,7 @@ function NavSectionBlock({ section, pathname, onNavigate, onOpen }: { section: N
 function retailerSections(): NavSection[] {
   return [
     { label: "البيع", items: [sales, shifts] },
-    { label: "المخزون والتشغيل", items: [inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, ownerPricing, movements, waste, dayClosing] },
+    { label: "المخزون والتشغيل", items: [inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, waste, dayClosing] },
     { label: "الشراء والسوق", items: [market, smartBuy, reorder, catalog, marketplaceSuppliers, smartPrice, smartAlerts, purchases, purchaseGuardian, orders] },
     { label: "الإدارة", items: [activityCenter, { ...accounting, label: "الملخص المالي" }, reconciliation, employees, payroll] },
   ];
