@@ -79,7 +79,7 @@ export default async function AccountingPage() {
   ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 16);
 
   return <>
-    <PageHeader eyebrow="الإدارة المالية" title="المحاسبة" description="المبيعات، تكلفة البضاعة، المصروفات والرواتب مع مطابقة ما وصل فعليًا من المدفوعات." actions={<div className="pageActionGroup"><Link className="button secondary" href="/accounting/reconciliation"><Landmark size={17} /> مطابقة الأموال</Link><Link className="button secondary" href="/marketplace/orders"><ShoppingBag size={17} /> مشتريات السوق</Link><Link className="button secondary" href="/purchases/insights">مراقب مشتريات الموردين</Link><Link className="button primary" href="/accounting/expenses/new"><Plus size={17} /> تسجيل مصروف</Link></div>} />
+    <PageHeader eyebrow="الإدارة المالية" title="المحاسبة" description="المبيعات، تكلفة البضاعة، المصروفات والرواتب مع مطابقة ما وصل فعليًا من المدفوعات." actions={<div className="pageActionGroup"><Link className="button secondary" href="/accounting/reconciliation"><Landmark size={17} /> مطابقة الأموال</Link><Link className="button secondary" href="/marketplace/orders"><ShoppingBag size={17} /> مشتريات السوق</Link><Link className="button secondary" href="/purchases/insights">مراقب مشتريات الموردين</Link><Link className="button secondary" href="/accounting/ledger">دفتر القيود والفترات المالية</Link><Link className="button primary" href="/accounting/expenses/new"><Plus size={17} /> تسجيل مصروف</Link></div>} />
 
     <section className="metricsGrid four">
       <MetricCard label="مبيعات الشهر" value={formatSar(salesTotal)} note={marketplaceSalesTotal ? `طلبات مورد مستلمة ${formatSar(marketplaceSalesTotal)} خارج تحصيل تِجرا` : "من الفواتير المسجلة"} icon={CircleDollarSign} />
