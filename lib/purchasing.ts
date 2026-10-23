@@ -46,7 +46,7 @@ export function buildPurchaseSuggestion(input: PurchaseSuggestionInput): Purchas
   const configuredTarget = reorderPoint > 0 ? reorderPoint * 2 : 0;
   const targetStock = Math.max(targetStockFromVelocity, configuredTarget);
   const rawQty = roundUp(targetStock - effectiveStock);
-  const criticalFallbackQty = isCritical && rawQty === 0
+  const criticalFallbackQty = isCritical && incomingQty <= 0 && rawQty === 0
     ? Math.max(1, roundUp(Math.max(configuredTarget, criticalThreshold + 1) - effectiveStock))
     : rawQty;
   const suggestedBaseQty = input.onHand <= 0 && incomingQty <= 0 && criticalFallbackQty === 0 ? 1 : criticalFallbackQty;
