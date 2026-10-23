@@ -13,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     select: { id: true, status: true },
   });
   if (!order) return NextResponse.json({ error: "PURCHASE_ORDER_NOT_FOUND" }, { status: 404 });
-  if (["RECEIVED", "CANCELLED"].includes(order.status)) {
+  if (!["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"].includes(order.status)) {
     return NextResponse.json({ error: "ORDER_NOT_SHAREABLE" }, { status: 409 });
   }
 
