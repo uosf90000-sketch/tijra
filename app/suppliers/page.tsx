@@ -63,7 +63,7 @@ export default async function SuppliersPage() {
         description="احتفظ بمورديك الحاليين وسجّل أسعارهم. تِجرا يقارن نفس الصنف تلقائيًا وينبهك عند وجود مورد أرخص."
         actions={
           <>
-            <Link className="button secondary" href="/alerts"><BellRing size={17} /> السعر الأذكى</Link>
+            <Link className="button secondary" href="/alerts"><BellRing size={17} /> السعر الأذكى</Link><Link className="button secondary" href="/purchases/insights"><Tags size={17} /> سجل الأسعار</Link>
             <Link className="button secondary" href="/suppliers/prices/new"><Tags size={17} /> تسجيل سعر</Link>
             <Link className="button primary" href="/suppliers/new"><CirclePlus size={17} /> إضافة مورد</Link>
           </>
