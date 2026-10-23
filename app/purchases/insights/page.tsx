@@ -41,7 +41,7 @@ export default async function PurchaseInsightsPage() {
       take: 2500,
     }),
     db.purchaseOrder.findMany({
-      where: { businessId, status: { in: ["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
+      where: { businessId, status: { in: ["PENDING_APPROVAL", "SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
       select: {
         supplierId: true, status: true, orderedAt: true, receivedAt: true,
         items: { select: { productId: true, orderedQty: true, receivedQty: true } },
