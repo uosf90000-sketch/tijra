@@ -23,6 +23,32 @@ enum AppPermission {
   ACCOUNTING
 }
 
+enum BusinessScale {
+  MICRO
+  SMALL
+  MEDIUM
+  ENTERPRISE
+}
+
+enum OperatingModel {
+  FOOD_TRUCK
+  SHOP
+  RESTAURANT
+  WHOLESALE
+  SERVICES
+  MANUFACTURING
+  LOGISTICS
+  MIXED
+}
+
+model Organization {
+  id          String     @id @default(cuid())
+  name        String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  businesses  Business[]
+}
+
 enum BusinessType {
   RETAILER
   SUPPLIER
@@ -107,6 +133,7 @@ model Session {
   expiresAt DateTime
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeBusinessId String?
 
   @@index([userId, expiresAt])
   @@index([expiresAt])
@@ -121,6 +148,11 @@ model Business {
   currency                   String                @default("SAR")
   businessType               BusinessType          @default(RETAILER)
   businessActivity           BusinessActivity      @default(GROCERY)
+  businessScale              BusinessScale         @default(SMALL)
+  operatingModel             OperatingModel        @default(SHOP)
+  workspaceModules           String[]              @default([])
+  organizationId             String?
+  organization               Organization?         @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   createdAt                  DateTime              @default(now())
   updatedAt                  DateTime              @updatedAt
   memberships                Membership[]
@@ -141,6 +173,8 @@ model Business {
   favoriteSuppliers          FavoriteSupplier[]    @relation("FavoriteBuyer")
   favoritedBy                FavoriteSupplier[]    @relation("FavoriteSeller")
   paymentSettlements         PaymentSettlement[]
+
+  @@index([organizationId])
 }
 
 model Membership {
