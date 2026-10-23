@@ -84,7 +84,11 @@ export async function getSessionContext() {
     return null;
   }
 
-  const membership = session.user.memberships[0];
+  // Always derive the active business from a current membership; a stale or
+  // malicious activeBusinessId never grants access to an unowned tenant.
+  const membership = session.user.memberships.find(
+    (row) => row.businessId === session.activeBusinessId,
+  ) ?? session.user.memberships[0];
   if (!membership) return null;
 
   return {
