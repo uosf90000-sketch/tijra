@@ -10,6 +10,7 @@ type ScannerControls = { stop: () => void };
 export function StaffInventoryTerminal({ products }: { products: Product[] }) {
   const [barcode, setBarcode] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const [reason, setReason] = useState("");
   const [direction, setDirection] = useState<"IN" | "OUT">("IN");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -74,16 +75,19 @@ export function StaffInventoryTerminal({ products }: { products: Product[] }) {
       const response = await fetch("/api/inventory/quick-adjust", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ barcode, direction, quantity: numericQuantity }),
+        body: JSON.stringify({ barcode, direction, quantity: numericQuantity, reason: reason.trim() || undefined }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setMessage(result.error === "INSUFFICIENT_STOCK" ? "الكمية الموجودة لا تكفي للإخراج." : result.error === "PRODUCT_NOT_FOUND" ? "الباركود غير مسجل." : "تعذر حفظ الحركة.");
+        setMessage(result.error === "INSUFFICIENT_STOCK" ? "الكمية الموجودة لا تكفي للإخراج." : result.error === "PRODUCT_NOT_FOUND" ? "الباركود غير مسجل." :
+          result.error === "STOCK_REASON_REQUIRED" ? "اكتب سبب الحركة بثمانية أحرف على الأقل حسب سياسة المنشأة." :
+          result.error === "SUPERVISOR_REQUIRED_FOR_LARGE_STOCK_ADJUSTMENT" ? "هذه الحركة كبيرة وتحتاج مسؤول مخزون مخولًا." : "تعذر حفظ الحركة.");
         return;
       }
       setMessage(`تم ${direction === "IN" ? "إدخال" : "إخراج"} ${numericQuantity.toLocaleString("ar-SA")} ${product.unit} من ${product.name} ✅`);
       setBarcode("");
       setQuantity("1");
+      setReason("");
     } catch {
       setMessage("تعذر الاتصال بالخادم.");
     } finally {
@@ -121,6 +125,10 @@ export function StaffInventoryTerminal({ products }: { products: Product[] }) {
         <small>{product?.unit || "وحدة"}</small>
       </label>
 
+      <label className="staffManualBarcode">
+        <span>سبب حركة المخزون (قد يكون إلزاميًا حسب سياسة المنشأة)</span>
+        <input value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} placeholder="مثال: توريد مباشر / تصحيح جرد / سحب تالف" />
+      </label>
       {message ? <div className="staffActionMessage">{message}</div> : null}
 
       <button className="staffPrimaryAction" disabled={loading || !product}>
