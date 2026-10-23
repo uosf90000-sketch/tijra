@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
-import { actorFromContext, closeShift, createShift, ensureDefaultLocation, getOpenShift, listShifts } from "@/lib/commerce-ops";
+import { actorFromContext, closeShift, createShift, ensureDefaultLocation, getOpenShift, listShifts, listInventoryLocations } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
-import { locationAuthorized } from "@/lib/location-access";
+import { locationAuthorized, accessibleLocations } from "@/lib/location-access";
 
 const schema = z.discriminatedUnion("action", [
   z.object({
@@ -22,12 +22,19 @@ const schema = z.discriminatedUnion("action", [
 export async function GET() {
   const auth = await requireApiPermission("CASHIER");
   if (auth.response) return auth.response;
-  const defaultLocation = await ensureDefaultLocation(auth.context.business.id);
-  if (!(await locationAuthorized(auth.context, defaultLocation.id))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
+  await ensureDefaultLocation(auth.context.business.id);
+  const allowedLocations = await accessibleLocations(auth.context);
+  const selected = allowedLocations.find((location) => location.isDefault) ?? allowedLocations[0];
+  if (!selected) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
+  const locationSet = new Set(allowedLocations.map((item) => item.id));
+  const shifts = await listShifts(auth.context.business.id, 30);
   return NextResponse.json({
-    openShift: await getOpenShift(auth.context.business.id, defaultLocation.id),
-    shifts: await listShifts(auth.context.business.id, 30),
-    defaultLocation,
+    openShift: await getOpenShift(auth.context.business.id, selected.id),
+    shifts: auth.context.business.locationAccessEnforced
+      ? shifts.filter((shift) => Boolean(shift.locationId && locationSet.has(shift.locationId)))
+      : shifts,
+    defaultLocation: selected,
+    locations: allowedLocations,
   });
 }
 
@@ -40,7 +47,11 @@ export async function POST(request: Request) {
   const data = parsed.data;
   const businessId = auth.context.business.id;
   const actor = actorFromContext(auth.context);
-  const defaultLocation = await ensureDefaultLocation(businessId);
+  await ensureDefaultLocation(businessId);
+  const allLocations = (await listInventoryLocations(businessId)).filter((location) => location.active);
+  const allowedLocations = await accessibleLocations(auth.context);
+  const defaultLocation = allowedLocations.find((location) => location.isDefault) ?? allowedLocations[0];
+  if (!defaultLocation) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
   const scopedLocationId = data.action === "OPEN" ? (data.locationId || defaultLocation.id) : null;
   if (scopedLocationId && !(await locationAuthorized(auth.context, scopedLocationId))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
 
@@ -61,8 +72,21 @@ export async function POST(request: Request) {
     if (shift.status === "CLOSED") return NextResponse.json({ error: "SHIFT_ALREADY_CLOSED" }, { status: 409 });
     if (!(await locationAuthorized(auth.context, shift.locationId || defaultLocation.id))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
 
+    const branchId = shift.locationId || defaultLocation.id;
+    // Old POS records predate Sale.locationId. Only attribute them automatically
+    // when the company has exactly one active location; otherwise fail closed.
+    const legacy = await db.sale.count({
+      where: { businessId, paymentMethod: "CASH", soldAt: { gte: shift.openedAt }, locationId: null },
+    });
+    if (legacy > 0 && allLocations.length > 1)
+      return NextResponse.json({ error: "UNSCOPED_LEGACY_SALES_REVIEW_REQUIRED", count: legacy }, { status: 409 });
     const cashSales = await db.sale.aggregate({
-      where: { businessId, paymentMethod: "CASH", soldAt: { gte: shift.openedAt } },
+      where: {
+        businessId, paymentMethod: "CASH", soldAt: { gte: shift.openedAt },
+        ...(allLocations.length === 1
+          ? { OR: [{ locationId: branchId }, { locationId: null }] }
+          : { locationId: branchId }),
+      },
       _sum: { total: true },
     });
     const expectedCash = shift.openingCash + Number(cashSales._sum.total ?? 0);
