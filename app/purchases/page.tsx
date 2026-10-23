@@ -64,7 +64,7 @@ export default async function PurchasesPage() {
         eyebrow="المشتريات الذكية"
         title="المشتريات"
         description="تِجرا يقترح الكمية، يقسم الطلب حسب المورد، ثم تعطي المورد رابطًا يؤكد منه بدون حساب."
-        actions={<><Link className="button secondary" href="/purchases/invoice"><Camera size={17} /> مطابقة فاتورة</Link><Link className="button primary" href="/suppliers/prices/new"><CirclePlus size={17} /> إضافة سعر مورد</Link></>}
+        actions={<><Link className="button secondary" href="/purchases/insights"><Sparkles size={17} /> مراقب المشتريات</Link><Link className="button secondary" href="/purchases/invoice"><Camera size={17} /> مطابقة فاتورة</Link><Link className="button primary" href="/suppliers/prices/new"><CirclePlus size={17} /> إضافة سعر مورد</Link></>}
       />
 
       <section className="metricsGrid three">
