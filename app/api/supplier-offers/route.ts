@@ -27,6 +27,8 @@ export async function POST(request: Request) {
     const existing = await tx.supplierProduct.findUnique({
       where: { supplierId_productId: { supplierId: supplier.id, productId: product.id } },
     });
+    const effectiveMinQty = parsed.data.minOrderQty ??
+      (existing?.minOrderQty == null ? undefined : Number(existing.minOrderQty));
     const updated = await tx.supplierProduct.upsert({
     where: { supplierId_productId: { supplierId: supplier.id, productId: product.id } },
     create: {
@@ -34,26 +36,26 @@ export async function POST(request: Request) {
       productId: product.id,
       supplierSku: parsed.data.supplierSku || null,
       price: parsed.data.price,
-      minOrderQty: parsed.data.minOrderQty,
+      minOrderQty: effectiveMinQty,
     },
     update: {
       supplierSku: parsed.data.supplierSku || null,
       price: parsed.data.price,
-      minOrderQty: parsed.data.minOrderQty,
+      minOrderQty: effectiveMinQty,
       lastQuotedAt: new Date(),
     },
     });
     // Append an immutable price observation only when the quoted price or MOQ changes.
     // First quotes establish a baseline rather than a fake price increase.
     if (!existing || Number(existing.price) !== parsed.data.price ||
-        Number(existing.minOrderQty ?? 0) !== Number(parsed.data.minOrderQty ?? 0)) {
+        Number(existing.minOrderQty ?? 0) !== Number(effectiveMinQty ?? 0)) {
       await tx.supplierPriceHistory.create({
         data: {
           businessId: auth.context.business.id,
           supplierId: supplier.id,
           productId: product.id,
           price: parsed.data.price,
-          minOrderQty: parsed.data.minOrderQty,
+          minOrderQty: effectiveMinQty,
           source: "QUOTE",
         },
       });
