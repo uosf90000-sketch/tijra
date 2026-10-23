@@ -222,7 +222,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ order: result });
   } catch (error) {
     const code = error instanceof Error ? error.message : "UPDATE_FAILED";
-    const status = code === "ORDER_NOT_FOUND" ? 404 : code === "FORBIDDEN" ? 403 : ["INVALID_STATUS", "PICK_NOT_COMPLETE"].includes(code) ? 409 : 500;
+    const status = code === "ORDER_NOT_FOUND" ? 404 : ["FORBIDDEN", "LOCATION_ACCESS_DENIED"].includes(code) ? 403 : ["INVALID_STATUS", "PICK_NOT_COMPLETE"].includes(code) ? 409 : 500;
     return NextResponse.json({ error: code }, { status });
   }
 }
