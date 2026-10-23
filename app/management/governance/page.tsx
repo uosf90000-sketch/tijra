@@ -102,6 +102,13 @@ export default async function GovernancePage() {
       {" " + sessions} جلسات نشطة لحساب المالك. تفعيل السياسات هنا لا يحول النظام وحده إلى نظام ERP معتمد أو نظام تدقيق مقاوم للتلاعب الإداري.
     </div>
     <section style={{ display: "grid", gap: 18 }}>
+      <section className="panel" style={{ display: "grid", gap: 10 }}>
+        <div className="panelHeader"><div><span className="eyebrow">التدقيق والتحقق</span><h2>نسخة موقّعة من سجل الحوكمة</h2></div></div>
+        <p className="policyNote">يمكن للمالك استخراج آخر 30 يومًا في ملف JSON موقّع، ثم حفظ الملف لدى مراجع مستقل. يجب إعداد AUDIT_EXPORT_SIGNING_KEY بأمان على خادم التشغيل. إذا تجاوز السجل 2500 حدث، يوضح الملف أنه غير مكتمل.</p>
+        <div className="formActions">
+          <Link className="button secondary" href="/api/governance/audit/export?days=30">تصدير أحداث آخر 30 يومًا</Link>
+        </div>
+      </section>
       <GovernancePolicyForm initial={{
         locationAccessEnforced: policy.locationAccessEnforced,
         purchaseApprovalEnabled: policy.purchaseApprovalEnabled,
