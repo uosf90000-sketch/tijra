@@ -87,7 +87,7 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
                 <select id="businessScale" value={businessScale} onChange={(event) => setBusinessScale(event.target.value)}>{scaleOptions.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select>
               </div>
               <div className={styles.field}><label htmlFor="operatingModel">النشاط التشغيلي</label>
-                <select id="operatingModel" value={operatingModel} onChange={(event) => setOperatingModel(event.target.value)}>{modelOptions.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select>
+                <select id="operatingModel" value={operatingModel} onChange={(event) => { const value = event.target.value; setOperatingModel(value); if (value === "FOOD_TRUCK") setBusinessActivity("CAFE"); if (value === "RESTAURANT") setBusinessActivity("RESTAURANT"); }}>{modelOptions.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select>
               </div>
             </div>
             <div className={styles.grid2}><div className={styles.field}><label htmlFor="name">اسمك</label><input id="name" name="name" autoComplete="name" /></div><div className={styles.field}><label htmlFor="phone">الجوال</label><input id="phone" name="phone" inputMode="tel" autoComplete="tel" /></div></div>
