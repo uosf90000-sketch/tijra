@@ -22,6 +22,50 @@ export function getIncomingPurchaseQuantities(orders: IncomingPurchaseOrder[]) {
   return incoming;
 }
 
+export type IncomingMarketplaceOrder = {
+  status: string;
+  items: Array<{ barcode: string | null; unit: string; quantity: number }>;
+};
+
+/**
+ * Pending marketplace orders have no canonical local product ID yet.
+ * Match only when barcode+unit identifies exactly one active local product.
+ * Name-only matches could reserve the wrong goods, so are intentionally excluded.
+ */
+export function getMarketplaceIncomingQuantities(
+  products: Array<{ id: string; barcode: string | null; unit: string }>,
+  orders: IncomingMarketplaceOrder[],
+) {
+  const keyed = new Map<string, string | null>();
+  for (const product of products) {
+    if (!product.barcode?.trim()) continue;
+    const key = product.barcode.trim() + "\u0000" + product.unit;
+    if (keyed.has(key)) keyed.set(key, null);
+    else keyed.set(key, product.id);
+  }
+  const quantities = new Map<string, number>();
+  for (const order of orders) {
+    if (order.status !== "PLACED" && order.status !== "ACCEPTED") continue;
+    for (const line of order.items) {
+      if (!line.barcode?.trim() || !Number.isFinite(line.quantity) || line.quantity <= 0) continue;
+      const id = keyed.get(line.barcode.trim() + "\u0000" + line.unit);
+      if (!id) continue;
+      quantities.set(id, (quantities.get(id) ?? 0) + line.quantity);
+    }
+  }
+  return quantities;
+}
+
+export function combineIncomingQuantities(...maps: Array<Map<string, number>>) {
+  const combined = new Map<string, number>();
+  for (const map of maps) {
+    for (const [productId, quantity] of map) {
+      combined.set(productId, (combined.get(productId) ?? 0) + quantity);
+    }
+  }
+  return combined;
+}
+
 export type MarginProduct = {
   id: string; name: string; salePrice: number; averageCost: number; quantity: number;
 };
