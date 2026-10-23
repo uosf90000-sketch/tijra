@@ -15,7 +15,9 @@ type OcrResult = {
   };
 };
 
-export function InvoiceOcrUploader() {
+export type InvoiceOcrData = OcrResult["parsed"];
+
+export function InvoiceOcrUploader({ onParsed }: { onParsed?: (value: InvoiceOcrData) => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<OcrResult | null>(null);
@@ -38,6 +40,7 @@ export function InvoiceOcrUploader() {
         return;
       }
       setResult(data);
+      onParsed?.(data.parsed);
     } catch {
       setError("تعذر رفع الفاتورة أو تشغيل القراءة الآن.");
     } finally {
