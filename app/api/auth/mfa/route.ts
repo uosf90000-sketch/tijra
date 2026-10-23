@@ -114,6 +114,72 @@ export async function PATCH(request: Request) {
   }
 }
 
+const rotateSchema = z.object({
+  password: z.string().min(1).max(128),
+  code: z.string().regex(/^\d{6}$/).optional(),
+  recoveryCode: z.string().trim().max(80).optional(),
+}).refine((value) => Boolean(value.code || value.recoveryCode));
+
+export async function PUT(request: Request) {
+  const context = await getSessionContext();
+  if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const parsed = rotateSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
+  const user = await db.user.findUniqueOrThrow({ where: { id: context.user.id } });
+  if (!user.totpSecretEncrypted) return NextResponse.json({ error: "MFA_NOT_ENABLED" }, { status: 409 });
+  if (!user.passwordHash || !(await verifyPassword(parsed.data.password, user.passwordHash)))
+    return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
+  if (user.mfaLockedUntil && user.mfaLockedUntil > new Date())
+    return NextResponse.json({ error: "MFA_LOCKED" }, { status: 429 });
+
+  const step = parsed.data.code
+    ? matchTotpStep(decryptTotpSecret(user.totpSecretEncrypted), parsed.data.code) : null;
+  let recoveryHash: string | null = null;
+  if (parsed.data.recoveryCode) {
+    try { recoveryHash = hashRecoveryCode(parsed.data.recoveryCode); } catch { recoveryHash = null; }
+  }
+  if (step === null && recoveryHash === null)
+    return NextResponse.json({ error: "INVALID_CODE" }, { status: 401 });
+
+  const recoveryCodes = generateRecoveryCodes();
+  try {
+    await db.$transaction(async (tx) => {
+      if (step !== null) {
+        const accepted = await tx.user.updateMany({
+          where: { id: user.id, OR: [
+            { mfaLastVerifiedStep: null }, { mfaLastVerifiedStep: { lt: step } },
+          ] },
+          data: { mfaLastVerifiedStep: step },
+        });
+        if (accepted.count !== 1) throw new Error("MFA_CODE_ALREADY_USED");
+      } else {
+        const used = await tx.mfaRecoveryCode.updateMany({
+          where: { userId: user.id, codeHash: recoveryHash!, usedAt: null },
+          data: { usedAt: new Date() },
+        });
+        if (used.count !== 1) throw new Error("RECOVERY_CODE_INVALID_OR_USED");
+      }
+      await tx.mfaRecoveryCode.deleteMany({ where: { userId: user.id } });
+      await tx.mfaRecoveryCode.createMany({
+        data: recoveryCodes.map((code) => ({ userId: user.id, codeHash: hashRecoveryCode(code) })),
+      });
+      await tx.inventoryAuditEvent.create({ data: {
+        businessId: context.business.id, action: "MFA_RECOVERY_ROTATED",
+        actorUserId: user.id, actorName: context.user.name,
+        actorRole: context.membership.role,
+        note: "All prior MFA backup codes revoked and replaced after password + second-factor validation",
+      } });
+    });
+    return NextResponse.json({ recoveryCodes });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    if (["MFA_CODE_ALREADY_USED", "RECOVERY_CODE_INVALID_OR_USED"].includes(code))
+      return NextResponse.json({ error: code }, { status: 409 });
+    console.error("Recovery code rotation failed", error);
+    return NextResponse.json({ error: "RECOVERY_ROTATION_FAILED" }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: Request) {
   const context = await getSessionContext();
   if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
