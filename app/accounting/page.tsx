@@ -16,7 +16,7 @@ export default async function AccountingPage() {
   const businessId = context.business.id;
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
-  const [sales, expenses, payrollRuns, purchaseOrders, supplierOrders, recentSales, recentExpenses, recentPurchases, nonCashSales, settlementTotals] = await Promise.all([
+  const [sales, expenses, payrollRuns, purchaseOrders, supplierOrders, recentSales, recentExpenses, recentPurchases, nonCashSales, settlementTotals, receivedSupplierInvoices, openSupplierPurchases, recentSupplierInvoices] = await Promise.all([
     db.sale.aggregate({ where: { businessId, soldAt: { gte: monthStart } }, _sum: { total: true, costTotal: true } }),
     db.expense.aggregate({ where: { businessId, expenseDate: { gte: monthStart } }, _sum: { amount: true } }),
     db.payrollRun.findMany({ where: { businessId, periodStart: { gte: monthStart }, status: { in: ["APPROVED", "PAID"] } }, include: { items: true } }),
@@ -27,6 +27,17 @@ export default async function AccountingPage() {
     db.marketplaceOrder.findMany({ where: { buyerBusinessId: businessId, status: { not: "CANCELLED" } }, include: { seller: true }, orderBy: { createdAt: "desc" }, take: 8 }),
     db.sale.aggregate({ where: { businessId, soldAt: { gte: monthStart }, paymentMethod: { in: ["CARD", "TRANSFER", "OTHER"] } }, _sum: { total: true } }),
     db.paymentSettlement.aggregate({ where: { businessId, salesDate: { gte: monthStart } }, _sum: { grossAmount: true, fees: true, netAmount: true } }),
+    db.purchaseInvoice.aggregate({ where: { businessId, status: "APPROVED", approvedAt: { gte: monthStart } }, _sum: { invoiceTotal: true } }),
+    db.purchaseOrder.findMany({
+      where: { businessId, status: { in: ["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
+      select: { items: { select: { orderedQty: true, receivedQty: true, unitCost: true } } },
+    }),
+    db.purchaseInvoice.findMany({
+      where: { businessId, status: "APPROVED" },
+      include: { supplier: { select: { name: true } } },
+      orderBy: { approvedAt: "desc" },
+      take: 8,
+    }),
   ]);
 
   const salesTotal = Number(sales._sum.total ?? 0);
@@ -46,6 +57,10 @@ export default async function AccountingPage() {
   const settlementFees = Number(settlementTotals._sum.fees ?? 0);
   const settlementNet = Number(settlementTotals._sum.netAmount ?? 0);
   const settlementGap = settlementExpected - settlementRecorded;
+  const supplierInvoiceTotal = Number(receivedSupplierInvoices._sum.invoiceTotal ?? 0);
+  const outstandingPurchaseEstimate = openSupplierPurchases.reduce((total, order) => total +
+    order.items.reduce((sum, item) => sum +
+      Math.max(0, Number(item.orderedQty) - Number(item.receivedQty)) * Number(item.unitCost), 0), 0);
 
   const pnl = [
     { label: "المبيعات المسجلة", value: salesTotal, positive: true },
@@ -60,10 +75,11 @@ export default async function AccountingPage() {
     ...recentSales.map((sale) => ({ id: `sale-${sale.id}`, date: sale.soldAt, type: "بيع", description: sale.invoiceNumber || "فاتورة بيع", direction: "داخل", amount: Number(sale.total) })),
     ...recentExpenses.map((expense) => ({ id: `expense-${expense.id}`, date: expense.expenseDate, type: "مصروف", description: expense.description || expense.category, direction: "خارج", amount: Number(expense.amount) })),
     ...recentPurchases.map((order) => ({ id: `market-${order.id}`, date: order.createdAt, type: "شراء سوق", description: `${order.seller.name} · ${order.status === "RECEIVED" ? "مستلم" : order.status === "ACCEPTED" ? "مقبول" : "قيد الطلب"}`, direction: "مخزون", amount: Number(order.expectedTotal) })),
+    ...recentSupplierInvoices.map((invoice) => ({ id: `supplier-invoice-${invoice.id}`, date: invoice.approvedAt ?? invoice.createdAt, type: "فاتورة مورد", description: invoice.supplier.name + " · " + (invoice.invoiceNumber || "فاتورة مشتريات"), direction: "مخزون", amount: Number(invoice.invoiceTotal) })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 16);
 
   return <>
-    <PageHeader eyebrow="الإدارة المالية" title="المحاسبة" description="المبيعات، تكلفة البضاعة، المصروفات والرواتب مع مطابقة ما وصل فعليًا من المدفوعات." actions={<div className="pageActionGroup"><Link className="button secondary" href="/accounting/reconciliation"><Landmark size={17} /> مطابقة الأموال</Link><Link className="button secondary" href="/marketplace/orders"><ShoppingBag size={17} /> مشتريات السوق</Link><Link className="button primary" href="/accounting/expenses/new"><Plus size={17} /> تسجيل مصروف</Link></div>} />
+    <PageHeader eyebrow="الإدارة المالية" title="المحاسبة" description="المبيعات، تكلفة البضاعة، المصروفات والرواتب مع مطابقة ما وصل فعليًا من المدفوعات." actions={<div className="pageActionGroup"><Link className="button secondary" href="/accounting/reconciliation"><Landmark size={17} /> مطابقة الأموال</Link><Link className="button secondary" href="/marketplace/orders"><ShoppingBag size={17} /> مشتريات السوق</Link><Link className="button secondary" href="/purchases/insights">مراقب مشتريات الموردين</Link><Link className="button primary" href="/accounting/expenses/new"><Plus size={17} /> تسجيل مصروف</Link></div>} />
 
     <section className="metricsGrid four">
       <MetricCard label="مبيعات الشهر" value={formatSar(salesTotal)} note={marketplaceSalesTotal ? `طلبات مورد مستلمة ${formatSar(marketplaceSalesTotal)} خارج تحصيل تِجرا` : "من الفواتير المسجلة"} icon={CircleDollarSign} />
@@ -72,6 +88,21 @@ export default async function AccountingPage() {
       <MetricCard label="صافي الربح التقديري" value={formatSar(netProfit)} note="بعد تكلفة المبيعات والمصاريف والرواتب" icon={WalletCards} tone="violet" />
     </section>
 
+    <section className="panel" style={{ marginBottom: 20 }}>
+      <div className="panelHeader">
+        <div><span className="eyebrow">ربط المشتريات بالمحاسبة</span><h2>فواتير الموردين وطلبات التوريد</h2></div>
+        <Link className="textLink" href="/purchases/insights">فحص الأسعار والفواتير</Link>
+      </div>
+      <div className="cashflowCards">
+        <div className="cashflowCard in"><ReceiptText size={20} /><span>فواتير استلام مورّدين معتمدة هذا الشهر</span><strong>{formatSar(supplierInvoiceTotal)}</strong></div>
+        <div className="cashflowCard out"><ShoppingBag size={20} /><span>قيمة متبقية تقديرية بطلبات الموردين المفتوحة</span><strong>{formatSar(outstandingPurchaseEstimate)}</strong></div>
+      </div>
+      <div className="infoNote">
+        الفواتير المعتمدة تمثل تكلفة مشتريات مسجلة في المخزون وليست إثبات دفع نقدي أو مصروفًا مكررًا.
+        قيمة الطلبات المفتوحة مبنية على الكمية المتبقية بسعر أمر الشراء، وليست التزامًا محاسبيًا نهائيًا.
+        شراء السوق يظهر في قسمه المستقل وقد يتقاطع مع عملية شراء مسجلة يدويًا؛ لا تجمع القيمتين تلقائيًا.
+      </div>
+    </section>
     <section className="accountingGrid">
       <article className="panel"><div className="panelHeader"><div><span className="eyebrow">هذا الشهر</span><h2>قائمة دخل مبسطة</h2></div></div><div className="pnlList">{pnl.map((item) => <div className={`pnlRow ${item.strong ? "strong" : ""}`} key={item.label}><span>{item.label}</span><strong className={item.positive ? "positive" : ""}>{item.positive ? "" : "-"}{formatSar(Math.abs(item.value))}</strong></div>)}</div><div className="infoNote">مشتريات السوق تزيد المخزون ولا تُخصم من الربح مباشرة؛ تكلفتها تدخل عند بيع البضاعة. الدفع والتسوية مع المورد تتم خارج تِجرا حاليًا، لذلك لا نعرض الطلب على أنه «مدفوع» بدون دليل.</div></article>
       <article className="panel"><div className="panelHeader"><div><span className="eyebrow">الحركة التشغيلية</span><h2>داخل / تكلفة وخارج</h2></div></div><div className="cashflowCards"><div className="cashflowCard in"><ArrowDownLeft size={20} /><span>المبيعات</span><strong>{formatSar(salesTotal)}</strong></div><div className="cashflowCard out"><ArrowUpRight size={20} /><span>التكلفة + المصروفات + الرواتب</span><strong>{formatSar(outgoing)}</strong></div></div><div className="balanceHero"><span>النتيجة التشغيلية</span><strong>{netProfit >= 0 ? "+" : "-"}{formatSar(Math.abs(netProfit))}</strong><small>تقديري للفترة الحالية</small></div></article>
