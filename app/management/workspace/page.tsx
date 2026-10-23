@@ -31,6 +31,8 @@ export default async function WorkspacePage() {
           initialScale={context.business.businessScale}
           initialModel={context.business.operatingModel}
           initialModules={context.business.workspaceModules}
+          initialApprovalEnabled={context.business.purchaseApprovalEnabled}
+          initialApprovalThreshold={Number(context.business.purchaseApprovalThreshold)}
         />
       </section>
     )}
