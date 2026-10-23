@@ -28,6 +28,7 @@ const messages: Record<string, string> = {
   INVALID_MFA_CODE: "الرمز غير صحيح. تأكد من الوقت في جهازك.",
   MFA_LOCKED: "تم تعليق التحقق مؤقتًا بعد محاولات فاشلة. حاول لاحقًا.",
   MFA_CODE_ALREADY_USED: "هذا الرمز استخدم مسبقًا. استخدم الرمز التالي.",
+  INVALID_MFA_CODE: "رمز التحقق أو الاسترداد غير صالح.",
 };
 
 export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
@@ -35,6 +36,7 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [loading, setLoading] = useState(false);
   const [showTotp, setShowTotp] = useState(false);
+  const [useRecovery, setUseRecovery] = useState(false);
   const [error, setError] = useState("");
   const [businessType, setBusinessType] = useState("RETAILER");
   const [businessActivity, setBusinessActivity] = useState("GROCERY");
@@ -43,7 +45,7 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
   const register = mode === "register";
 
   function switchMode(next: Mode) {
-    setMode(next); setError(""); setShowTotp(false);
+    setMode(next); setError(""); setShowTotp(false); setUseRecovery(false);
     window.history.replaceState(null, "", next === "register" ? "/login?mode=register" : "/login");
   }
 
@@ -55,6 +57,7 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
     const password = String(form.get("password") || "");
     const name = String(form.get("name") || "").trim();
     const totpCode = String(form.get("totpCode") || "").trim();
+    const recoveryCode = String(form.get("recoveryCode") || "").trim();
     const businessName = String(form.get("businessName") || "").trim();
 
     if (!email) return setError("أدخل البريد الإلكتروني.");
@@ -65,7 +68,7 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
     if (register && businessName.length < 2) return setError("أدخل اسم المنشأة.");
 
     setLoading(true); setError("");
-    const payload = register ? { name, email, password, phone: form.get("phone") || undefined, businessName, businessType, businessActivity, businessScale, operatingModel, city: form.get("city") || undefined, taxNumber: form.get("taxNumber") || undefined } : { email, password, ...(totpCode ? { totpCode } : {}) };
+    const payload = register ? { name, email, password, phone: form.get("phone") || undefined, businessName, businessType, businessActivity, businessScale, operatingModel, city: form.get("city") || undefined, taxNumber: form.get("taxNumber") || undefined } : { email, password, ...(useRecovery ? (recoveryCode ? { recoveryCode } : {}) : (totpCode ? { totpCode } : {})) };
 
     try {
       const response = await fetch(`/api/auth/${register ? "register" : "login"}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
@@ -102,7 +105,17 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
           </>}
           <div className={styles.field}><label htmlFor="email">البريد الإلكتروني</label><input id="email" name="email" type="email" autoComplete="email" dir="ltr" placeholder="example@tijra.com" /></div>
           <div className={styles.field}><label htmlFor="password">كلمة المرور</label><input id="password" name="password" type="password" autoComplete={register ? "new-password" : "current-password"} dir="ltr" /></div>
-          {!register && showTotp && <div className={styles.field}><label htmlFor="totpCode">رمز التحقق من تطبيق المصادقة</label><input id="totpCode" name="totpCode" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required placeholder="000000" dir="ltr" /></div>}
+          {!register && showTotp && <>
+            <div className={styles.field}>
+              <label htmlFor={useRecovery ? "recoveryCode" : "totpCode"}>{useRecovery ? "رمز استرداد غير مستخدم" : "رمز التحقق من تطبيق المصادقة"}</label>
+              {useRecovery
+                ? <input id="recoveryCode" name="recoveryCode" autoComplete="off" maxLength={80} required dir="ltr" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" />
+                : <input id="totpCode" name="totpCode" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required placeholder="000000" dir="ltr" />}
+            </div>
+            <button type="button" className={styles.modeTabs} onClick={() => { setUseRecovery((value) => !value); setError(""); }}>
+              {useRecovery ? "العودة إلى رمز التطبيق" : "فقدت الهاتف؟ الدخول برمز استرداد"}
+            </button>
+          </>}
           {error && <div className={styles.error} role="alert">{error}</div>}
           <button className={styles.submit} disabled={loading}>{loading ? "جاري الحفظ..." : register ? "إنشاء الحساب والمتابعة" : "تسجيل الدخول"}</button>
         </form>
