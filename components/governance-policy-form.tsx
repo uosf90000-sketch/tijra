@@ -8,6 +8,7 @@ export type GovernancePolicyValue = {
   purchaseApprovalEnabled: boolean;
   purchaseApprovalThreshold: number;
   payrollDualApprovalEnabled: boolean;
+  journalDualApprovalEnabled: boolean;
   stockReasonRequired: boolean;
   stockValueReviewThreshold: number;
   expenseOwnerThreshold: number;
@@ -79,6 +80,11 @@ export function GovernancePolicyForm({ initial }: { initial: GovernancePolicyVal
       <input type="checkbox" checked={policy.payrollDualApprovalEnabled}
         onChange={(event) => set("payrollDualApprovalEnabled", event.target.checked)}/>
       <span>فصل منشئ مسير الرواتب عن المعتمد، وفصل المعتمد عن مُثبت الدفع</span>
+    </label>
+    <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
+      <input type="checkbox" checked={policy.journalDualApprovalEnabled}
+        onChange={(event) => set("journalDualApprovalEnabled", event.target.checked)}/>
+      <span>لا يُرحّل القيد المحاسبي إلا من مسؤول غير منشئه</span>
     </label>
     <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
       <input type="checkbox" checked={policy.stockReasonRequired}
