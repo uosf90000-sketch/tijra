@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
-import { getIncomingPurchaseQuantities } from "@/lib/operating-intelligence";
+import { combineIncomingQuantities, getIncomingPurchaseQuantities, getMarketplaceIncomingQuantities } from "@/lib/operating-intelligence";
 
 /**
  * Smart order creation is transactional: compute inbound stock and make the new
@@ -16,7 +16,7 @@ export async function POST() {
 
   try {
     const orders = await db.$transaction(async (tx) => {
-      const [products, openOrders] = await Promise.all([
+      const [products, openOrders, pendingMarketplaceOrders] = await Promise.all([
         tx.product.findMany({
           where: { businessId, active: true },
           include: {
@@ -34,13 +34,28 @@ export async function POST() {
             items: { select: { productId: true, orderedQty: true, receivedQty: true } },
           },
         }),
+        tx.marketplaceOrder.findMany({
+          where: { buyerBusinessId: businessId, status: { in: ["PLACED", "ACCEPTED"] } },
+          select: { status: true, items: { select: {
+            quantity: true, listing: { select: { barcode: true, unit: true } },
+          } } },
+        }),
       ]);
-      const incoming = getIncomingPurchaseQuantities(openOrders.map((order) => ({
+      const purchaseIncoming = getIncomingPurchaseQuantities(openOrders.map((order) => ({
         status: order.status,
         items: order.items.map((item) => ({
           productId: item.productId, orderedQty: Number(item.orderedQty), receivedQty: Number(item.receivedQty),
         })),
       })));
+      const marketplaceIncoming = getMarketplaceIncomingQuantities(products.map((product) => ({
+        id: product.id, barcode: product.barcode, unit: product.unit,
+      })), pendingMarketplaceOrders.map((order) => ({
+        status: order.status,
+        items: order.items.map((item) => ({
+          barcode: item.listing.barcode, unit: item.listing.unit, quantity: Number(item.quantity),
+        })),
+      })));
+      const incoming = combineIncomingQuantities(purchaseIncoming, marketplaceIncoming);
 
       const groups = new Map<string, {
         supplierId: string; supplierName: string;
@@ -80,7 +95,7 @@ export async function POST() {
             status: "SENT",
             expectedTotal,
             orderedAt: new Date(),
-            notes: "طلب ذكي بعد خصم الكميات المسجلة قيد التوريد؛ التوصيل بين التاجر والمورد.",
+            notes: "طلب ذكي بعد خصم كميات الموردين وطلبات السوق ذات التطابق الموثوق؛ التوصيل بين التاجر والمورد.",
             items: { create: group.items },
           },
           include: { supplier: true, items: true },
