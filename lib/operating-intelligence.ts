@@ -7,7 +7,7 @@ export type IncomingPurchaseOrder = {
   items: Array<{ productId: string; orderedQty: number; receivedQty: number }>;
 };
 
-const COMMITTED_PO_STATES = new Set(["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"]);
+const COMMITTED_PO_STATES = new Set(["PENDING_APPROVAL", "SENT", "CONFIRMED", "PARTIALLY_RECEIVED"]);
 
 export function getIncomingPurchaseQuantities(orders: IncomingPurchaseOrder[]) {
   const incoming = new Map<string, number>();
