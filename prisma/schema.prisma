@@ -186,6 +186,7 @@ model Business {
   purchaseApprovalEnabled    Boolean               @default(false)
   purchaseApprovalThreshold  Decimal               @default(5000) @db.Decimal(12, 2)
   payrollDualApprovalEnabled Boolean               @default(false)
+  journalDualApprovalEnabled Boolean               @default(false)
   stockReasonRequired        Boolean               @default(false)
   stockValueReviewThreshold  Decimal               @default(5000) @db.Decimal(12, 2)
   expenseOwnerThreshold      Decimal               @default(5000) @db.Decimal(12, 2)
