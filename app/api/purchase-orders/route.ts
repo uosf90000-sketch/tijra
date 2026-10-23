@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { needsPurchaseApproval } from "@/lib/purchase-approval";
 
 const itemSchema = z.object({
   productId: z.string().min(1),
@@ -54,15 +55,23 @@ export async function POST(request: Request) {
   if (products.length !== productIds.length) return NextResponse.json({ error: "PRODUCT_NOT_FOUND" }, { status: 404 });
 
   const expectedTotal = parsed.data.items.reduce((sum, item) => sum + item.orderedQty * item.unitCost, 0);
+  const policy = await db.business.findUniqueOrThrow({
+    where: { id: auth.context.business.id }, select: { purchaseApprovalEnabled: true, purchaseApprovalThreshold: true },
+  });
+  const gated = needsPurchaseApproval(expectedTotal, {
+    enabled: policy.purchaseApprovalEnabled, threshold: Number(policy.purchaseApprovalThreshold),
+  });
+  const send = parsed.data.sendNow && !gated;
   const order = await db.purchaseOrder.create({
     data: {
       businessId: auth.context.business.id,
+      requestedByUserId: auth.context.user.id,
       supplierId: supplier.id,
       orderNumber: parsed.data.orderNumber || null,
       notes: parsed.data.notes || null,
       expectedTotal,
-      status: parsed.data.sendNow ? "SENT" : "DRAFT",
-      orderedAt: parsed.data.sendNow ? new Date() : null,
+      status: gated ? "PENDING_APPROVAL" : send ? "SENT" : "DRAFT",
+      orderedAt: send ? new Date() : null,
       items: {
         create: parsed.data.items.map((item) => ({
           productId: item.productId,
