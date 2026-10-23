@@ -153,7 +153,19 @@ model User {
   updatedAt    DateTime     @updatedAt
   memberships  Membership[]
   sessions     Session[]
+  mfaRecoveryCodes MfaRecoveryCode[]
   employees    Employee[]
+}
+
+model MfaRecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String    @unique
+  createdAt DateTime  @default(now())
+  usedAt    DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
 }
 
 model Session {
