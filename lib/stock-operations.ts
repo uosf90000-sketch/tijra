@@ -174,6 +174,7 @@ export async function recordSale(input: RecordSaleInput) {
     const sale = await tx.sale.create({
       data: {
         businessId: input.businessId,
+        locationId: input.locationId || null,
         invoiceNumber: input.invoiceNumber,
         paymentMethod: input.paymentMethod ?? "CASH",
         total,
