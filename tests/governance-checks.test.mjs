@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { canDecidePurchaseApproval, needsPurchaseApproval } from "../lib/purchase-approval.ts";
 import {
-  stockAdjustmentViolation, expenseViolation, payrollTransitionViolation,
+  stockAdjustmentViolation, expenseViolation, payrollTransitionViolation, cashierDiscountViolation,
 } from "../lib/governance-checks.ts";
 
 test("purchases above approval threshold are blocked until a separate reviewer decides", () => {
@@ -57,4 +57,20 @@ test("enterprise payroll is initiated, reviewed and marked paid by separated ide
     ...base, action: "MARK_PAID", status: "APPROVED", actorId: "owner",
     approvedByUserId: "accountant", paymentReference: "BANK-001",
   }), null);
+});
+
+
+test("cashier cannot bypass enterprise discount ceiling by changing API unit price", () => {
+  assert.equal(cashierDiscountViolation({
+    role: "CASHIER", listedPrice: 100, chargedBasePrice: 90, maxDiscountPercent: 5,
+  }), "CASHIER_DISCOUNT_LIMIT_EXCEEDED");
+  assert.equal(cashierDiscountViolation({
+    role: "CASHIER", listedPrice: 100, chargedBasePrice: 95, maxDiscountPercent: 5,
+  }), null);
+  assert.equal(cashierDiscountViolation({
+    role: "OWNER", listedPrice: 100, chargedBasePrice: 75, maxDiscountPercent: 0,
+  }), null);
+  assert.equal(cashierDiscountViolation({
+    role: "STAFF", listedPrice: 100, chargedBasePrice: 0, maxDiscountPercent: 0,
+  }), "CASHIER_DISCOUNT_LIMIT_EXCEEDED");
 });
