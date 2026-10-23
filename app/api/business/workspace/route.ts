@@ -32,14 +32,38 @@ export async function PATCH(request: Request) {
   if (context.membership.role !== "OWNER") return NextResponse.json({ error: "OWNER_REQUIRED" }, { status: 403 });
   const parsed = updateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "INVALID_PROFILE" }, { status: 400 });
-  const updated = await db.business.update({
-    where: { id: context.business.id },
-    data: {
-      businessScale: parsed.data.businessScale,
-      operatingModel: parsed.data.operatingModel,
-      workspaceModules: [...new Set(parsed.data.workspaceModules)],
-    },
-    select: { id: true, businessScale: true, operatingModel: true, workspaceModules: true },
+  const updated = await db.$transaction(async (tx) => {
+    const before = await tx.business.findUniqueOrThrow({
+      where: { id: context.business.id },
+      select: { businessScale: true, operatingModel: true, workspaceModules: true },
+    });
+    const business = await tx.business.update({
+      where: { id: context.business.id },
+      data: {
+        businessScale: parsed.data.businessScale,
+        operatingModel: parsed.data.operatingModel,
+        workspaceModules: [...new Set(parsed.data.workspaceModules)],
+      },
+      select: { id: true, businessScale: true, operatingModel: true, workspaceModules: true },
+    });
+    await tx.inventoryAuditEvent.create({
+      data: {
+        businessId: context.business.id,
+        action: "WORKSPACE_PROFILE_UPDATED",
+        actorUserId: context.user.id,
+        actorName: context.user.name,
+        actorRole: context.membership.role,
+        note: JSON.stringify({
+          previous: before,
+          current: {
+            businessScale: business.businessScale,
+            operatingModel: business.operatingModel,
+            workspaceModules: business.workspaceModules,
+          },
+        }),
+      },
+    });
+    return business;
   });
   return NextResponse.json({
     profile: updated,
