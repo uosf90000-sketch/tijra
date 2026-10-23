@@ -47,6 +47,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Test purchasing safeguards
+        run: node --test tests/*.test.mjs
+
       - name: Build
         run: npm run build
 
