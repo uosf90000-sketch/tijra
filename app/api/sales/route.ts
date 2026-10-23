@@ -110,7 +110,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ sale: finalSale }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "SALE_FAILED";
-    const status = message.startsWith("INSUFFICIENT_STOCK") || message.startsWith("INSUFFICIENT_LOCATION_STOCK") ? 409
+    const status = message === "CASHIER_DISCOUNT_LIMIT_EXCEEDED" ? 403
+      : message === "INVALID_SALE_PRICE" ? 400
+      : message.startsWith("INSUFFICIENT_STOCK") || message.startsWith("INSUFFICIENT_LOCATION_STOCK") ? 409
       : message === "PRODUCT_NOT_FOUND" ? 404
       : message.startsWith("SERIAL") || message === "DUPLICATE_SERIALS" ? 409
       : message.startsWith("INCOMPATIBLE_RECIPE_UNITS") || message.startsWith("INVALID_RECIPE") || message.startsWith("RECIPE_") ? 409
