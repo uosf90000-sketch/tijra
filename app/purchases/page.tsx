@@ -10,7 +10,7 @@ import { CancelSupplierOrderButton } from "@/components/cancel-supplier-order-bu
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
-import { getIncomingPurchaseQuantities } from "@/lib/operating-intelligence";
+import { combineIncomingQuantities, getIncomingPurchaseQuantities, getMarketplaceIncomingQuantities } from "@/lib/operating-intelligence";
 
 export const metadata = { title: "المشتريات" };
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export default async function PurchasesPage() {
   if (!context) redirect("/login");
   const businessId = context.business.id;
 
-  const [products, purchaseOrders, pendingOrderLines] = await Promise.all([
+  const [products, purchaseOrders, pendingOrderLines, pendingMarketplaceOrders] = await Promise.all([
     db.product.findMany({
       where: { businessId, active: true },
       include: { supplierItems: { include: { supplier: true }, orderBy: { price: "asc" } } },
@@ -45,8 +45,14 @@ export default async function PurchasesPage() {
       where: { businessId, status: { in: ["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
       select: { status: true, items: { select: { productId: true, orderedQty: true, receivedQty: true } } },
     }),
+    db.marketplaceOrder.findMany({
+      where: { buyerBusinessId: businessId, status: { in: ["PLACED", "ACCEPTED"] } },
+      select: { status: true, items: { select: {
+        quantity: true, listing: { select: { barcode: true, unit: true } },
+      } } },
+    }),
   ]);
-  const incoming = getIncomingPurchaseQuantities(pendingOrderLines.map((order) => ({
+  const purchaseIncoming = getIncomingPurchaseQuantities(pendingOrderLines.map((order) => ({
     status: order.status,
     items: order.items.map((item) => ({
       productId: item.productId,
@@ -54,6 +60,15 @@ export default async function PurchasesPage() {
       receivedQty: Number(item.receivedQty),
     })),
   })));
+  const marketIncoming = getMarketplaceIncomingQuantities(products.map((product) => ({
+    id: product.id, barcode: product.barcode, unit: product.unit,
+  })), pendingMarketplaceOrders.map((order) => ({
+    status: order.status,
+    items: order.items.map((item) => ({
+      barcode: item.listing.barcode, unit: item.listing.unit, quantity: Number(item.quantity),
+    })),
+  })));
+  const incoming = combineIncomingQuantities(purchaseIncoming, marketIncoming);
 
   const suggestions = products.flatMap((product) => {
     const current = Number(product.quantity);
@@ -83,7 +98,7 @@ export default async function PurchasesPage() {
         actions={<><Link className="button secondary" href="/purchases/insights"><Sparkles size={17} /> مراقب المشتريات</Link><Link className="button secondary" href="/purchases/invoice"><Camera size={17} /> مطابقة فاتورة</Link><Link className="button primary" href="/suppliers/prices/new"><CirclePlus size={17} /> إضافة سعر مورد</Link></>}
       />
 
-      <div className="infoNote">الكميات قيد التوريد خُصمت من الاحتياج قبل إنشاء الطلبات، لمنع الشراء المكرر. طلب التوريد ليس كمية متاحة للبيع حتى يصل ويُعتمد الاستلام.</div>
+      <div className="infoNote">الكميات قيد التوريد من الموردين وطلبات السوق المتطابقة بباركود ووحدة فريدين خُصمت من الاحتياج. لا تُضاف هذه الكميات للمخزون الفعلي إلا عند اعتماد الاستلام.</div>
       <section className="metricsGrid three">
         <MetricCard label="الطلبية المقترحة" value={formatSar(suggestionTotal)} note={`${suggestions.length} أصناف`} icon={Sparkles} />
         <MetricCard label="موردون في الخطة" value={`${supplierCount}`} note="حسب أفضل سعر مسجل" icon={Check} tone="blue" />
