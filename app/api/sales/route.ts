@@ -36,6 +36,12 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
   }
+  // Backdating alters accounting periods; only an owner may import historical
+  // transactions, never an ordinary cashier or a delegated staff role.
+  if (parsed.data.recordedAt && auth.context.membership.role !== "OWNER")
+    return NextResponse.json({ error: "OWNER_REQUIRED_FOR_BACKDATED_SALE" }, { status: 403 });
+  if (auth.context.business.businessScale === "ENTERPRISE" && !parsed.data.invoiceNumber)
+    return NextResponse.json({ error: "INVOICE_NUMBER_REQUIRED" }, { status: 400 });
 
   const productIds = Array.from(new Set(parsed.data.items.map((item) => item.productId)));
   const recipeRows = productIds.length ? await db.inventoryAuditEvent.findMany({
