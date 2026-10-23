@@ -1,3 +1,4 @@
+import { makeInvoiceKey, reviewPurchase } from "@/lib/purchase-guardian";
 import { db } from "@/lib/db";
 import { adjustLocationStock, consumeLots, receiveLot, safeJson, syncListingForProduct } from "@/lib/commerce-ops";
 import { decodeRecipeNote, requiredStockQuantity, type RecipeState } from "@/lib/recipes";
@@ -331,6 +332,7 @@ export async function recordSale(input: RecordSaleInput) {
 }
 
 export type ReceivePurchaseLineInput = {
+  invoicedQty?: number;
   productId: string;
   receivedQty: number;
   unitCost: number;
@@ -343,6 +345,10 @@ export type ReceivePurchaseInput = {
   purchaseOrderId: string;
   invoiceNumber?: string;
   issuedAt?: Date;
+  declaredTotal?: number;
+  declaredVat?: number;
+  acknowledgeVariance?: boolean;
+  reviewNote?: string;
   locationId?: string | null;
   actorUserId?: string;
   actorName?: string;
@@ -361,6 +367,34 @@ export async function receivePurchaseOrder(input: ReceivePurchaseInput) {
     if (order.status === "CANCELLED") throw new Error("PURCHASE_ORDER_CANCELLED");
     if (order.status === "RECEIVED") throw new Error("PURCHASE_ORDER_ALREADY_RECEIVED");
 
+    const invoiceKey = makeInvoiceKey(input.businessId, order.supplierId, input.invoiceNumber);
+    if (invoiceKey) {
+      const duplicate = await tx.purchaseInvoice.findFirst({
+        where: {
+          businessId: input.businessId,
+          supplierId: order.supplierId,
+          OR: [
+            { invoiceKey },
+            { invoiceNumber: { equals: input.invoiceNumber!.trim(), mode: "insensitive" } },
+          ],
+        },
+      });
+      if (duplicate) throw new Error("DUPLICATE_SUPPLIER_INVOICE");
+    }
+
+    const previousInvoices = await tx.purchaseInvoice.findMany({
+      where: { businessId: input.businessId, supplierId: order.supplierId, status: "APPROVED" },
+      include: { items: true },
+      orderBy: { approvedAt: "desc" },
+      take: 250,
+    });
+    const latestPrices = new Map<string, number>();
+    for (const historical of previousInvoices) {
+      for (const line of historical.items) {
+        if (!latestPrices.has(line.productId)) latestPrices.set(line.productId, Number(line.unitCost));
+      }
+    }
+
     const orderItemMap = new Map(order.items.map((item) => [item.productId, item]));
 
     for (const item of input.items) {
@@ -373,13 +407,36 @@ export async function receivePurchaseOrder(input: ReceivePurchaseInput) {
       }
     }
 
-    const invoiceTotal = input.items.reduce((sum, item) => sum + item.receivedQty * item.unitCost, 0);
+    const review = reviewPurchase(input.items.map((item) => {
+      const original = orderItemMap.get(item.productId)!;
+      return {
+        productId: item.productId,
+        productName: original.product.name,
+        orderedUnitCost: Number(original.unitCost),
+        unitCost: item.unitCost,
+        receivedQty: item.receivedQty,
+        invoicedQty: item.invoicedQty ?? item.receivedQty,
+        previousUnitCost: latestPrices.get(item.productId),
+      };
+    }), input.declaredTotal, input.declaredVat);
+
+    if (review.warnings.length && (!input.acknowledgeVariance || (input.reviewNote ?? "").trim().length < 8)) {
+      throw new Error("PURCHASE_REVIEW_REQUIRED:" + review.warnings.map((item) => item.code).join(","));
+    }
+
+    const invoiceTotal = input.items.reduce((sum, item) => sum + (item.invoicedQty ?? item.receivedQty) * item.unitCost, 0);
     const invoice = await tx.purchaseInvoice.create({
       data: {
         businessId: input.businessId,
         supplierId: order.supplierId,
         purchaseOrderId: order.id,
-        invoiceNumber: input.invoiceNumber,
+        invoiceNumber: input.invoiceNumber?.trim(),
+        invoiceKey,
+        declaredTotal: input.declaredTotal,
+        declaredVat: input.declaredVat,
+        reviewNote: review.warnings.length
+          ? (input.reviewNote ?? "").trim() + " | مراجعة: " + review.warnings.map((item) => item.code).join(", ")
+          : null,
         invoiceTotal,
         issuedAt: input.issuedAt,
         approvedAt: new Date(),
@@ -387,7 +444,7 @@ export async function receivePurchaseOrder(input: ReceivePurchaseInput) {
         items: {
           create: input.items.map((item) => ({
             productId: item.productId,
-            invoicedQty: item.receivedQty,
+            invoicedQty: item.invoicedQty ?? item.receivedQty,
             receivedQty: item.receivedQty,
             unitCost: item.unitCost,
           })),
@@ -442,6 +499,17 @@ export async function receivePurchaseOrder(input: ReceivePurchaseInput) {
       });
       await syncListingForProduct(tx, { businessId: input.businessId, productId: product.id, delta: item.receivedQty });
 
+      // Immutable actual purchase price observation (separate from quoted prices).
+      await tx.supplierPriceHistory.create({
+        data: {
+          businessId: input.businessId,
+          supplierId: order.supplierId,
+          productId: product.id,
+          price: item.unitCost,
+          source: "INVOICE",
+        },
+      });
+
       await tx.stockMovement.create({
         data: {
           businessId: input.businessId,
@@ -492,6 +560,6 @@ export async function receivePurchaseOrder(input: ReceivePurchaseInput) {
       },
     });
 
-    return { invoice, fullyReceived };
+    return { invoice, fullyReceived, review };
   });
 }
