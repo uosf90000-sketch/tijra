@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export type GovernancePolicyValue = {
+  locationAccessEnforced: boolean;
   purchaseApprovalEnabled: boolean;
   purchaseApprovalThreshold: number;
   payrollDualApprovalEnabled: boolean;
@@ -63,6 +64,12 @@ export function GovernancePolicyForm({ initial }: { initial: GovernancePolicyVal
           value={policy.expenseOwnerThreshold}
           onChange={(event) => set("expenseOwnerThreshold", Number(event.target.value))} /></label>
     </div>
+    <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
+      <input type="checkbox" checked={policy.locationAccessEnforced}
+        onChange={(event) => set("locationAccessEnforced", event.target.checked)}/>
+      <span>تقييد الوصول إلى الفروع والمستودعات حسب العضويات المصرح بها</span>
+    </label>
+    <p className="policyNote">وزّع صلاحيات المواقع أولًا من مصفوفة المواقع أسفل الصفحة؛ عند التفعيل يُرفض وصول الموظف إلى أي موقع غير معين له. المالك مستثنى من التقييد.</p>
     <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
       <input type="checkbox" checked={policy.purchaseApprovalEnabled}
         onChange={(event) => set("purchaseApprovalEnabled", event.target.checked)}/>
