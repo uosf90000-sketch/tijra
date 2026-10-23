@@ -67,6 +67,8 @@ export async function POST(request: Request) {
           businessScale: parsed.data.businessScale,
           operatingModel: parsed.data.operatingModel,
           purchaseApprovalEnabled: parsed.data.businessScale === "ENTERPRISE",
+          payrollDualApprovalEnabled: parsed.data.businessScale === "ENTERPRISE",
+          stockReasonRequired: parsed.data.businessScale === "ENTERPRISE",
           organizationId,
         },
       });
