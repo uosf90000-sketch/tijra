@@ -35,7 +35,7 @@ test("expense threshold requires owner and reason", () => {
 
 test("enterprise payroll is initiated, reviewed and marked paid by separated identities", () => {
   const base = {
-    action: "APPROVE" as const, status: "DRAFT",
+    action: "APPROVE", status: "DRAFT",
     actorId: "creator", actorRole: "OWNER", createdByUserId: "creator",
     approvedByUserId: null, dualApproval: true, paymentReference: null,
   };
