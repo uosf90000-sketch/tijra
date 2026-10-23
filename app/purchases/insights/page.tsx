@@ -7,6 +7,9 @@ import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
 import { calculatePriceTrends } from "@/lib/purchase-guardian";
+import {
+  buildMarginAlerts, describePurchaseActions, getIncomingPurchaseQuantities, summarizeSuppliers,
+} from "@/lib/operating-intelligence";
 
 export const metadata = { title: "مراقب المشتريات والأسعار" };
 export const dynamic = "force-dynamic";
@@ -19,7 +22,7 @@ export default async function PurchaseInsightsPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
   const businessId = context.business.id;
-  const [invoices, history] = await Promise.all([
+  const [invoices, history, products, pendingOrders] = await Promise.all([
     db.purchaseInvoice.findMany({
       where: { businessId, status: "APPROVED" },
       include: { supplier: true, items: { include: { product: true } } },
@@ -31,6 +34,18 @@ export default async function PurchaseInsightsPage() {
       include: { supplier: true, product: true },
       orderBy: { recordedAt: "desc" },
       take: 1000,
+    }),
+    db.product.findMany({
+      where: { businessId, active: true, averageCost: { gt: 0 } },
+      select: { id: true, name: true, salePrice: true, averageCost: true, quantity: true },
+      take: 2500,
+    }),
+    db.purchaseOrder.findMany({
+      where: { businessId, status: { in: ["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
+      select: {
+        supplierId: true, status: true, orderedAt: true, receivedAt: true,
+        items: { select: { productId: true, orderedQty: true, receivedQty: true } },
+      },
     }),
   ]);
 
@@ -63,6 +78,30 @@ export default async function PurchaseInsightsPage() {
   const priceRises = changes.filter((item) => item.difference > 0);
   const reviewed = invoices.filter((invoice) => invoice.reviewNote).length;
   const positiveRows = trends.rows.filter((row) => row.extraPaid > 0);
+  const marginRisks = buildMarginAlerts(products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    salePrice: Number(product.salePrice),
+    averageCost: Number(product.averageCost),
+    quantity: Number(product.quantity),
+  })));
+  const incoming = getIncomingPurchaseQuantities(pendingOrders.map((order) => ({
+    status: order.status,
+    items: order.items.map((item) => ({
+      productId: item.productId, orderedQty: Number(item.orderedQty),
+      receivedQty: Number(item.receivedQty),
+    })),
+  })));
+  const performance = summarizeSuppliers(pendingOrders.map((order) => ({
+    supplierId: order.supplierId, status: order.status,
+    orderedAt: order.orderedAt, receivedAt: order.receivedAt,
+    items: order.items.map((item) => ({
+      orderedQty: Number(item.orderedQty), receivedQty: Number(item.receivedQty),
+    })),
+  })), new Date());
+  const waiting = [...performance.values()].reduce((sum, item) => sum + item.openBeyond7Days, 0);
+  const actionItems = describePurchaseActions(incoming.size, marginRisks.length, waiting);
+  const isOwner = context.membership.role === "OWNER";
 
   return (
     <>
@@ -70,13 +109,47 @@ export default async function PurchaseInsightsPage() {
         eyebrow="المشتريات / مراقب الأسعار"
         title="مراقب المشتريات"
         description="سجل عروض الموردين وتغيّر سعر الشراء، ومراجعة فواتير الاستلام وحساب أثر الزيادات."
-        actions={<Link className="button secondary" href="/purchases"><ArrowRight size={17} /> المشتريات</Link>}
+        actions={<><Link className="button secondary" href="/purchases"><ArrowRight size={17} /> المشتريات</Link>{isOwner && <Link className="button primary" href="/products/pricing">مراجعة أسعار البيع</Link>}</>}
       />
       <section className="metricsGrid four">
         <MetricCard label="أثر زيادات أسعار الشراء" value={formatSar(trends.cumulativeIncrease)} note="إضافي مقارنة بسعر آخر فاتورة لنفس المورد والصنف" icon={BadgePercent} tone="amber" />
         <MetricCard label="أسطر مشتريات ارتفع سعرها" value={String(trends.increasedInvoiceLines)} note="في الفواتير المشمولة" icon={AlertTriangle} />
         <MetricCard label="ارتفاعات عروض الموردين" value={String(priceRises.length)} note="تغير أسعار عروض مسجلة" icon={History} tone="blue" />
         <MetricCard label="فواتير تم اعتماد فروقاتها" value={String(reviewed)} note="مع سبب مراجعة محفوظ" icon={FileCheck2} tone="violet" />
+      </section>
+      <section className="panel" style={{ marginTop: 16, marginBottom: 20 }}>
+        <div className="panelHeader"><div><span className="eyebrow">من المشكلة إلى الإجراء</span><h2>مركز قرارات المشتريات</h2></div></div>
+        <div className="alertList">
+          {actionItems.map((item) => (
+            <div className="alertRow" key={item.key}>
+              <div className="grow"><strong>{item.title}: {item.count}</strong><span>{item.note}</span></div>
+              {item.key === "margin" && !isOwner
+                ? <span className="mutedText">يحتاج مراجعة المالك</span>
+                : <Link href={item.href} className="textLink">مراجعة</Link>}
+            </div>
+          ))}
+        </div>
+      </section>
+      <section id="margin-risk" className="panel tablePanel" style={{ marginBottom: 20 }}>
+        <div className="panelHeader tableHeader">
+          <div><span className="eyebrow">تكلفة الاستلام ← سعر البيع</span><h2>الأصناف التي انخفض هامشها</h2></div>
+          {isOwner && <Link className="textLink" href="/products/pricing">اعتماد تعديل السعر</Link>}
+        </div>
+        <div className="infoNote">هذا تقدير هامش إجمالي من متوسط التكلفة وسعر البيع، لا يشمل الضريبة أو الخصم أو مصاريف التشغيل. الاقتراح يستهدف هامش 25%، وليس قرار تعديل آلي.</div>
+        <div className="tableScroll"><table className="dataTable">
+          <thead><tr><th>المنتج</th><th>متوسط التكلفة</th><th>سعر البيع</th><th>الهامش</th><th>سعر مقترح</th><th>الإجراء</th></tr></thead>
+          <tbody>
+            {marginRisks.slice(0, 50).map((risk) => (
+              <tr key={risk.id}>
+                <td><strong>{risk.name}</strong></td><td>{formatSar(risk.averageCost)}</td>
+                <td>{formatSar(risk.salePrice)}</td><td className="dangerText">{risk.marginPercent.toFixed(1)}%</td>
+                <td>{formatSar(risk.suggestedPrice)}</td>
+                <td>{isOwner ? <Link href={`/products/pricing#product-${risk.id}`}>راجع السعر</Link> : "المالك فقط"}</td>
+              </tr>
+            ))}
+            {!marginRisks.length && <tr><td colSpan={6}>لا توجد منتجات بهامش أقل من 15% بين الأصناف ذات التكلفة المسجلة.</td></tr>}
+          </tbody>
+        </table></div>
       </section>
       <section className="panel" style={{ marginTop: 16, marginBottom: 20 }}>
         <p className="policyNote">
