@@ -157,6 +157,16 @@ model User {
   employees    Employee[]
 }
 
+model AuthLoginThrottle {
+  identityHash    String   @id
+  failedCount     Int      @default(0)
+  windowStartedAt DateTime @default(now())
+  lockedUntil     DateTime?
+  updatedAt       DateTime @updatedAt
+
+  @@index([lockedUntil])
+}
+
 model MfaRecoveryCode {
   id        String    @id @default(cuid())
   userId    String
