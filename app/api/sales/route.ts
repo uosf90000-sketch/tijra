@@ -37,10 +37,12 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
   }
-  // Backdating alters accounting periods; only an owner may import historical
-  // transactions, never an ordinary cashier or a delegated staff role.
-  if (parsed.data.recordedAt && auth.context.membership.role !== "OWNER")
-    return NextResponse.json({ error: "OWNER_REQUIRED_FOR_BACKDATED_SALE" }, { status: 403 });
+  // POS always submits a client timestamp, including queued offline sales.
+  // Staff sale timestamps are assigned by the server on sync (never backdated).
+  // Only the owner can explicitly backdate soldAt; keep the untrusted device
+  // timestamp in the audit note to aid reconciliation after prolonged outages.
+  if (parsed.data.recordedAt && parsed.data.recordedAt.getTime() > Date.now() + 60_000)
+    return NextResponse.json({ error: "FUTURE_CLIENT_SALE_TIME" }, { status: 400 });
   if (auth.context.business.businessScale === "ENTERPRISE" && !parsed.data.invoiceNumber)
     return NextResponse.json({ error: "INVOICE_NUMBER_REQUIRED" }, { status: 400 });
 
@@ -122,9 +124,24 @@ export async function POST(request: Request) {
       actorName: auth.context.user.name,
       actorRole: auth.context.membership.role,
     });
-    const finalSale = recordedAt
+    const ownerBackdate = recordedAt && auth.context.membership.role === "OWNER";
+    const finalSale = ownerBackdate
       ? await db.sale.update({ where: { id: sale.id }, data: { soldAt: recordedAt }, include: { items: true } })
       : sale;
+    if (recordedAt && !ownerBackdate && Math.abs(recordedAt.getTime() - Date.now()) > 60_000) {
+      await db.inventoryAuditEvent.create({ data: {
+        businessId: auth.context.business.id,
+        action: "POS_OFFLINE_TIMESTAMP_RECORDED",
+        orderId: finalSale.id,
+        actorUserId: auth.context.user.id,
+        actorName: auth.context.user.name,
+        actorRole: auth.context.membership.role,
+        note: JSON.stringify({ clientRecordedAt: recordedAt.toISOString(),
+          serverSoldAt: finalSale.soldAt.toISOString(), backdated: false, offlineUnverified: true }),
+      } }).catch((error) => {
+        console.error("Unable to record offline POS timestamp", error);
+      });
+    }
     return NextResponse.json({ sale: finalSale }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "SALE_FAILED";
