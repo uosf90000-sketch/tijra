@@ -40,7 +40,8 @@ export async function POST(request: Request) {
   const auth = await requireApiRoles(["OWNER", "ACCOUNTANT"]);
   if (auth.response) return auth.response;
   const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success || moneyHalalas(parsed.data?.amount || "0") <= 0n)
+  if (!parsed.success) return NextResponse.json({ error: "INVALID_RECEIVABLE" }, { status: 400 });
+  if (moneyHalalas(parsed.data.amount) <= 0n)
     return NextResponse.json({ error: "INVALID_RECEIVABLE" }, { status: 400 });
   try {
     const created = await db.$transaction(async (tx) => {
