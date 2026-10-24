@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-export const metadata = { title: "الشركات ومساحات العمل | تِجرا" };
+export const metadata = { title: "الشركات ومساحات العمل | مدار" };
 export const dynamic = "force-dynamic";
 
 export default async function WorkspacePage() {
