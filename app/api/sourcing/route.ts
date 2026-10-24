@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { milliUnits } from "@/lib/tijra-360";
 
 const schema = z.object({
@@ -14,6 +15,7 @@ const schema = z.object({
 export async function GET() {
   const auth = await requireApiPermission("PURCHASES");
   if (auth.response) return auth.response;
+  if (!(await hasBusinessWideRead(auth.context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   const requests = await db.sourcingRequest.findMany({
     where: { businessId: auth.context.business.id },
     include: { product: { select: { name: true, unit: true } },
@@ -26,6 +28,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireApiPermission("PURCHASES");
   if (auth.response) return auth.response;
+  if (!(await hasBusinessWideRead(auth.context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "INVALID_RFQ" }, { status: 400 });
   try { milliUnits(parsed.data.quantity); }
