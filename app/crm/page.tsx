@@ -6,7 +6,7 @@ import { getSessionContext } from "@/lib/auth";
 import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { db } from "@/lib/db";
 
-export const metadata = { title: "العملاء وعروض الأسعار | تِجرا" };
+export const metadata = { title: "العملاء وعروض الأسعار | مدار" };
 export const dynamic = "force-dynamic";
 
 export default async function CrmPage() {
@@ -33,7 +33,7 @@ export default async function CrmPage() {
   }) : [];
   const salesByCustomer = new Map(purchaseHistory.map((r) => [r.customerId, r]));
   return <>
-    <PageHeader eyebrow="تِجرا 360" title="العملاء وعروض الأسعار"
+    <PageHeader eyebrow="مدار 360" title="العملاء وعروض الأسعار"
       description="ابدأ من ملف العميل، جهّز العرض، ثم انتقل إلى متابعة المستحقات في نفس المنصة."
       actions={<Link href="/crm/receivables" className="button secondary">المستحقات والتحصيل</Link>} />
     <CrmWorkspace
