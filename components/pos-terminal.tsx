@@ -87,13 +87,14 @@ function parseSerials(value: string) {
   return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
 }
 
-export function PosTerminal({ products, locationId, businessActivity, customers = [] }: { products: Product[]; locationId: string; businessActivity: string; customers?: Array<{ id: string; name: string }> }) {
+export function PosTerminal({ products, locationId, locations = [], businessActivity, customers = [] }: { products: Product[]; locationId: string; locations?: Array<{ id: string; name: string }>; businessActivity: string; customers?: Array<{ id: string; name: string }> }) {
   const router = useRouter();
   const experience = posExperienceFor(businessActivity);
   const activityLabel = businessActivityLabels[businessActivity] ?? "نشاطك";
   const { online, pending } = useOfflineStatus("SALE");
   const [query, setQuery] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [selectedLocationId, setSelectedLocationId] = useState(locationId);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -297,7 +298,7 @@ export function PosTerminal({ products, locationId, businessActivity, customers 
       paymentMethod,
       invoiceNumber: `POS-${operationId}`,
       recordedAt: new Date().toISOString(),
-      locationId,
+      locationId: selectedLocationId,
       ...(selectedCustomerId ? { customerId: selectedCustomerId } : {}),
       items: cart.map((item) => ({
         productId: item.id,
@@ -375,6 +376,14 @@ export function PosTerminal({ products, locationId, businessActivity, customers 
           <div><span className="eyebrow">{activityLabel}</span><h2>{catalogTitle}</h2></div>
           {showCamera ? <button type="button" className="button secondary compact" onClick={() => setScannerOpen(true)}><Camera size={17} /> مسح بالكاميرا</button> : null}
         </div>
+        {locations.length > 1 && <label className="field" style={{ marginBottom: 10 }}>
+          <span>فرع البيع المسموح</span>
+          <select value={selectedLocationId} disabled={loading || cart.length > 0}
+            onChange={(event) => setSelectedLocationId(event.target.value)}>
+            {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+          </select>
+        </label>}
+        {locations.length > 1 && <p className="policyNote">المخزون الظاهر إجمالي مبدئي؛ يُفحص رصيد الفرع المحدد عند تسجيل الفاتورة. أفرغ السلة قبل تغيير الفرع.</p>}
         <div className={`offlineState ${online ? "online" : "offline"}`}>
           {!online ? <CloudOff size={16} /> : null}
           <span>{!online ? "بدون نت · البيع يُحفظ على هذا الجهاز" : pending ? `${pending} فاتورة بانتظار المزامنة` : "متصل · المزامنة تلقائية"}</span>
