@@ -17,6 +17,7 @@ export default async function ProductsHubPage() {
   const tools = [
     { href: "/inventory/new", title: "إضافة منتج", description: foodBusiness ? "اسم المنتج، الصورة والسعر ليظهر مباشرة في كاشير المطعم أو المقهى." : "الاسم والسعر والصورة وبيانات الصنف الأساسية.", icon: PackagePlus },
     ...(foodBusiness ? [{ href: "/recipes", title: "المكونات والإضافات", description: "حدد مكونات كل وجبة أو مشروب، ثم أضف الإضافات والبدائل التي يختارها العميل.", icon: ChefHat }] : []),
+    { href: "/products/pricing", title: "مراقبة هامش الربح", description: "مراجعة أثر فواتير الموردين على تكلفة المنتج واعتماد سعر البيع مع سجل تغيير.", icon: Calculator },
     { href: "/inventory/product-settings", title: "طريقة البيع", description: "قطعة، وزن، خدمة أو Serial / IMEI حسب نشاطك.", icon: Calculator },
     { href: "/inventory/units", title: "الوحدات والأحجام", description: "حبة، كرتون، عبوة ووحدات البيع المرتبطة بالباركود.", icon: Tags },
     { href: "/inventory", title: "كميات المنتجات", description: "راجع الكمية الحالية والتغطية وحالة المخزون.", icon: Boxes },
@@ -25,7 +26,7 @@ export default async function ProductsHubPage() {
 
   return (
     <>
-      <PageHeader eyebrow="إعداد المنشأة" title="المنتجات" description="كل ما يخص إعداد المنتج في مكان واحد. تِجرا يظهر لك الأدوات المناسبة لنشاطك فقط." />
+      <PageHeader eyebrow="إعداد المنشأة" title="المنتجات" description="كل ما يخص إعداد المنتج في مكان واحد. مدار يظهر لك الأدوات المناسبة لنشاطك فقط." />
       <section className="ownerHubGrid">
         {tools.map(({ href, title, description, icon: Icon }) => (
           <Link className="ownerHubCard" href={href} key={href}>

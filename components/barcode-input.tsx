@@ -73,7 +73,7 @@ export function BarcodeInput({ name = "barcode" }: { name?: string }) {
       })
       .catch((scanError: unknown) => {
         console.error("Unable to start barcode scanner", scanError);
-        setError("تعذر فتح الكاميرا. تأكد من السماح لتِجرا باستخدام الكاميرا، أو أدخل الباركود يدويًا.");
+        setError("تعذر فتح الكاميرا. تأكد من السماح لمدار باستخدام الكاميرا، أو أدخل الباركود يدويًا.");
       });
 
     return () => {

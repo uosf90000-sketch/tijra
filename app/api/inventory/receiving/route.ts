@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
 import { actorFromContext, ensureDefaultLocation } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
+import { locationAuthorized } from "@/lib/location-access";
 import { receivePurchaseOrder } from "@/lib/stock-operations";
 
 const schema = z.object({
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
   const expiry = parsed.data.expiryDate ? new Date(`${parsed.data.expiryDate}T12:00:00`) : undefined;
   if (expiry && Number.isNaN(expiry.getTime())) return NextResponse.json({ error: "INVALID_EXPIRY_DATE" }, { status: 400 });
   const locationId = parsed.data.locationId || defaultLocation.id;
+  if (!(await locationAuthorized(auth.context, locationId))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
 
   try {
     const result = await receivePurchaseOrder({

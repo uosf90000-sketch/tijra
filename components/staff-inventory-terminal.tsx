@@ -7,9 +7,11 @@ import { FormEvent, useMemo, useRef, useState } from "react";
 type Product = { id: string; name: string; barcode: string | null; unit: string; quantity: number };
 type ScannerControls = { stop: () => void };
 
-export function StaffInventoryTerminal({ products }: { products: Product[] }) {
+export function StaffInventoryTerminal({ products, locations }: { products: Product[]; locations: Array<{ id: string; name: string }> }) {
   const [barcode, setBarcode] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const [locationId, setLocationId] = useState(locations[0]?.id || "");
+  const [reason, setReason] = useState("");
   const [direction, setDirection] = useState<"IN" | "OUT">("IN");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,13 +53,14 @@ export function StaffInventoryTerminal({ products }: { products: Product[] }) {
         controlsRef.current = controls;
       } catch {
         setScannerOpen(false);
-        setMessage("تعذر فتح الكاميرا. تأكد من السماح لتِجرا باستخدامها.");
+        setMessage("تعذر فتح الكاميرا. تأكد من السماح لمدار باستخدامها.");
       }
     }, 50);
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (!locationId) return setMessage("ليس لديك موقع مخزون مصرح به.");
     if (!barcode || !product) {
       setMessage("امسح باركود صنف مسجل أولًا.");
       return;
@@ -74,16 +77,19 @@ export function StaffInventoryTerminal({ products }: { products: Product[] }) {
       const response = await fetch("/api/inventory/quick-adjust", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ barcode, direction, quantity: numericQuantity }),
+        body: JSON.stringify({ barcode, direction, quantity: numericQuantity, locationId, reason: reason.trim() || undefined }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setMessage(result.error === "INSUFFICIENT_STOCK" ? "الكمية الموجودة لا تكفي للإخراج." : result.error === "PRODUCT_NOT_FOUND" ? "الباركود غير مسجل." : "تعذر حفظ الحركة.");
+        setMessage(result.error === "INSUFFICIENT_STOCK" ? "الكمية الموجودة لا تكفي للإخراج." : result.error === "PRODUCT_NOT_FOUND" ? "الباركود غير مسجل." :
+          result.error === "STOCK_REASON_REQUIRED" ? "اكتب سبب الحركة بثمانية أحرف على الأقل حسب سياسة المنشأة." :
+          result.error === "SUPERVISOR_REQUIRED_FOR_LARGE_STOCK_ADJUSTMENT" ? "هذه الحركة كبيرة وتحتاج مسؤول مخزون مخولًا." : "تعذر حفظ الحركة.");
         return;
       }
       setMessage(`تم ${direction === "IN" ? "إدخال" : "إخراج"} ${numericQuantity.toLocaleString("ar-SA")} ${product.unit} من ${product.name} ✅`);
       setBarcode("");
       setQuantity("1");
+      setReason("");
     } catch {
       setMessage("تعذر الاتصال بالخادم.");
     } finally {
@@ -115,15 +121,20 @@ export function StaffInventoryTerminal({ products }: { products: Product[] }) {
         <button type="button" className={direction === "OUT" ? "active" : ""} onClick={() => setDirection("OUT")}><ArrowUpFromLine size={19} /> إخراج</button>
       </div>
 
+      <label className="staffQuantityField"><span>الموقع المسموح</span><select value={locationId} onChange={(event) => setLocationId(event.target.value)}>{locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
       <label className="staffQuantityField">
         <span>الكمية</span>
         <input value={quantity} onChange={(event) => setQuantity(event.target.value)} type="number" min="0.001" step="0.001" inputMode="decimal" />
         <small>{product?.unit || "وحدة"}</small>
       </label>
 
+      <label className="staffManualBarcode">
+        <span>سبب حركة المخزون (قد يكون إلزاميًا حسب سياسة المنشأة)</span>
+        <input value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} placeholder="مثال: توريد مباشر / تصحيح جرد / سحب تالف" />
+      </label>
       {message ? <div className="staffActionMessage">{message}</div> : null}
 
-      <button className="staffPrimaryAction" disabled={loading || !product}>
+      <button className="staffPrimaryAction" disabled={loading || !product || !locationId}>
         {loading ? "جاري الحفظ..." : direction === "IN" ? "حفظ الإدخال" : "حفظ الإخراج"}
       </button>
 

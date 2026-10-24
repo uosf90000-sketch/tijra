@@ -35,7 +35,7 @@ export default async function ReorderPage() {
 
   return (
     <>
-      <PageHeader eyebrow="الشراء" title="إعادة الطلب" description="اطلب نفس الطلب السابق بضغطة. قبل الإعادة، تِجرا يفحص السعر الحالي ويشير لو ظهر مورد أرخص لنفس الصنف." />
+      <PageHeader eyebrow="الشراء" title="إعادة الطلب" description="اطلب نفس الطلب السابق بضغطة. قبل الإعادة، مدار يفحص السعر الحالي ويشير لو ظهر مورد أرخص لنفس الصنف." />
       <section className="workflowStack">
         {orders.map((order) => {
           const currentTotal = order.items.reduce((sum, item) => sum + Number(item.quantity) * Number(item.listing.price), 0);

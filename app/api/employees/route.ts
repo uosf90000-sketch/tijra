@@ -26,7 +26,7 @@ const employeeSchema = z.object({
 });
 
 export async function GET() {
-  const auth = await requireApiRoles(["OWNER", "MANAGER", "ACCOUNTANT"]);
+  const auth = await requireApiRoles(["OWNER"]);
   if (auth.response) return auth.response;
   const employees = await db.employee.findMany({
     where: { businessId: auth.context.business.id, active: true },
@@ -48,7 +48,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireApiRoles(["OWNER", "MANAGER"]);
+  const auth = await requireApiRoles(["OWNER"]);
   if (auth.response) return auth.response;
   const parsed = employeeSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
         userId = user.id;
       }
 
-      return tx.employee.create({
+      const employee = await tx.employee.create({
         data: {
           businessId: auth.context.business.id,
           userId,
@@ -105,6 +105,18 @@ export async function POST(request: Request) {
           },
         },
       });
+      await tx.inventoryAuditEvent.create({
+        data: {
+          businessId: auth.context.business.id,
+          action: data.createAccount ? "STAFF_ACCOUNT_CREATED" : "EMPLOYEE_CREATED",
+          itemName: employee.name,
+          actorUserId: auth.context.user.id,
+          actorName: auth.context.user.name,
+          actorRole: auth.context.membership.role,
+          note: JSON.stringify({ employeeId: employee.id, userId, permissions: data.createAccount ? data.permissions : [], jobTitle: data.jobTitle || null }),
+        },
+      });
+      return employee;
     });
     return NextResponse.json({ employee }, { status: 201 });
   } catch (error) {

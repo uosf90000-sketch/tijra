@@ -12,6 +12,7 @@ const schema = z.object({
 export async function POST(request: Request) {
   const auth = await requireApiPermission("INVENTORY");
   if (auth.response) return auth.response;
+  if (auth.context.business.locationAccessEnforced && auth.context.membership.role !== "OWNER") return NextResponse.json({ error: "OWNER_REQUIRED_FOR_UNSCOPED_DAY_CLOSE" }, { status: 403 });
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
 

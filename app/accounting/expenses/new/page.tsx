@@ -15,7 +15,7 @@ export default async function NewExpensePage() {
   if (context.business.businessType === "RETAILER") {
     return (
       <>
-        <PageHeader eyebrow="الملخص المالي" title="المحاسبة المتقدمة" description="حاليًا نعرض للتاجر مشترياته والتزاماته من تِجرا، وتسجيل المصروفات الكامل سيأتي مع نظام المتجر." />
+        <PageHeader eyebrow="الملخص المالي" title="المحاسبة المتقدمة" description="حاليًا نعرض للتاجر مشترياته والتزاماته من مدار، وتسجيل المصروفات الكامل سيأتي مع نظام المتجر." />
         <RetailerServiceGate service="accounting" />
       </>
     );

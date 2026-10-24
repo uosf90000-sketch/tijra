@@ -40,7 +40,7 @@ export function SupplierCreateForm() {
   return (
     <form className="panel onboardingForm" onSubmit={submit}>
       <div className="formSection">
-        <div><h2>بيانات المورد</h2><p>التواصل والطلبات داخل تِجرا، أما التوصيل فيبقى اتفاقًا مباشرًا بينكما.</p></div>
+        <div><h2>بيانات المورد</h2><p>التواصل والطلبات داخل مدار، أما التوصيل فيبقى اتفاقًا مباشرًا بينكما.</p></div>
       </div>
       <div className="formGrid">
         <label className="field full"><span>اسم المورد</span><input name="name" required minLength={2} placeholder="مثال: مؤسسة الإمداد السريع" /></label>

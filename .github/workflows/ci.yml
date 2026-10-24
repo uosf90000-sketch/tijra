@@ -5,6 +5,8 @@ on:
     branches: [main]
   push:
     branches: [main, feat/mvp-foundation]
+    tags:
+      - "v*"
 
 jobs:
   validate:
@@ -44,8 +46,14 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate
 
+      - name: Check governed API mutation routes
+        run: node scripts/governance-route-audit.mjs
+
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Test purchasing safeguards
+        run: node --test tests/*.test.mjs
 
       - name: Build
         run: npm run build

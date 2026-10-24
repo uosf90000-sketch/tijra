@@ -61,6 +61,7 @@ type SalePayload = {
   invoiceNumber: string;
   recordedAt: string;
   locationId: string;
+  customerId?: string;
   items: Array<{
     productId: string;
     quantity: number;
@@ -86,12 +87,14 @@ function parseSerials(value: string) {
   return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
 }
 
-export function PosTerminal({ products, locationId, businessActivity }: { products: Product[]; locationId: string; businessActivity: string }) {
+export function PosTerminal({ products, locationId, locations = [], businessActivity, customers = [] }: { products: Product[]; locationId: string; locations?: Array<{ id: string; name: string }>; businessActivity: string; customers?: Array<{ id: string; name: string }> }) {
   const router = useRouter();
   const experience = posExperienceFor(businessActivity);
   const activityLabel = businessActivityLabels[businessActivity] ?? "نشاطك";
   const { online, pending } = useOfflineStatus("SALE");
   const [query, setQuery] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [selectedLocationId, setSelectedLocationId] = useState(locationId);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -218,7 +221,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
       } else if (scanError && scanError.name !== "NotFoundException") {
         console.warn("POS barcode scan error", scanError);
       }
-    }).then((controls) => { if (!cancelled) scannerControlsRef.current = controls; else controls.stop(); }).catch(() => setMessage("تعذر فتح الكاميرا. تأكد من السماح لتِجرا باستخدامها."));
+    }).then((controls) => { if (!cancelled) scannerControlsRef.current = controls; else controls.stop(); }).catch(() => setMessage("تعذر فتح الكاميرا. تأكد من السماح لمدار باستخدامها."));
     return () => { cancelled = true; scannerControlsRef.current?.stop(); scannerControlsRef.current = null; };
   }, [scannerOpen, scanTargets]);
 
@@ -295,7 +298,8 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
       paymentMethod,
       invoiceNumber: `POS-${operationId}`,
       recordedAt: new Date().toISOString(),
-      locationId,
+      locationId: selectedLocationId,
+      ...(selectedCustomerId ? { customerId: selectedCustomerId } : {}),
       items: cart.map((item) => ({
         productId: item.id,
         quantity: item.qty * item.factor,
@@ -346,6 +350,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
       }
 
       setCart([]);
+      setSelectedCustomerId("");
       setMessage("تم تسجيل البيع وتحديث المخزون تلقائيًا ✅");
       router.refresh();
     } catch {
@@ -371,6 +376,14 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
           <div><span className="eyebrow">{activityLabel}</span><h2>{catalogTitle}</h2></div>
           {showCamera ? <button type="button" className="button secondary compact" onClick={() => setScannerOpen(true)}><Camera size={17} /> مسح بالكاميرا</button> : null}
         </div>
+        {locations.length > 1 && <label className="field" style={{ marginBottom: 10 }}>
+          <span>فرع البيع المسموح</span>
+          <select value={selectedLocationId} disabled={loading || cart.length > 0}
+            onChange={(event) => setSelectedLocationId(event.target.value)}>
+            {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+          </select>
+        </label>}
+        {locations.length > 1 && <p className="policyNote">المخزون الظاهر إجمالي مبدئي؛ يُفحص رصيد الفرع المحدد عند تسجيل الفاتورة. أفرغ السلة قبل تغيير الفرع.</p>}
         <div className={`offlineState ${online ? "online" : "offline"}`}>
           {!online ? <CloudOff size={16} /> : null}
           <span>{!online ? "بدون نت · البيع يُحفظ على هذا الجهاز" : pending ? `${pending} فاتورة بانتظار المزامنة` : "متصل · المزامنة تلقائية"}</span>
@@ -432,6 +445,13 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
           })}
           {!cart.length && <div className="infoNote">{experience === "MENU" ? "اختر المنتج من القائمة لإضافته للطلب." : experience === "PART_LOOKUP" ? "اكتب رقم القطعة ثم اضغط على النتيجة لإضافتها للسلة." : "امسح المنتج أو ابحث عنه لإضافته للسلة."}</div>}
         </div>
+        {customers.length > 0 && <label className="field" style={{ marginBlock: 10 }}>
+          <span>ربط البيع بعميل مسجل (اختياري)</span>
+          <select value={selectedCustomerId} onChange={(event) => setSelectedCustomerId(event.target.value)}>
+            <option value="">بيع مباشر دون عميل</option>
+            {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+          </select>
+        </label>}
         <div className="cartTotals"><div className="grandTotal"><span>الإجمالي</span><strong>{formatSar(total)}</strong></div></div>
         {message && <div className="infoNote">{message}</div>}
         <div className="paymentButtons">
@@ -440,7 +460,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
         </div>
       </article>
 
-      {scannerOpen ? <div className="barcodeScannerOverlay" role="dialog" aria-modal="true" aria-label="ماسح باركود الكاشير"><div className="barcodeScannerCard"><div className="barcodeScannerHeader"><div><strong>المسح المتواصل</strong><span>امسح المنتجات واحدًا بعد الآخر؛ تِجرا يضيفها للسلة ويبقي الكاميرا مفتوحة.</span></div><button type="button" className="iconButton" onClick={closeScanner}><X size={20} /></button></div><div className="barcodeVideoFrame"><video ref={videoRef} playsInline muted autoPlay /><div className="barcodeTarget" aria-hidden="true"><span /></div></div><div className="barcodeScannerFooter"><span><ScanLine size={15} /> كل قراءة صحيحة تُضاف مباشرة للسلة.</span><button type="button" className="button secondary" onClick={closeScanner}>إغلاق الماسح</button></div></div></div> : null}
+      {scannerOpen ? <div className="barcodeScannerOverlay" role="dialog" aria-modal="true" aria-label="ماسح باركود الكاشير"><div className="barcodeScannerCard"><div className="barcodeScannerHeader"><div><strong>المسح المتواصل</strong><span>امسح المنتجات واحدًا بعد الآخر؛ مدار يضيفها للسلة ويبقي الكاميرا مفتوحة.</span></div><button type="button" className="iconButton" onClick={closeScanner}><X size={20} /></button></div><div className="barcodeVideoFrame"><video ref={videoRef} playsInline muted autoPlay /><div className="barcodeTarget" aria-hidden="true"><span /></div></div><div className="barcodeScannerFooter"><span><ScanLine size={15} /> كل قراءة صحيحة تُضاف مباشرة للسلة.</span><button type="button" className="button secondary" onClick={closeScanner}>إغلاق الماسح</button></div></div></div> : null}
     </section>
   );
 }

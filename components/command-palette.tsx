@@ -20,7 +20,7 @@ import {
 
 const commands = [
   { href: "/", label: "الرئيسية", hint: "لوحة التحكم", icon: LayoutDashboard },
-  { href: "/marketplace", label: "سوق تِجرا", hint: "منتجات الموردين والأسعار والمخزون", icon: ShoppingBag },
+  { href: "/marketplace", label: "سوق مدار", hint: "منتجات الموردين والأسعار والمخزون", icon: ShoppingBag },
   { href: "/marketplace/orders", label: "طلباتي من السوق", hint: "متابعة طلبات الموردين والاستلام", icon: ClipboardList },
   { href: "/marketplace/seller", label: "متجري كمورد", hint: "عرض البضاعة ومخزون المورد", icon: Store },
   { href: "/inventory", label: "المخزون", hint: "الأصناف والكميات والتنبيهات", icon: Boxes },

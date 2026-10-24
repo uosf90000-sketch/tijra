@@ -1,3 +1,5 @@
+import { makeInvoiceKey, reviewPurchase } from "@/lib/purchase-guardian";
+import { cashierDiscountViolation } from "@/lib/governance-checks";
 import { db } from "@/lib/db";
 import { adjustLocationStock, consumeLots, receiveLot, safeJson, syncListingForProduct } from "@/lib/commerce-ops";
 import { decodeRecipeNote, requiredStockQuantity, type RecipeState } from "@/lib/recipes";
@@ -18,6 +20,7 @@ export type RecordSaleInput = {
   actorName?: string;
   actorRole?: string;
   locationId?: string | null;
+  customerId?: string;
   items: SaleLineInput[];
 };
 
@@ -34,12 +37,47 @@ type SalePlan = {
 
 export async function recordSale(input: RecordSaleInput) {
   return db.$transaction(async (tx) => {
+    if (input.invoiceNumber) {
+      // Serialize same-invoice checkout on PostgreSQL so a double tap or retry
+      // cannot record stock and revenue twice before the first insert is visible.
+      await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(hashtext('tijra-sale-invoice'), hashtext(${input.businessId + ":" + input.invoiceNumber}))`;
+      const exists = await tx.sale.findFirst({
+        where: { businessId: input.businessId, invoiceNumber: input.invoiceNumber },
+        select: { id: true },
+      });
+      if (exists) throw new Error("DUPLICATE_INVOICE_NUMBER");
+    }
+    if (input.customerId) {
+      const customer = await tx.customer.findFirst({
+        where: { id: input.customerId, businessId: input.businessId },
+        select: { id: true },
+      });
+      if (!customer) throw new Error("CUSTOMER_NOT_FOUND");
+    }
     const productIds = Array.from(new Set(input.items.map((item) => item.productId)));
     const products = await tx.product.findMany({
       where: { businessId: input.businessId, id: { in: productIds }, active: true },
     });
     const productMap = new Map(products.map((product) => [product.id, product]));
     if (productMap.size !== productIds.length) throw new Error("PRODUCT_NOT_FOUND");
+
+    const pricingPolicy = await tx.business.findUniqueOrThrow({
+      where: { id: input.businessId }, select: { cashierMaxDiscountPercent: true },
+    });
+    const priceOverrides: Array<{ productId: string; productName: string; listed: number; charged: number }> = [];
+    for (const item of input.items) {
+      const product = productMap.get(item.productId)!;
+      const listedPrice = Number(product.salePrice);
+      const errorCode = cashierDiscountViolation({
+        role: input.actorRole || "",
+        listedPrice, chargedBasePrice: item.unitPrice,
+        maxDiscountPercent: Number(pricingPolicy.cashierMaxDiscountPercent),
+      });
+      if (errorCode) throw new Error(errorCode);
+      if (item.unitPrice < listedPrice - 0.009) {
+        priceOverrides.push({ productId: product.id, productName: product.name, listed: listedPrice, charged: item.unitPrice });
+      }
+    }
 
     const [recipeRows, configRows] = await Promise.all([
       tx.inventoryAuditEvent.findMany({
@@ -154,6 +192,8 @@ export async function recordSale(input: RecordSaleInput) {
     const sale = await tx.sale.create({
       data: {
         businessId: input.businessId,
+        locationId: input.locationId || null,
+        customerId: input.customerId || null,
         invoiceNumber: input.invoiceNumber,
         paymentMethod: input.paymentMethod ?? "CASH",
         total,
@@ -169,6 +209,22 @@ export async function recordSale(input: RecordSaleInput) {
       },
       include: { items: true },
     });
+
+    for (const changed of priceOverrides) {
+      await tx.inventoryAuditEvent.create({
+        data: {
+          businessId: input.businessId,
+          action: "SALE_PRICE_OVERRIDE",
+          orderId: sale.id,
+          listingId: changed.productId,
+          itemName: changed.productName,
+          actorUserId: input.actorUserId,
+          actorName: input.actorName || "النظام",
+          actorRole: input.actorRole,
+          note: JSON.stringify({ listedPrice: changed.listed, chargedPrice: changed.charged }),
+        },
+      });
+    }
 
     for (const plan of plans) {
       if (plan.skipStock) {
@@ -326,11 +382,18 @@ export async function recordSale(input: RecordSaleInput) {
       });
     }
 
+    // Accounting source outbox shares POS transaction and cannot disappear after
+    // stock/revenue commit. Posting is a separate reviewed/approved operation.
+    await tx.accountingSourceEvent.create({
+      data: { businessId: input.businessId, sourceType: "SALE", sourceId: sale.id,
+        actorUserId: input.actorUserId || null },
+    });
     return sale;
   });
 }
 
 export type ReceivePurchaseLineInput = {
+  invoicedQty?: number;
   productId: string;
   receivedQty: number;
   unitCost: number;
@@ -343,6 +406,10 @@ export type ReceivePurchaseInput = {
   purchaseOrderId: string;
   invoiceNumber?: string;
   issuedAt?: Date;
+  declaredTotal?: number;
+  declaredVat?: number;
+  acknowledgeVariance?: boolean;
+  reviewNote?: string;
   locationId?: string | null;
   actorUserId?: string;
   actorName?: string;
@@ -359,7 +426,36 @@ export async function receivePurchaseOrder(input: ReceivePurchaseInput) {
 
     if (!order) throw new Error("PURCHASE_ORDER_NOT_FOUND");
     if (order.status === "CANCELLED") throw new Error("PURCHASE_ORDER_CANCELLED");
+    if (!["SENT", "CONFIRMED", "PARTIALLY_RECEIVED"].includes(order.status)) throw new Error("PURCHASE_ORDER_NOT_APPROVED");
     if (order.status === "RECEIVED") throw new Error("PURCHASE_ORDER_ALREADY_RECEIVED");
+
+    const invoiceKey = makeInvoiceKey(input.businessId, order.supplierId, input.invoiceNumber);
+    if (invoiceKey) {
+      const duplicate = await tx.purchaseInvoice.findFirst({
+        where: {
+          businessId: input.businessId,
+          supplierId: order.supplierId,
+          OR: [
+            { invoiceKey },
+            { invoiceNumber: { equals: input.invoiceNumber!.trim(), mode: "insensitive" } },
+          ],
+        },
+      });
+      if (duplicate) throw new Error("DUPLICATE_SUPPLIER_INVOICE");
+    }
+
+    const previousInvoices = await tx.purchaseInvoice.findMany({
+      where: { businessId: input.businessId, supplierId: order.supplierId, status: "APPROVED" },
+      include: { items: true },
+      orderBy: { approvedAt: "desc" },
+      take: 250,
+    });
+    const latestPrices = new Map<string, number>();
+    for (const historical of previousInvoices) {
+      for (const line of historical.items) {
+        if (!latestPrices.has(line.productId)) latestPrices.set(line.productId, Number(line.unitCost));
+      }
+    }
 
     const orderItemMap = new Map(order.items.map((item) => [item.productId, item]));
 
@@ -373,13 +469,36 @@ export async function receivePurchaseOrder(input: ReceivePurchaseInput) {
       }
     }
 
-    const invoiceTotal = input.items.reduce((sum, item) => sum + item.receivedQty * item.unitCost, 0);
+    const review = reviewPurchase(input.items.map((item) => {
+      const original = orderItemMap.get(item.productId)!;
+      return {
+        productId: item.productId,
+        productName: original.product.name,
+        orderedUnitCost: Number(original.unitCost),
+        unitCost: item.unitCost,
+        receivedQty: item.receivedQty,
+        invoicedQty: item.invoicedQty ?? item.receivedQty,
+        previousUnitCost: latestPrices.get(item.productId),
+      };
+    }), input.declaredTotal, input.declaredVat);
+
+    if (review.warnings.length && (!input.acknowledgeVariance || (input.reviewNote ?? "").trim().length < 8)) {
+      throw new Error("PURCHASE_REVIEW_REQUIRED:" + review.warnings.map((item) => item.code).join(","));
+    }
+
+    const invoiceTotal = input.items.reduce((sum, item) => sum + (item.invoicedQty ?? item.receivedQty) * item.unitCost, 0);
     const invoice = await tx.purchaseInvoice.create({
       data: {
         businessId: input.businessId,
         supplierId: order.supplierId,
         purchaseOrderId: order.id,
-        invoiceNumber: input.invoiceNumber,
+        invoiceNumber: input.invoiceNumber?.trim(),
+        invoiceKey,
+        declaredTotal: input.declaredTotal,
+        declaredVat: input.declaredVat,
+        reviewNote: review.warnings.length
+          ? (input.reviewNote ?? "").trim() + " | مراجعة: " + review.warnings.map((item) => item.code).join(", ")
+          : null,
         invoiceTotal,
         issuedAt: input.issuedAt,
         approvedAt: new Date(),
@@ -387,7 +506,7 @@ export async function receivePurchaseOrder(input: ReceivePurchaseInput) {
         items: {
           create: input.items.map((item) => ({
             productId: item.productId,
-            invoicedQty: item.receivedQty,
+            invoicedQty: item.invoicedQty ?? item.receivedQty,
             receivedQty: item.receivedQty,
             unitCost: item.unitCost,
           })),
@@ -442,6 +561,17 @@ export async function receivePurchaseOrder(input: ReceivePurchaseInput) {
       });
       await syncListingForProduct(tx, { businessId: input.businessId, productId: product.id, delta: item.receivedQty });
 
+      // Immutable actual purchase price observation (separate from quoted prices).
+      await tx.supplierPriceHistory.create({
+        data: {
+          businessId: input.businessId,
+          supplierId: order.supplierId,
+          productId: product.id,
+          price: item.unitCost,
+          source: "INVOICE",
+        },
+      });
+
       await tx.stockMovement.create({
         data: {
           businessId: input.businessId,
@@ -492,6 +622,6 @@ export async function receivePurchaseOrder(input: ReceivePurchaseInput) {
       },
     });
 
-    return { invoice, fullyReceived };
+    return { invoice, fullyReceived, review };
   });
 }

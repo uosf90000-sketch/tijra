@@ -37,21 +37,24 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
 
+  if (parsed.data.approve) return NextResponse.json({ error: "PAYROLL_APPROVAL_SEPARATE_STEP" }, { status: 409 });
+
   const employees = await db.employee.findMany({
     where: { businessId: auth.context.business.id, active: true },
   });
   if (!employees.length) return NextResponse.json({ error: "NO_ACTIVE_EMPLOYEES" }, { status: 409 });
 
   const adjustments = new Map(parsed.data.adjustments.map((item) => [item.employeeId, item]));
-  const now = new Date();
 
-  const run = await db.payrollRun.create({
+  const run = await db.$transaction(async (tx) => {
+    const created = await tx.payrollRun.create({
     data: {
       businessId: auth.context.business.id,
+      createdByUserId: auth.context.user.id,
       periodStart: parsed.data.periodStart,
       periodEnd: parsed.data.periodEnd,
-      status: parsed.data.approve ? "APPROVED" : "DRAFT",
-      approvedAt: parsed.data.approve ? now : null,
+      status: "DRAFT",
+      approvedAt: null,
       items: {
         create: employees.map((employee) => {
           const override = adjustments.get(employee.id);
@@ -72,6 +75,14 @@ export async function POST(request: Request) {
       },
     },
     include: { items: { include: { employee: true } } },
+    });
+    await tx.inventoryAuditEvent.create({ data: {
+      businessId: auth.context.business.id, action: "PAYROLL_RUN_CREATED", orderId: created.id,
+      actorUserId: auth.context.user.id, actorName: auth.context.user.name,
+      actorRole: auth.context.membership.role,
+      note: "إنشاء مسير رواتب للمراجعة دون اعتماده أو اعتباره مدفوعًا",
+    } });
+    return created;
   });
 
   return NextResponse.json({ run }, { status: 201 });

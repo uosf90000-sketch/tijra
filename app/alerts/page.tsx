@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
 import { buildEarlyStockoutAlerts, buildSmartPriceAlerts } from "@/lib/price-intelligence";
 
-export const metadata = { title: "تنبيهات تِجرا الذكية" };
+export const metadata = { title: "تنبيهات مدار الذكية" };
 export const dynamic = "force-dynamic";
 
 export default async function AlertsPage() {
@@ -86,8 +86,8 @@ export default async function AlertsPage() {
     <>
       <PageHeader
         eyebrow="الإنذار المبكر + السعر الأذكى"
-        title="تنبيهات تِجرا الذكية"
-        description="تِجرا يراقب سرعة استهلاك المخزون، يتوقع قرب النفاد، ويقارن أسعار الموردين لتحويل التنبيه إلى قرار شراء."
+        title="تنبيهات مدار الذكية"
+        description="مدار يراقب سرعة استهلاك المخزون، يتوقع قرب النفاد، ويقارن أسعار الموردين لتحويل التنبيه إلى قرار شراء."
         actions={<Link className="button secondary" href="/suppliers"><Tags size={17} /> إدارة الأسعار</Link>}
       />
 
@@ -134,7 +134,7 @@ export default async function AlertsPage() {
             <article className="smartPriceEmpty panel">
               <div className="softIcon brand"><CircleAlert size={21} /></div>
               <h2>لا توجد إنذارات مبكرة حاليًا</h2>
-              <p>تِجرا يراقب المبيعات والمخزون باستمرار ويظهر التنبيه عندما يتوقع قرب النفاد أو يصل الصنف إلى حد إعادة الطلب.</p>
+              <p>مدار يراقب المبيعات والمخزون باستمرار ويظهر التنبيه عندما يتوقع قرب النفاد أو يصل الصنف إلى حد إعادة الطلب.</p>
             </article>
           )}
         </div>
@@ -206,7 +206,7 @@ export default async function AlertsPage() {
             <article className="smartPriceEmpty panel">
               <div className="softIcon brand"><Tags size={21} /></div>
               <h2>أضف سعرين لنفس الصنف</h2>
-              <p>سجّل نفس المنتج عند موردين مختلفين، وتِجرا يبدأ المقارنة تلقائيًا ويبلغك عند ظهور سعر أفضل.</p>
+              <p>سجّل نفس المنتج عند موردين مختلفين، ومدار يبدأ المقارنة تلقائيًا ويبلغك عند ظهور سعر أفضل.</p>
               <Link className="button primary" href="/suppliers/prices/new">تسجيل سعر مورد</Link>
             </article>
           )}

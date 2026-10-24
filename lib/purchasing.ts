@@ -9,6 +9,7 @@ export type PurchaseSuggestionInput = {
   productId: string;
   productName: string;
   onHand: number;
+  incomingQty?: number;
   avgDailySales: number;
   reorderPoint?: number;
   targetCoverageDays?: number;
@@ -33,20 +34,22 @@ export function buildPurchaseSuggestion(input: PurchaseSuggestionInput): Purchas
   const coverageDays = Math.max(1, input.targetCoverageDays ?? 7);
   const safetyDays = Math.max(0, input.safetyStockDays ?? 1);
   const reorderPoint = Math.max(0, input.reorderPoint ?? 0);
+  const incomingQty = Math.max(0, input.incomingQty ?? 0);
+  const effectiveStock = input.onHand + incomingQty;
   const targetStockFromVelocity = input.avgDailySales * (coverageDays + safetyDays);
 
   // Keep Smart Buy consistent with Inventory/Alerts: a critically-low item must
   // remain actionable even when its short sales history would otherwise round
   // the recommendation to zero.
   const criticalThreshold = Math.max(1, reorderPoint * 0.5);
-  const isCritical = input.onHand <= criticalThreshold;
+  const isCritical = effectiveStock <= criticalThreshold;
   const configuredTarget = reorderPoint > 0 ? reorderPoint * 2 : 0;
   const targetStock = Math.max(targetStockFromVelocity, configuredTarget);
-  const rawQty = roundUp(targetStock - input.onHand);
-  const criticalFallbackQty = isCritical && rawQty === 0
-    ? Math.max(1, roundUp(Math.max(configuredTarget, criticalThreshold + 1) - input.onHand))
+  const rawQty = roundUp(targetStock - effectiveStock);
+  const criticalFallbackQty = isCritical && incomingQty <= 0 && rawQty === 0
+    ? Math.max(1, roundUp(Math.max(configuredTarget, criticalThreshold + 1) - effectiveStock))
     : rawQty;
-  const suggestedBaseQty = input.onHand <= 0 && criticalFallbackQty === 0 ? 1 : criticalFallbackQty;
+  const suggestedBaseQty = input.onHand <= 0 && incomingQty <= 0 && criticalFallbackQty === 0 ? 1 : criticalFallbackQty;
 
   if (suggestedBaseQty === 0) {
     return {
@@ -55,7 +58,9 @@ export function buildPurchaseSuggestion(input: PurchaseSuggestionInput): Purchas
       suggestedQty: 0,
       selectedSupplier: null,
       estimatedTotal: 0,
-      reason: `المخزون الحالي يغطي قرابة ${coverageDays} أيام`,
+      reason: incomingQty > 0
+        ? `المتوفر ${input.onHand} + ${incomingQty} وحدة قيد التوريد تغطي الاحتياج المقترح؛ تحقّق من وصول الطلب`
+        : `المخزون الحالي يغطي قرابة ${coverageDays} أيام`,
     };
   }
 
@@ -74,6 +79,7 @@ export function buildPurchaseSuggestion(input: PurchaseSuggestionInput): Purchas
     : isCritical
       ? `المخزون حرج (${input.onHand})؛ أُنشئت توصية إعادة طلب حتى لا تختفي الحالة الحرجة بسبب قلة سجل المبيعات`
       : `بناءً على متوسط بيع ${input.avgDailySales.toFixed(1)} يوميًا وهدف تغطية ${coverageDays} أيام`;
+  const incomingNote = incomingQty > 0 ? `؛ احتسبنا ${incomingQty} وحدة قيد التوريد قبل اقتراح طلب جديد` : "";
 
   return {
     productId: input.productId,
@@ -81,7 +87,7 @@ export function buildPurchaseSuggestion(input: PurchaseSuggestionInput): Purchas
     suggestedQty: best?.effectiveQty ?? suggestedBaseQty,
     selectedSupplier: best?.offer ?? null,
     estimatedTotal: best?.total ?? 0,
-    reason,
+    reason: reason + incomingNote,
   };
 }
 

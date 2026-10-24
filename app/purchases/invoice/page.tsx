@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import { InvoiceOcrUploader } from "@/components/invoice-ocr-uploader";
 import { PageHeader } from "@/components/page-header";
 import { PurchaseReceiptForm } from "@/components/purchase-receipt-form";
 import { getSessionContext } from "@/lib/auth";
@@ -23,6 +22,20 @@ export default async function PurchaseInvoicePage() {
     orderBy: { createdAt: "desc" },
   });
 
+  const previousInvoices = await db.purchaseInvoice.findMany({
+    where: { businessId: context.business.id, status: "APPROVED", supplierId: { in: orders.map((order) => order.supplierId) } },
+    include: { items: true },
+    orderBy: { approvedAt: "desc" },
+    take: 500,
+  });
+  const previousUnitCost = new Map<string, number>();
+  for (const invoice of previousInvoices) {
+    for (const item of invoice.items) {
+      const key = invoice.supplierId + ":" + item.productId;
+      if (!previousUnitCost.has(key)) previousUnitCost.set(key, Number(item.unitCost));
+    }
+  }
+
   const receiptOrders = orders.map((order) => ({
     id: order.id,
     orderNumber: order.orderNumber || order.id.slice(-8).toUpperCase(),
@@ -34,6 +47,7 @@ export default async function PurchaseInvoicePage() {
       orderedQty: Number(item.orderedQty),
       receivedQty: Number(item.receivedQty),
       unitCost: Number(item.unitCost),
+      previousUnitCost: previousUnitCost.get(order.supplierId + ":" + item.productId) ?? null,
     })),
   }));
 
@@ -45,15 +59,6 @@ export default async function PurchaseInvoicePage() {
         description="اقرأ الفاتورة بالصورة للمساعدة، ثم اعتمد ما استلمته فعلًا ليُحدّث المخزون ومتوسط التكلفة."
         actions={<Link className="button secondary" href="/purchases"><ArrowRight size={17} /> رجوع للمشتريات</Link>}
       />
-
-      <section className="invoiceMatchGrid">
-        <InvoiceOcrUploader />
-        <article className="panel">
-          <div className="panelHeader"><div><span className="eyebrow">قاعدة الاستلام</span><h2>OCR يساعدك، ولا يعتمد بدلًا عنك</h2></div></div>
-          <div className="infoNote">قارن الصورة بطلب الشراء. عدّل الكميات والتكلفة في نموذج الاستلام أدناه، ثم اضغط «اعتماد الاستلام». لن يدخل المخزون إلا ما اعتمدته فعلًا.</div>
-          <p className="policyNote">هذا يمنع إضافة كميات مفوترة لم تصل، ويكشف فرق السعر قبل تثبيت متوسط التكلفة.</p>
-        </article>
-      </section>
 
       <PurchaseReceiptForm orders={receiptOrders} />
     </>

@@ -14,6 +14,7 @@ export function PageHeader({
   return (
     <header className="pageHeader">
       <div>
+        <span className="madaarPageSignature" aria-label="مدار لإدارة الأعمال">مدار · مساحة عمل متصلة</span>
         {eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
         <h1>{title}</h1>
         {description ? <p>{description}</p> : null}

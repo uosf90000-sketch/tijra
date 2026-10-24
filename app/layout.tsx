@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
+import { BRAND } from "@/lib/brand";
 import { OfflineRuntime } from "@/components/offline-runtime";
 import "./globals.css";
 import "./premium.css";
@@ -24,18 +25,19 @@ import "./owner-six-door.css";
 import "./smart-owner-home.css";
 import "./executive-ui.css";
 import "./offline.css";
+import "./madaar-theme.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "تِجرا | التجارة الذكية بين المورد والتاجر",
-    template: "%s | تِجرا",
+    default: BRAND.productName,
+    template: `%s | ${BRAND.name}`,
   },
-  description: "منصة B2B عربية تربط الموردين بتجار التجزئة مع السوق الذكي وإدارة المخزون والمشتريات والمحاسبة والرواتب.",
-  applicationName: "TIJRA",
+  description: BRAND.description,
+  applicationName: BRAND.english,
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0F4D4D",
+  themeColor: BRAND.colors.primary,
   colorScheme: "light",
 };
 

@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function EmployeesPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
-  if (!['OWNER', 'MANAGER'].includes(context.membership.role)) redirect(firstPermissionHref(context.membership));
+  if (context.membership.role !== 'OWNER') redirect(firstPermissionHref(context.membership));
 
   const employees = await db.employee.findMany({
     where: { businessId: context.business.id },

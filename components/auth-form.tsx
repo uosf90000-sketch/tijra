@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { Building2, Store, UsersRound } from "lucide-react";
 import { FormEvent, useState } from "react";
-import { TijraLogo } from "@/components/tijra-logo";
+import { MadaarLogo } from "@/components/madaar-logo";
+import { scaleOptions, modelOptions } from "@/lib/workspace-profile";
 import styles from "./auth-form.module.css";
 
 type Mode = "login" | "register";
@@ -23,19 +24,28 @@ const messages: Record<string, string> = {
   EMAIL_ALREADY_EXISTS: "يوجد حساب بهذا البريد الإلكتروني مسبقًا.",
   INVALID_INPUT: "راجع البيانات المدخلة وحاول مرة أخرى.",
   NO_BUSINESS_ACCESS: "الحساب غير مرتبط بمنشأة.",
+  MFA_REQUIRED: "أدخل الرمز من تطبيق المصادقة لإكمال تسجيل الدخول.",
+  MFA_LOCKED: "تم تعليق التحقق مؤقتًا بعد محاولات فاشلة. حاول لاحقًا.",
+  MFA_CODE_ALREADY_USED: "هذا الرمز استخدم مسبقًا. استخدم الرمز التالي.",
+  INVALID_MFA_CODE: "رمز التحقق أو الاسترداد غير صالح.",
+  LOGIN_RATE_LIMITED: "تم إيقاف محاولات الدخول مؤقتًا لحماية الحساب. حاول بعد 15 دقيقة.",
 };
 
 export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [loading, setLoading] = useState(false);
+  const [showTotp, setShowTotp] = useState(false);
+  const [useRecovery, setUseRecovery] = useState(false);
   const [error, setError] = useState("");
   const [businessType, setBusinessType] = useState("RETAILER");
   const [businessActivity, setBusinessActivity] = useState("GROCERY");
+  const [businessScale, setBusinessScale] = useState("SMALL");
+  const [operatingModel, setOperatingModel] = useState("SHOP");
   const register = mode === "register";
 
   function switchMode(next: Mode) {
-    setMode(next); setError("");
+    setMode(next); setError(""); setShowTotp(false); setUseRecovery(false);
     window.history.replaceState(null, "", next === "register" ? "/login?mode=register" : "/login");
   }
 
@@ -46,6 +56,8 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
     const email = String(form.get("email") || "").trim();
     const password = String(form.get("password") || "");
     const name = String(form.get("name") || "").trim();
+    const totpCode = String(form.get("totpCode") || "").trim();
+    const recoveryCode = String(form.get("recoveryCode") || "").trim();
     const businessName = String(form.get("businessName") || "").trim();
 
     if (!email) return setError("أدخل البريد الإلكتروني.");
@@ -56,13 +68,13 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
     if (register && businessName.length < 2) return setError("أدخل اسم المنشأة.");
 
     setLoading(true); setError("");
-    const payload = register ? { name, email, password, phone: form.get("phone") || undefined, businessName, businessType, businessActivity, city: form.get("city") || undefined, taxNumber: form.get("taxNumber") || undefined } : { email, password };
+    const payload = register ? { name, email, password, phone: form.get("phone") || undefined, businessName, businessType, businessActivity, businessScale, operatingModel, city: form.get("city") || undefined, taxNumber: form.get("taxNumber") || undefined } : { email, password, ...(useRecovery ? (recoveryCode ? { recoveryCode } : {}) : (totpCode ? { totpCode } : {})) };
 
     try {
       const response = await fetch(`/api/auth/${register ? "register" : "login"}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) { setError(messages[result.error] ?? "تعذر إكمال العملية. حاول مرة أخرى."); return; }
-      router.replace(register ? (businessType === "SUPPLIER" ? "/marketplace/seller" : "/marketplace") : "/");
+      if (!response.ok) { if (result.error === "MFA_REQUIRED" || result.error === "INVALID_MFA_CODE" || result.error === "MFA_CODE_ALREADY_USED") setShowTotp(true); setError(messages[result.error] ?? "تعذر إكمال العملية. حاول مرة أخرى."); return; }
+      router.replace(register ? "/onboarding" : "/");
       router.refresh();
     } catch { setError("تعذر الاتصال بالخادم. تحقق من الاتصال وحاول مرة أخرى."); }
     finally { setLoading(false); }
@@ -71,25 +83,44 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
   return <main className={styles.page}>
     <div className={styles.glowOne} aria-hidden="true" /><div className={styles.glowTwo} aria-hidden="true" />
     <section className={styles.authWrap}>
-      <header className={styles.brandHeader}><TijraLogo size={84} /><p>المورد والتاجر في مكان واحد</p></header>
+      <header className={styles.brandHeader}><MadaarLogo size={84} /><p>المورد والتاجر في مكان واحد</p></header>
       <div className={styles.card}>
         <div className={styles.modeTabs} role="tablist" aria-label="الدخول أو إنشاء حساب"><button type="button" role="tab" aria-selected={!register} className={!register ? styles.activeTab : ""} onClick={() => switchMode("login")}>تسجيل الدخول</button><button type="button" role="tab" aria-selected={register} className={register ? styles.activeTab : ""} onClick={() => switchMode("register")}>إنشاء حساب</button></div>
-        <div className={styles.cardIntro}><h1>{register ? "ابدأ مع تِجرا" : "مرحبًا بعودتك"}</h1><p>{register ? "أنشئ منشأتك واختر دورك، وسنجهز لك الواجهة المناسبة." : "ادخل لحسابك وتابع السوق والطلبات وإحصائيات منشأتك."}</p></div>
+        <div className={styles.cardIntro}><h1>{register ? "ابدأ مع مدار" : "مرحبًا بعودتك"}</h1><p>{register ? "أنشئ منشأتك واختر دورك، وسنجهز لك الواجهة المناسبة." : "ادخل لحسابك وتابع السوق والطلبات وإحصائيات منشأتك."}</p></div>
         <form className={styles.form} onSubmit={submit} noValidate>
           {register && <>
             <div className={styles.typeGrid} role="radiogroup" aria-label="نوع الحساب">{accountTypes.map(([value, title, note, Icon]) => <button key={value} type="button" className={`${styles.typeCard} ${businessType === value ? styles.typeCardActive : ""}`} onClick={() => setBusinessType(value)} aria-pressed={businessType === value}><span className={styles.typeIcon}><Icon size={18} /></span><strong>{title}</strong><span>{note}</span></button>)}</div>
             <div className={styles.field}><label htmlFor="businessActivity">نشاط المنشأة</label><select id="businessActivity" value={businessActivity} onChange={(event) => setBusinessActivity(event.target.value)}>{activities.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            <div className={styles.grid2}>
+              <div className={styles.field}><label htmlFor="businessScale">حجم المنشأة</label>
+                <select id="businessScale" value={businessScale} onChange={(event) => setBusinessScale(event.target.value)}>{scaleOptions.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select>
+              </div>
+              <div className={styles.field}><label htmlFor="operatingModel">النشاط التشغيلي</label>
+                <select id="operatingModel" value={operatingModel} onChange={(event) => { const value = event.target.value; setOperatingModel(value); if (value === "FOOD_TRUCK") setBusinessActivity("CAFE"); if (value === "RESTAURANT") setBusinessActivity("RESTAURANT"); }}>{modelOptions.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select>
+              </div>
+            </div>
             <div className={styles.grid2}><div className={styles.field}><label htmlFor="name">اسمك</label><input id="name" name="name" autoComplete="name" /></div><div className={styles.field}><label htmlFor="phone">الجوال</label><input id="phone" name="phone" inputMode="tel" autoComplete="tel" /></div></div>
             <div className={styles.field}><label htmlFor="businessName">اسم المنشأة</label><input id="businessName" name="businessName" /></div>
             <div className={styles.grid2}><div className={styles.field}><label htmlFor="city">المدينة</label><input id="city" name="city" placeholder="مثال: جدة" /></div><div className={styles.field}><label htmlFor="taxNumber">الرقم الضريبي <span>اختياري</span></label><input id="taxNumber" name="taxNumber" inputMode="numeric" /></div></div>
           </>}
-          <div className={styles.field}><label htmlFor="email">البريد الإلكتروني</label><input id="email" name="email" type="email" autoComplete="email" dir="ltr" placeholder="example@tijra.com" /></div>
+          <div className={styles.field}><label htmlFor="email">البريد الإلكتروني</label><input id="email" name="email" type="email" autoComplete="email" dir="ltr" placeholder="name@example.com" /></div>
           <div className={styles.field}><label htmlFor="password">كلمة المرور</label><input id="password" name="password" type="password" autoComplete={register ? "new-password" : "current-password"} dir="ltr" /></div>
+          {!register && showTotp && <>
+            <div className={styles.field}>
+              <label htmlFor={useRecovery ? "recoveryCode" : "totpCode"}>{useRecovery ? "رمز استرداد غير مستخدم" : "رمز التحقق من تطبيق المصادقة"}</label>
+              {useRecovery
+                ? <input id="recoveryCode" name="recoveryCode" autoComplete="off" maxLength={80} required dir="ltr" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" />
+                : <input id="totpCode" name="totpCode" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required placeholder="000000" dir="ltr" />}
+            </div>
+            <button type="button" className={styles.modeTabs} onClick={() => { setUseRecovery((value) => !value); setError(""); }}>
+              {useRecovery ? "العودة إلى رمز التطبيق" : "فقدت الهاتف؟ الدخول برمز استرداد"}
+            </button>
+          </>}
           {error && <div className={styles.error} role="alert">{error}</div>}
           <button className={styles.submit} disabled={loading}>{loading ? "جاري الحفظ..." : register ? "إنشاء الحساب والمتابعة" : "تسجيل الدخول"}</button>
         </form>
       </div>
-      <p className={styles.footerNote}>تِجرا · منصة التجارة الذكية بين المورد والتاجر</p>
+      <p className={styles.footerNote}>مدار · نظام أعمال موحّد لجميع أقسام منشأتك</p>
     </section>
   </main>;
 }

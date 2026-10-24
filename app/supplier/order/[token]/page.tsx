@@ -5,7 +5,7 @@ import { formatSar } from "@/lib/format";
 import { verifySupplierOrderToken } from "@/lib/supplier-link";
 import styles from "./page.module.css";
 
-export const metadata = { title: "طلب توريد | تِجرا" };
+export const metadata = { title: "طلب توريد | مدار" };
 export const dynamic = "force-dynamic";
 
 const statusLabels: Record<string, string> = {
@@ -22,7 +22,7 @@ export default async function SupplierOrderPage({ params }: { params: Promise<{ 
   const payload = verifySupplierOrderToken(token);
   if (!payload) {
     return (
-      <main className={styles.page}><div className={styles.wrap}><div className={styles.brand}><span className={styles.mark}>ت</span> تِجرا</div><section className={`${styles.card} ${styles.invalid}`}><h1>الرابط غير صالح أو انتهت صلاحيته</h1><p>اطلب من التاجر إنشاء رابط توريد جديد. لا تحتاج إلى إنشاء حساب في تِجرا لتأكيد الطلب.</p></section></div></main>
+      <main className={styles.page}><div className={styles.wrap}><div className={styles.brand}><span className={styles.mark}>ت</span> مدار</div><section className={`${styles.card} ${styles.invalid}`}><h1>الرابط غير صالح أو انتهت صلاحيته</h1><p>اطلب من التاجر إنشاء رابط توريد جديد. لا تحتاج إلى إنشاء حساب في مدار لتأكيد الطلب.</p></section></div></main>
     );
   }
 
@@ -37,7 +37,7 @@ export default async function SupplierOrderPage({ params }: { params: Promise<{ 
   return (
     <main className={styles.page}>
       <div className={styles.wrap}>
-        <div className={styles.brand}><span className={styles.mark}>ت</span> تِجرا</div>
+        <div className={styles.brand}><span className={styles.mark}>ت</span> مدار</div>
         <section className={styles.card}>
           <span className={styles.eyebrow}>طلب توريد من {order.business.name}</span>
           <h1>{order.orderNumber || `طلب ${order.id.slice(-8).toUpperCase()}`}</h1>

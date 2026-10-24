@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import type { UserRole } from "@prisma/client";
 import { SESSION_COOKIE } from "@/lib/auth-constants";
 import { db } from "@/lib/db";
+import { selectAuthorizedMembership } from "@/lib/active-business";
 
 const DEFAULT_SESSION_DAYS = 30;
 
@@ -84,7 +85,9 @@ export async function getSessionContext() {
     return null;
   }
 
-  const membership = session.user.memberships[0];
+  // Always derive the active business from a current membership; a stale or
+  // malicious activeBusinessId never grants access to an unowned tenant.
+  const membership = selectAuthorizedMembership(session.user.memberships, session.activeBusinessId);
   if (!membership) return null;
 
   return {

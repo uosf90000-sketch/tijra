@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { PosTerminal } from "@/components/pos-terminal";
 import { getSessionContext } from "@/lib/auth";
+import { hasAppPermission } from "@/lib/access";
 import { isFoodActivity, posExperienceFor } from "@/lib/business-experience";
 import { ensureDefaultLocation, listUnitConversions, safeJson } from "@/lib/commerce-ops";
+import { accessibleLocations } from "@/lib/location-access";
 import { db } from "@/lib/db";
 import { loadRecipesForBusiness, recipeMaxServings, requiredStockQuantity, type RecipeState } from "@/lib/recipes";
 
@@ -34,11 +36,15 @@ function recipeShortages(recipe: RecipeState[]) {
 export default async function SalesPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!hasAppPermission(context.membership, "CASHIER")) redirect("/no-access");
 
   const businessId = context.business.id;
   const activity = context.business.businessActivity;
   const foodBusiness = isFoodActivity(activity);
-  const defaultLocation = await ensureDefaultLocation(businessId);
+  await ensureDefaultLocation(businessId);
+  const allowedLocations = (await accessibleLocations(context)).filter((location) => location.active);
+  const defaultLocation = allowedLocations.find((location) => location.isDefault) || allowedLocations[0];
+  if (!defaultLocation) redirect("/no-access");
 
   const products = await db.product.findMany({
     where: { businessId, active: true },
@@ -48,10 +54,11 @@ export default async function SalesPage() {
   const recipeMap = foodBusiness ? await loadRecipesForBusiness(businessId) : new Map<string, never[]>();
 
   const productIds = products.map((item) => item.id);
-  const [conversions, configRows, serialRows] = await Promise.all([
+  const [conversions, configRows, serialRows, customers] = await Promise.all([
     listUnitConversions(businessId, productIds),
     db.inventoryAuditEvent.findMany({ where: { businessId, action: "PRODUCT_CONFIG", listingId: { in: productIds } } }),
     db.inventoryAuditEvent.findMany({ where: { businessId, action: "PRODUCT_SERIAL", listingId: { in: productIds }, quantity: { gt: 0 } }, orderBy: { itemName: "asc" } }),
+    db.customer.findMany({ where: { businessId }, select: { id: true, name: true }, orderBy: { name: "asc" }, take: 250 }),
   ]);
 
   const conversionMap = new Map<string, typeof conversions>();
@@ -127,7 +134,7 @@ export default async function SalesPage() {
         <div><span>نقطة البيع</span><h1>{copy.title}</h1></div>
         <p>{copy.note}</p>
       </header>
-      <PosTerminal products={posProducts} locationId={defaultLocation.id} businessActivity={activity} />
+      <PosTerminal products={posProducts} locationId={defaultLocation.id} locations={allowedLocations.map((location) => ({ id: location.id, name: location.name }))} businessActivity={activity} customers={customers} />
     </main>
   );
 }

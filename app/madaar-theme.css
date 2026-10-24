@@ -1,0 +1,219 @@
+/* MADAAR 2026 — one RTL design system across all business workspaces.
+   Imported after legacy UI layers. Functional classes/routes are unchanged.
+   Old --tijra/--approved variables remain aliased until a safe component cleanup. */
+:root {
+  color-scheme: light;
+  --madaar-primary:#0E5755;
+  --madaar-primary-hover:#083F40;
+  --madaar-accent:#20A68A;
+  --madaar-mint:#54CEAC;
+  --madaar-paper:#F4F9F8;
+  --madaar-surface:#FFFFFF;
+  --madaar-surface-soft:#EDF7F4;
+  --madaar-ink:#173633;
+  --madaar-muted:#647C77;
+  --madaar-line:#DCEBE6;
+  --madaar-focus:rgba(32,166,138,.25);
+  --madaar-shadow:0 2px 4px rgba(13,61,55,.025),0 14px 38px rgba(13,61,55,.055);
+  --madaar-shadow-raised:0 7px 18px rgba(13,61,55,.035),0 25px 55px rgba(13,61,55,.08);
+  --madaar-radius:18px;
+  --bg:var(--madaar-paper);
+  --surface:var(--madaar-surface);
+  --surface-soft:#F9FCFB;
+  --surface-tint:var(--madaar-surface-soft);
+  --brand:var(--madaar-primary);
+  --brand-dark:var(--madaar-primary-hover);
+  --brand-soft:#DCF5EC;
+  --text:var(--madaar-ink);
+  --text-soft:#3C5B55;
+  --muted:var(--madaar-muted);
+  --line:var(--madaar-line);
+  --line-strong:#BFD9D0;
+  --shadow-sm:var(--madaar-shadow);
+  --shadow-md:var(--madaar-shadow-raised);
+  --tijra-teal:var(--madaar-primary);
+  --tijra-teal-strong:var(--madaar-primary-hover);
+  --tijra-teal-soft:#E1F5EE;
+  --tijra-sand:#72D6B8;
+  --tijra-sand-soft:#EDF9F5;
+  --tijra-cream:var(--madaar-paper);
+  --tijra-ink:var(--madaar-ink);
+  --tijra-text:#3C5B55;
+  --tijra-muted:var(--madaar-muted);
+  --tijra-line:var(--madaar-line);
+  --tijra-shadow-sm:var(--madaar-shadow);
+  --tijra-shadow-md:var(--madaar-shadow-raised);
+  --approved-bg:var(--madaar-paper);
+  --approved-card:#fff;
+  --approved-teal:var(--madaar-primary);
+  --approved-teal-deep:var(--madaar-primary-hover);
+  --approved-teal-soft:#DCF5EC;
+  --approved-gold:var(--madaar-accent);
+  --approved-gold-deep:#087663;
+  --approved-gold-soft:#E7F8F1;
+  --approved-text:var(--madaar-ink);
+  --approved-muted:var(--madaar-muted);
+  --approved-line:var(--madaar-line);
+  --approved-shadow:var(--madaar-shadow);
+  --approved-shadow-hover:var(--madaar-shadow-raised);
+}
+html{background:var(--madaar-paper)}
+body{
+  background:radial-gradient(840px 440px at 86% -12%,rgba(32,166,138,.065),transparent 70%),var(--madaar-paper)!important;
+  color:var(--madaar-ink);
+  font-family:"IBM Plex Sans Arabic","Noto Sans Arabic","SF Arabic","Segoe UI",Tahoma,Arial,sans-serif;
+  font-feature-settings:"tnum" 1;
+}
+::selection{background:#C6F0E2;color:#073F3B}
+.madaarLogo{display:inline-flex;align-items:center;gap:9px;color:var(--madaar-primary);line-height:1;text-decoration:none;min-width:0}
+.madaarLogoInverse{color:#F6FFFC}
+.madaarLogoSymbol{display:grid;place-items:center;flex:0 0 auto}
+.madaarLogoSymbol svg{display:block;overflow:visible}
+.madaarLogoWords{display:grid;min-width:0;gap:4px;text-align:start}
+.madaarLogoWords strong{font-weight:900;font-size:23px;line-height:1;letter-spacing:-.05em;white-space:nowrap}
+.madaarLogoWords>span{font-size:9px;font-weight:800;letter-spacing:.3em;opacity:.76;text-align:start}
+.madaarLogoCompact{gap:0}
+
+/* Owner shell: dark branded rail. Adaptive staff shell stays light and task-first. */
+.appFrame{grid-template-columns:248px minmax(0,1fr)}
+.sidebar{
+  width:248px!important;
+  background:radial-gradient(430px 270px at 62% -12%,rgba(87,214,178,.2),transparent 71%),
+    linear-gradient(176deg,#134F4D 0%,#0B4143 55%,#082E34 100%)!important;
+  color:#F4FCF9!important;
+  border-inline-end:1px solid #255E58!important;
+  box-shadow:-16px 0 42px rgba(4,43,39,.1)!important;
+}
+.sidebarTop{border-bottom-color:rgba(255,255,255,.13)!important}
+.sidebarTop .brand{justify-content:flex-start!important}
+.sidebar .madaarLogoWords>span{color:#A9DCD0}
+.sidebarClose{background:rgba(255,255,255,.1)!important;color:#fff!important;border-color:rgba(255,255,255,.13)!important}
+.navSection{background:rgba(255,255,255,.035)!important;border-color:rgba(255,255,255,.09)!important}
+.navSection>summary{color:#B6D4CB!important}
+.navSection[open]>summary{background:rgba(84,206,172,.1)!important;color:#F6FFFC!important}
+.navSectionItems{border-top-color:rgba(255,255,255,.08)!important}
+.navSection>summary svg{color:#80D6BF!important}
+.navGroupLabel{color:#80B5A8!important}
+.sidebar .navItem{color:#C7E1DA!important;border-color:transparent!important}
+.sidebar .navItem svg{color:#9FCBC0!important}
+.sidebar .navItem:hover{background:rgba(255,255,255,.09)!important;color:#fff!important;border-color:rgba(255,255,255,.06)!important}
+.sidebar .navItem:hover svg{color:#fff!important}
+.sidebar .navItem.active,.sidebar .ownerDirectNav>.navItem.active{
+  background:linear-gradient(95deg,rgba(84,206,172,.25),rgba(84,206,172,.1))!important;
+  color:#fff!important;
+  border-color:rgba(122,230,198,.19)!important;
+  box-shadow:inset -3px 0 #67DEBE!important;
+}
+.sidebar .navItem.active svg{color:#8BFFE0!important}
+.sidebar .workspaceSwitcher.staticWorkspace,.sidebar .tradeModeSwitch{
+  color:#F6FFFC!important;background:rgba(255,255,255,.07)!important;
+  border-color:rgba(255,255,255,.16)!important;box-shadow:none!important;
+}
+.sidebar .workspaceSwitcher.staticWorkspace strong{color:#fff}
+.sidebar .workspaceSwitcher.staticWorkspace span{color:#A5D1C4}
+.sidebar .tradeModeSwitch button{color:#B1D8CC!important}
+.sidebar .tradeModeSwitch button.active{background:rgba(84,206,172,.2)!important;color:#fff!important}
+.sidebar .workspaceIcon{background:rgba(84,206,172,.18);color:#8DF0D5}
+.sidebar .tradeModeSwitch .button.secondary{background:rgba(255,255,255,.1)!important;color:#fff!important;border-color:rgba(255,255,255,.18)!important}
+.sidebarInsight{
+  background:rgba(255,255,255,.07)!important;color:#fff!important;
+  border:1px solid rgba(255,255,255,.11)!important;
+}
+.sidebarInsight strong{color:#F1FFFC!important}
+.sidebarInsight span{color:#B0D2C8!important}
+.sidebarInsightIcon{background:rgba(84,206,172,.18);color:#8FF3D7}
+.accountBlock{color:#F7FFFC!important;border-top-color:rgba(255,255,255,.12)!important}
+.accountBlock span{color:#B4D0C9!important}
+.avatar{background:rgba(255,255,255,.09)!important;color:#DFFEF4!important}
+.sidebar .logoutButton{background:rgba(255,255,255,.09)!important;color:#EFFCF7!important;border-color:rgba(255,255,255,.17)!important}
+
+/* Shared chrome, headings, input and data density */
+.appTopbar{
+  background:rgba(248,252,250,.91)!important;
+  border-bottom:1px solid var(--madaar-line)!important;
+}
+.searchTrigger,.iconButton{border-color:var(--madaar-line)!important;color:#516C64!important;background:#fff!important}
+.searchTrigger:hover,.iconButton:hover{border-color:#9ECDBC!important}
+.modePill{background:#E5F7EF;color:#0E6960;border-color:#CAEADC}
+.pageContent{width:min(100%,1520px)}
+.pageHeader h1{color:var(--madaar-ink);font-weight:900;letter-spacing:-.65px}
+.pageHeader p{color:var(--madaar-muted)}
+.eyebrow,.textLink{color:#117968!important}
+.quickSale,.button.primary,.smartPriceAction{
+  background:linear-gradient(125deg,#0B6962,#0E5755)!important;
+  color:#fff!important;border-color:transparent!important;
+  box-shadow:0 9px 22px rgba(14,87,85,.17)!important;
+}
+.quickSale:hover,.button.primary:hover,.smartPriceAction:hover{
+  background:linear-gradient(125deg,#077F6C,#0A4C4D)!important;
+  box-shadow:0 13px 30px rgba(14,87,85,.2)!important;
+}
+.button.secondary{background:#fff!important;color:#38564F!important;border-color:var(--madaar-line)!important}
+.button.secondary:hover{background:#F1F9F6!important;border-color:#AADACA!important}
+.metricCard,.panel,.smartOwnerPanel,.roleHero,.roleActionCard,.ownerHubCard{
+  background:#fff!important;
+  border-color:var(--madaar-line)!important;
+  box-shadow:var(--madaar-shadow)!important;
+  border-radius:var(--madaar-radius)!important;
+}
+.metricCard:hover,.panel:hover,.ownerHubCard:hover{
+  border-color:#B4DFD1!important;
+  box-shadow:var(--madaar-shadow-raised)!important;
+}
+.metricIcon.tone-brand,.softIcon.brand,.roleHeroIcon,.dashboardStripIcon{
+  background:#DFF6ED!important;color:#0D7363!important;
+}
+.statusPill.status-active,.status-healthy,.status-active,.status-received,.status-paid,.status-in{
+  background:#E3F7EE!important;color:#087058!important;
+}
+.status-low,.status-partial,.status-draft{background:#FFF2DD!important;color:#986319!important}
+.status-critical,.status-out{background:#FFF0EF!important;color:#B33F40!important}
+.dataTable th{background:#F2F8F5!important;color:#55766D!important;border-color:#E0EEE8!important}
+.dataTable td{border-bottom-color:#E7F0ED!important;color:#3F5B55}
+.dataTable tbody tr:hover td{background:#F5FBF8}
+input:not([type="checkbox"]):not([type="radio"]),select,textarea{
+  border-color:#D6E9E2!important;background:#FAFDFC!important;color:var(--madaar-ink)!important;
+  accent-color:var(--madaar-accent);
+}
+input[type="checkbox"],input[type="radio"]{accent-color:var(--madaar-primary)}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{
+  outline:2px solid #27A88A;outline-offset:2px;
+}
+input:focus,select:focus,textarea:focus{border-color:#20A68A!important;box-shadow:0 0 0 4px var(--madaar-focus)!important}
+.infoNote,.noticeBox{background:#F0F8F4!important;border-color:#D7EAE1!important;color:#506F65!important}
+.roleHero{background:linear-gradient(110deg,#fff 10%,#E9F8F1 100%)!important}
+.smartOwnerInsight,.dashboardStripItem{border-color:var(--madaar-line)!important;background:#fff!important}
+.smartOwnerInsightIcon{background:#E8F8F1!important;color:#117968!important}
+.executiveColumnTrack>span,.bar{background:linear-gradient(180deg,#0E5755,#45C2A0)!important}
+.marketHero,.smartPriceHero{background:linear-gradient(125deg,#fff,#EDFAF5)!important;border-color:var(--madaar-line)!important}
+.marketProductIcon,.marketLocationBadge{background:#E7F8F1!important;color:#0E7564!important}
+.bestPriceTag{background:#E4F7EC!important;color:#0F7457!important}
+.staffFrame,.staffLoadingShell{background:var(--madaar-paper)!important;color:var(--madaar-ink)}
+.staffTopbar,.staffTaskNav{background:rgba(250,253,251,.94)!important;border-bottom-color:var(--madaar-line)!important}
+.staffTaskNav a{border-color:var(--madaar-line)!important}
+.staffTaskNav a.active,.staffPrimaryAction,.staffCameraButton{
+  background:var(--madaar-primary)!important;border-color:var(--madaar-primary)!important;color:white!important
+}
+.staffContent{width:min(100%,1100px)}
+.staffManualBarcode,.staffQuantityField,.staffScannedProduct{border-color:var(--madaar-line)!important;background:#fff!important}
+.staffManualBarcode input,.staffQuantityField input{background:#F1F8F5!important}
+.cashierWorkspace{max-width:1480px}
+.adaptivePos .posCatalog,.adaptivePos .cartPanel{background:#fff!important;border-color:var(--madaar-line)!important;box-shadow:var(--madaar-shadow)!important}
+.cashierMinimalHead span,.staffPageIntro>span{color:#0B8270!important}
+.cashierMinimalHead h1,.staffPageIntro h1{color:var(--madaar-ink)!important}
+/* Consistent separation of layout levels for RTL mobile/desktop */
+@media(max-width:980px){.appFrame{grid-template-columns:1fr}.sidebar{width:min(310px,88vw)!important}}
+@media(max-width:720px){
+  .pageContent{padding-inline:14px;padding-top:18px}
+  .pageHeader h1{font-size:clamp(22px,6vw,29px)}
+  .metricsGrid,.metricsGrid.four,.metricsGrid.three{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .staffContent{width:100%}
+  .madaarLogoWords strong{font-size:20px}
+}
+@media(max-width:440px){
+  .pageHeader p{display:block!important;font-size:10.5px;line-height:1.65}
+  .metricsGrid,.metricsGrid.four,.metricsGrid.three{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}

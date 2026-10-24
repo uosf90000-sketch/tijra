@@ -4,6 +4,7 @@ import { hasAppPermission } from "@/lib/access";
 import { requireApiAnyPermission } from "@/lib/api-auth";
 import { adjustLocationStock, ensureDefaultLocation, syncProductForListing } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
+import { locationAuthorized } from "@/lib/location-access";
 
 const schema = z.object({ action: z.enum(["ACCEPT", "CANCEL", "RECEIVE"]) });
 
@@ -123,6 +124,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       // avoiding simultaneous first-receive initialization races.
       const receiptLocation = await ensureDefaultLocation(context.business.id);
       if (!receiptLocation) throw new Error("RECEIPT_LOCATION_NOT_FOUND");
+      if (!(await locationAuthorized(context, receiptLocation.id))) throw new Error("LOCATION_ACCESS_DENIED");
 
       for (const item of order.items) {
         const listing = item.listing;
@@ -220,7 +222,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ order: result });
   } catch (error) {
     const code = error instanceof Error ? error.message : "UPDATE_FAILED";
-    const status = code === "ORDER_NOT_FOUND" ? 404 : code === "FORBIDDEN" ? 403 : ["INVALID_STATUS", "PICK_NOT_COMPLETE"].includes(code) ? 409 : 500;
+    const status = code === "ORDER_NOT_FOUND" ? 404 : ["FORBIDDEN", "LOCATION_ACCESS_DENIED"].includes(code) ? 403 : ["INVALID_STATUS", "PICK_NOT_COMPLETE"].includes(code) ? 409 : 500;
     return NextResponse.json({ error: code }, { status });
   }
 }

@@ -3,11 +3,15 @@ import { z } from "zod";
 import { requireApiPermission } from "@/lib/api-auth";
 import { adjustLocationStock, ensureDefaultLocation, syncListingForProduct } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
+import { locationAuthorized } from "@/lib/location-access";
+import { stockAdjustmentViolation } from "@/lib/governance-checks";
 
 const schema = z.object({
   barcode: z.string().trim().min(1).max(80),
   direction: z.enum(["IN", "OUT"]),
   quantity: z.coerce.number().positive().max(100000000),
+  reason: z.string().trim().max(500).optional(),
+  locationId: z.string().min(1).optional(),
 });
 
 export async function POST(request: Request) {
@@ -19,9 +23,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { barcode, direction, quantity } = parsed.data;
+  const { barcode, direction, quantity, reason } = parsed.data;
   const businessId = auth.context.business.id;
-  const location = await ensureDefaultLocation(businessId);
+  const defaultLocation = await ensureDefaultLocation(businessId);
+  const locationId = parsed.data.locationId || defaultLocation.id;
+  if (!(await locationAuthorized(auth.context, locationId))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
 
   try {
     const result = await db.$transaction(async (tx) => {
@@ -30,6 +36,17 @@ export async function POST(request: Request) {
       });
       if (!product) throw new Error("PRODUCT_NOT_FOUND");
 
+      const businessPolicy = await tx.business.findUniqueOrThrow({
+        where: { id: businessId }, select: { stockReasonRequired: true, stockValueReviewThreshold: true },
+      });
+      const value = quantity * Number(product.averageCost);
+      const policyError = stockAdjustmentViolation({
+        role: auth.context.membership.role,
+        quantity, averageCost: Number(product.averageCost), reason,
+        reasonRequired: businessPolicy.stockReasonRequired,
+        valueThreshold: Number(businessPolicy.stockValueReviewThreshold),
+      });
+      if (policyError) throw new Error(policyError);
       const before = Number(product.quantity);
       const delta = direction === "IN" ? quantity : -quantity;
 
@@ -48,7 +65,7 @@ export async function POST(request: Request) {
 
       await adjustLocationStock(tx, {
         businessId,
-        locationId: location.id,
+        locationId,
         productId: product.id,
         productName: product.name,
         delta,
@@ -86,7 +103,8 @@ export async function POST(request: Request) {
           actorUserId: auth.context.user.id,
           actorName: auth.context.user.name,
           actorRole: auth.context.membership.role,
-          note: `${direction === "IN" ? "إدخال" : "إخراج"} ${quantity} ${product.unit}`,
+          note: JSON.stringify({ movement: direction, quantity, unit: product.unit, value,
+            reason: reason || null }),
         },
       });
 
@@ -96,7 +114,9 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   } catch (error) {
     const code = error instanceof Error ? error.message : "QUICK_ADJUST_FAILED";
-    const status = code === "PRODUCT_NOT_FOUND" ? 404 : code === "INSUFFICIENT_STOCK" ? 409 : 500;
+    const status = code === "PRODUCT_NOT_FOUND" ? 404 : code === "INSUFFICIENT_STOCK" ? 409 :
+      code === "SUPERVISOR_REQUIRED_FOR_LARGE_STOCK_ADJUSTMENT" ? 403 :
+      code === "STOCK_REASON_REQUIRED" ? 400 : 500;
     return NextResponse.json({ error: code }, { status });
   }
 }

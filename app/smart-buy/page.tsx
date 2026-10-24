@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
 import { buildPurchasePlan } from "@/lib/purchasing";
 import { loadRecipesForBusiness } from "@/lib/recipes";
+import { combineIncomingQuantities, getIncomingPurchaseQuantities, getMarketplaceIncomingQuantities } from "@/lib/operating-intelligence";
 
 export const metadata = { title: "مشتريات الأسبوع" };
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ export default async function SmartBuyPage() {
   const since = new Date();
   since.setDate(since.getDate() - 30);
 
-  const [products, listings, recipeMap] = await Promise.all([
+  const [products, listings, recipeMap, pendingOrders, pendingMarketplaceOrders] = await Promise.all([
     db.product.findMany({
       where: { businessId: context.business.id, active: true },
       include: {
@@ -55,8 +56,35 @@ export default async function SmartBuyPage() {
       take: 5000,
     }),
     loadRecipesForBusiness(context.business.id),
+    db.purchaseOrder.findMany({
+      where: { businessId: context.business.id, status: { in: ["PENDING_APPROVAL", "SENT", "CONFIRMED", "PARTIALLY_RECEIVED"] } },
+      select: { status: true, items: { select: { productId: true, orderedQty: true, receivedQty: true } } },
+    }),
+    db.marketplaceOrder.findMany({
+      where: { buyerBusinessId: context.business.id, status: { in: ["PLACED", "ACCEPTED"] } },
+      select: { status: true, items: { select: {
+        quantity: true, listing: { select: { barcode: true, unit: true } },
+      } } },
+    }),
   ]);
 
+  const purchaseIncoming = getIncomingPurchaseQuantities(pendingOrders.map((order) => ({
+    status: order.status,
+    items: order.items.map((item) => ({
+      productId: item.productId,
+      orderedQty: Number(item.orderedQty),
+      receivedQty: Number(item.receivedQty),
+    })),
+  })));
+  const marketIncoming = getMarketplaceIncomingQuantities(products.map((product) => ({
+    id: product.id, barcode: product.barcode, unit: product.unit,
+  })), pendingMarketplaceOrders.map((order) => ({
+    status: order.status,
+    items: order.items.map((item) => ({
+      barcode: item.listing.barcode, unit: item.listing.unit, quantity: Number(item.quantity),
+    })),
+  })));
+  const incoming = combineIncomingQuantities(purchaseIncoming, marketIncoming);
   const stockProducts = products.filter((product) => !recipeMap.has(product.id));
   const plan = buildPurchasePlan(stockProducts.map((product) => {
     const directSold = product.saleItems.reduce((sum, item) => sum + Number(item.quantity), 0);
@@ -72,6 +100,7 @@ export default async function SmartBuyPage() {
       productId: product.id,
       productName: product.name,
       onHand: Number(product.quantity),
+      incomingQty: incoming.get(product.id) ?? 0,
       avgDailySales,
       reorderPoint: Number(product.reorderPoint),
       targetCoverageDays: product.targetCoverageDays,
@@ -90,7 +119,8 @@ export default async function SmartBuyPage() {
 
   return (
     <>
-      <PageHeader eyebrow="الشراء الذكي" title="وفّر لي مشتريات هذا الأسبوع" description="تِجرا يقرأ البيع المباشر واستهلاك مكونات الوصفات خلال 30 يومًا، يلتقط حالات النفاد حتى بدون سجل مبيعات، ثم يقترح الكمية ويختار أقل مورد تكلفة." actions={<Link className="button secondary" href="/catalog"><Sparkles size={17} /> الكتالوج الموحد</Link>} />
+      <PageHeader eyebrow="الشراء الذكي" title="وفّر لي مشتريات هذا الأسبوع" description="مدار يقرأ البيع المباشر واستهلاك مكونات الوصفات خلال 30 يومًا، يلتقط حالات النفاد حتى بدون سجل مبيعات، ثم يقترح الكمية ويختار أقل مورد تكلفة." actions={<><Link className="button secondary" href="/purchases/insights">مراقب المشتريات</Link><Link className="button secondary" href="/catalog"><Sparkles size={17} /> الكتالوج الموحد</Link></>} />
+      <div className="infoNote">حُسبت طلبات الموردين المفتوحة وطلبات السوق غير المستلمة ذات تطابق باركود ووحدة فريدين قبل اقتراح شراء جديد. الكميات قيد التوريد ليست مخزونًا مستلمًا، والعروض غير المطابقة تحتاج مراجعة يدويًا.</div>
       <section className="metricsGrid four">
         <MetricCard label="أصناف مقترحة" value={`${plan.suggestions.length}`} note="مواد ومخزون تحتاج تغطية" icon={ShoppingBasket} />
         <MetricCard label="لها مورد مناسب" value={`${suggestionsWithSupplier.length}`} note="يمكن شراؤها من السوق" icon={PackageCheck} tone="blue" />

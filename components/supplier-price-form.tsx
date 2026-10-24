@@ -42,7 +42,7 @@ export function SupplierPriceForm({ suppliers, products }: { suppliers: Option[]
 
   return (
     <form className="panel onboardingForm" onSubmit={submit}>
-      <div className="formSection"><div><h2>تسجيل سعر</h2><p>يستخدم تِجرا هذه الأسعار عند المقارنة واقتراح الطلبية.</p></div></div>
+      <div className="formSection"><div><h2>تسجيل سعر</h2><p>يستخدم مدار هذه الأسعار عند المقارنة واقتراح الطلبية.</p></div></div>
       <div className="formGrid">
         <label className="field"><span>المورد</span><select name="supplierId" required>{suppliers.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
         <label className="field"><span>الصنف</span><select name="productId" required>{products.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>

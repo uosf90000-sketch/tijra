@@ -32,7 +32,7 @@ export default async function InventoryClosingPage() {
       <PageHeader
         eyebrow="نهاية الوردية"
         title="إقفال وجرد نهاية اليوم"
-        description="تِجرا يعرض الكمية النظرية للمواد الفعلية بعد المبيعات والهدر. منتجات الوصفات لا تُعد مرتين؛ الذي يُعد هو الدجاج والصوص والخبز والمكونات نفسها."
+        description="مدار يعرض الكمية النظرية للمواد الفعلية بعد المبيعات والهدر. منتجات الوصفات لا تُعد مرتين؛ الذي يُعد هو الدجاج والصوص والخبز والمكونات نفسها."
       />
       <DayClosingForm products={stockProducts.map((item) => ({ id: item.id, name: item.name, unit: item.unit, theoretical: Number(item.quantity) }))} />
 

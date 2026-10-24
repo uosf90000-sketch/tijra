@@ -10,21 +10,31 @@ export function SmartOrderButton() {
   const [message, setMessage] = useState("");
 
   async function createOrders() {
+    if (loading) return;
     setLoading(true);
     setMessage("");
-    const response = await fetch("/api/purchase-orders/smart", { method: "POST" });
-    const result = await response.json().catch(() => ({}));
-    setLoading(false);
-    if (!response.ok) {
-      setMessage("تعذر إنشاء الطلبات الآن.");
-      return;
+    try {
+      const response = await fetch("/api/purchase-orders/smart", { method: "POST" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(result.error === "CONCURRENT_PURCHASE_CHANGE"
+          ? "تغيرت المشتريات أثناء العملية. حدّث الصفحة وراجع الطلبات قبل المحاولة."
+          : "تعذر إنشاء الطلبات الآن.");
+        return;
+      }
+      if (!result.orders?.length) {
+        setMessage("الاحتياج مغطى بالمخزون أو بطلبات شراء مفتوحة، أو لا يوجد سعر مورد مسجل.");
+        router.refresh();
+        return;
+      }
+      const waiting = result.orders.filter((order: { status: string }) => order.status === "PENDING_APPROVAL").length;
+      setMessage(`تم إنشاء ${result.orders.length} طلب شراء، منها ${waiting} بانتظار موافقة الإدارة.`);
+      router.refresh();
+    } catch {
+      setMessage("تعذر الاتصال. راجع سجل الطلبات قبل المحاولة لتجنب التكرار.");
+    } finally {
+      setLoading(false);
     }
-    if (!result.orders?.length) {
-      setMessage("لا توجد أصناف تحتاج طلبًا ولها أسعار موردين حاليًا.");
-      return;
-    }
-    setMessage(`تم إنشاء ${result.orders.length} طلب شراء حسب المورد.`);
-    router.refresh();
   }
 
   return (

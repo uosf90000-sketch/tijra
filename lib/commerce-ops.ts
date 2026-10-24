@@ -48,6 +48,7 @@ export type ShiftState = {
   expectedCash: number | null;
   actualCash: number | null;
   actorName: string;
+  actorUserId: string | null;
   note: string | null;
 };
 
@@ -502,6 +503,7 @@ export async function listShifts(businessId: string, take = 30) {
       expectedCash: row.previousQuantity == null ? null : Number(row.previousQuantity),
       actualCash: row.newQuantity == null ? null : Number(row.newQuantity),
       actorName: row.actorName,
+      actorUserId: row.actorUserId,
       note: note.note || null,
     };
   });

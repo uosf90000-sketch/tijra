@@ -21,7 +21,7 @@ export function SupplierOrderResponse({ token, closed }: { token: string; closed
       setMessage(result.error === "INVALID_OR_EXPIRED_LINK" ? "انتهت صلاحية الرابط. اطلب رابطًا جديدًا من التاجر." : "تعذر تسجيل الرد. جرّب مرة أخرى.");
       return;
     }
-    setMessage(action === "CONFIRM" ? "تم تأكيد الطلب وإبلاغ التاجر داخل تِجرا." : "تم تسجيل الاعتذار عن تنفيذ الطلب.");
+    setMessage(action === "CONFIRM" ? "تم تأكيد الطلب وإبلاغ التاجر داخل مدار." : "تم تسجيل الاعتذار عن تنفيذ الطلب.");
   }
 
   return (

@@ -2,9 +2,12 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
 import { AlertTriangle, Boxes, ClipboardList, PackageCheck, ShoppingCart, Store, TrendingUp } from "lucide-react";
-import { firstPermissionHref } from "@/lib/access";
+import { roleLandingHref } from "@/lib/role-workspaces";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ExecutiveOperationsSnapshot } from "@/components/executive-operations-snapshot";
+import { ExecutiveActivityTimeline } from "@/components/executive-activity-timeline";
+import { loadVisibleRoleWidgets } from "@/lib/role-dashboard-config";
 import { formatSar } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -190,14 +193,20 @@ async function SupplierDashboard({ businessId, firstName }: { businessId: string
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
   const context = await getSessionContext();
   if (!context) redirect("/login");
-  if (context.membership.role === "STAFF") redirect(firstPermissionHref(context.membership));
+  if (context.membership.role !== "OWNER") redirect(roleLandingHref(context.membership));
 
+  const visibleWidgets = await loadVisibleRoleWidgets(context.business.id, context.membership);
   const params = await searchParams;
   const firstName = context.user.name.split(" ")[0];
   const businessType = context.business.businessType;
   const requestedMode = params.mode === "supplier" ? "supplier" : "retailer";
 
-  if (businessType === "SUPPLIER") return <SupplierDashboard businessId={context.business.id} firstName={firstName} />;
-  if (businessType === "BOTH" && requestedMode === "supplier") return <SupplierDashboard businessId={context.business.id} firstName={firstName} />;
-  return <RetailerDashboard businessId={context.business.id} firstName={firstName} />;
+  const chosen = businessType === "SUPPLIER" || (businessType === "BOTH" && requestedMode === "supplier")
+    ? <SupplierDashboard businessId={context.business.id} firstName={firstName} />
+    : <RetailerDashboard businessId={context.business.id} firstName={firstName} />;
+  return <>
+    <ExecutiveOperationsSnapshot businessId={context.business.id} visible={[...visibleWidgets]} />
+    <ExecutiveActivityTimeline businessId={context.business.id} />
+    {chosen}
+  </>;
 }

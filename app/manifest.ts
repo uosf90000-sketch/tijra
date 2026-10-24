@@ -1,14 +1,15 @@
 import type { MetadataRoute } from "next";
+import { BRAND } from "@/lib/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "تِجرا | TIJRA",
-    short_name: "تِجرا",
-    description: "منصة التجارة الذكية بين المورد وتاجر التجزئة.",
+    name: BRAND.productName,
+    short_name: BRAND.name,
+    description: BRAND.description,
     start_url: "/",
     display: "standalone",
-    background_color: "#FAF7F2",
-    theme_color: "#0F4D4D",
+    background_color: BRAND.colors.background,
+    theme_color: BRAND.colors.primary,
     lang: "ar",
     dir: "rtl",
     icons: [
