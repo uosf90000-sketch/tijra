@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 export type CustomerSummary = {
   id: string; name: string; customerType: string; phone: string | null;
   creditLimit: string; paymentTermsDays: number;
+  saleCount: number; lifetimeValue: string; lastPurchase: string | null;
 };
 export type QuoteSummary = {
   id: string; quoteNumber: string; status: string; total: string;
@@ -92,12 +93,12 @@ export function CrmWorkspace({
         <div className="formActions"><button className="button primary" disabled={busy}>حفظ العميل</button></div>
       </form>
       <div className="tableScroll"><table className="dataTable">
-        <thead><tr><th>العميل</th><th>النوع</th><th>الجوال</th><th>الائتمان</th><th>أيام السداد</th></tr></thead>
+        <thead><tr><th>العميل</th><th>النوع</th><th>الجوال</th><th>الائتمان</th><th>أيام السداد</th><th>مبيعات مسجلة</th><th>آخر شراء</th></tr></thead>
         <tbody>{customers.map((c) => <tr key={c.id}>
           <td>{c.name}</td><td>{c.customerType === "BUSINESS" ? "شركة" : "فرد"}</td>
-          <td>{c.phone || "—"}</td><td>{c.creditLimit} ر.س</td><td>{c.paymentTermsDays}</td>
+          <td>{c.phone || "—"}</td><td>{c.creditLimit} ر.س</td><td>{c.paymentTermsDays}</td><td>{c.saleCount} فاتورة · {c.lifetimeValue} ر.س</td><td>{c.lastPurchase?.slice(0,10) || "—"}</td>
         </tr>)}
-        {!customers.length && <tr><td colSpan={5}>أضف أول عميل لتبدأ دورة البيع.</td></tr>}</tbody>
+        {!customers.length && <tr><td colSpan={7}>أضف أول عميل لتبدأ دورة البيع.</td></tr>}</tbody>
       </table></div>
     </section>
     <section className="panel">
