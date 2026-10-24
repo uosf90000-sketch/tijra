@@ -10,6 +10,7 @@ export const metadata = { title: "الإدارة" };
 
 const tools = [
   { href: "/account/security", title: "أمان الحساب", description: "تفعيل تطبيق المصادقة الثنائية وإدارة حماية الدخول.", icon: ShieldCheck, module: "ALWAYS" },
+  { href: "/management/roles", title: "مصفوفة الوظائف والصلاحيات", description: "حدد شاشة كل موظف ووظائفه والبيانات المسموحة له.", icon: ShieldCheck, module: "ALWAYS" },
   { href: "/management/governance", title: "مركز الحوكمة والرقابة", description: "حدود الموافقات، الصلاحيات، سجل القرارات والعمليات الحساسة.", icon: ShieldCheck, module: "ALWAYS" },
   { href: "/compliance", title: "التصاريح والمستندات", description: "تواريخ انتهاء رخص المنشأة والموردين.", icon: Bell, module: "COMPLIANCE" },
   { href: "/intelligence", title: "نبض الأعمال", description: "مؤشرات حقيقية مشتركة من المبيعات والمخزون والمستحقات.", icon: BarChart3, module: "INSIGHTS" },
