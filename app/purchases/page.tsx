@@ -8,6 +8,7 @@ import { StatusPill } from "@/components/status-pill";
 import { SupplierShareButton } from "@/components/supplier-share-button";
 import { CancelSupplierOrderButton } from "@/components/cancel-supplier-order-button";
 import { getSessionContext } from "@/lib/auth";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { hasAppPermission } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
@@ -29,6 +30,7 @@ const statusLabels: Record<string, string> = {
 export default async function PurchasesPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!(await hasBusinessWideRead(context))) redirect("/no-access");
   if (!hasAppPermission(context.membership, "PURCHASES")) redirect("/no-access");
   const businessId = context.business.id;
 
