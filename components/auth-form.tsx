@@ -103,7 +103,7 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
             <div className={styles.field}><label htmlFor="businessName">اسم المنشأة</label><input id="businessName" name="businessName" /></div>
             <div className={styles.grid2}><div className={styles.field}><label htmlFor="city">المدينة</label><input id="city" name="city" placeholder="مثال: جدة" /></div><div className={styles.field}><label htmlFor="taxNumber">الرقم الضريبي <span>اختياري</span></label><input id="taxNumber" name="taxNumber" inputMode="numeric" /></div></div>
           </>}
-          <div className={styles.field}><label htmlFor="email">البريد الإلكتروني</label><input id="email" name="email" type="email" autoComplete="email" dir="ltr" placeholder="example@tijra.com" /></div>
+          <div className={styles.field}><label htmlFor="email">البريد الإلكتروني</label><input id="email" name="email" type="email" autoComplete="email" dir="ltr" placeholder="name@example.com" /></div>
           <div className={styles.field}><label htmlFor="password">كلمة المرور</label><input id="password" name="password" type="password" autoComplete={register ? "new-password" : "current-password"} dir="ltr" /></div>
           {!register && showTotp && <>
             <div className={styles.field}>
