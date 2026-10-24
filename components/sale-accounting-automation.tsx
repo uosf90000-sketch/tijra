@@ -7,7 +7,7 @@ import { saleLedgerAccountKinds, type SaleLedgerMapping } from "@/lib/sale-ledge
 type Account = { id: string; code: string; name: string; kind: string };
 type Config = SaleLedgerMapping & { enabled: boolean };
 type Item = {
-  id: string; sourceId: string; draftEntryId: string | null; status: string; createdAt: string;
+  id: string; sourceId: string; draftEntryId: string | null; status: string; createdAt: string; errorCode?: string | null;
 };
 const labels: Record<keyof SaleLedgerMapping, string> = {
   cashAccountId: "الصندوق / النقد",
@@ -106,7 +106,7 @@ export function SaleAccountingAutomation({
         <thead><tr><th>مرجع المصدر</th><th>الحالة</th><th>إجراء</th></tr></thead>
         <tbody>{events.map((item) => <tr key={item.id}>
           <td dir="ltr">{item.sourceId}</td>
-          <td>{item.draftEntryId ? "مسودة منشأة" : "بانتظار إعداد مسودة"}</td>
+          <td>{item.draftEntryId ? "مسودة منشأة" : item.status === "BLOCKED" ? "متوقف للفحص: " + (item.errorCode || "راجع إعدادات الربط") : "بانتظار إعداد مسودة"}</td>
           <td>{item.draftEntryId
             ? <Link href="/accounting/ledger" className="textLink">مراجعة القيد</Link>
             : <button className="button secondary" type="button" disabled={busy}
