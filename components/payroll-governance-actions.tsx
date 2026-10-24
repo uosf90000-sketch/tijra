@@ -36,7 +36,7 @@ export function PayrollGovernanceActions({
     }
     if (!window.confirm(action === "APPROVE"
       ? "تأكيد مراجعة مسير الرواتب واعتماده؟"
-      : "تأكيد تسجيل المسير كمدفوع بناءً على إثبات دفع تمت مراجعته خارج تِجرا؟")) return;
+      : "تأكيد تسجيل المسير كمدفوع بناءً على إثبات دفع تمت مراجعته خارج مدار؟")) return;
     setBusy(true); setMessage("");
     try {
       const response = await fetch("/api/payroll/runs/" + encodeURIComponent(run.id) + "/status", {
@@ -52,7 +52,7 @@ export function PayrollGovernanceActions({
             : "تعذر تسجيل القرار. راجع حالة المسير والصلاحيات.");
         return;
       }
-      setMessage(action === "APPROVE" ? "تم اعتماد المسير." : "تم تسجيل إثبات الدفع؛ لم يُجر أي تحويل بنكي من تِجرا.");
+      setMessage(action === "APPROVE" ? "تم اعتماد المسير." : "تم تسجيل إثبات الدفع؛ لم يُجر أي تحويل بنكي من مدار.");
       router.refresh();
     } catch {
       setMessage("تعذر الاتصال. تحقق من حالة المسير قبل إعادة المحاولة.");
