@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { currentBusinessSignals } from "@/lib/business-signals";
 
 const typeSchema = z.enum(["LOW_STOCK","OVERDUE_RECEIVABLE","APPROVAL_WAITING","RFQ_DEADLINE","DOCUMENT_EXPIRY"]);
@@ -11,6 +12,7 @@ const ruleSchema = z.object({ signalType: typeSchema, enabled: z.boolean() }).st
 export async function GET() {
   const context = await getSessionContext();
   if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (!(await hasBusinessWideRead(context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   if (!["OWNER", "MANAGER", "ACCOUNTANT"].includes(context.membership.role))
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const [rules, tasks, signals] = await Promise.all([
@@ -28,6 +30,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   const context = await getSessionContext();
   if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (!(await hasBusinessWideRead(context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   if (context.membership.role !== "OWNER")
     return NextResponse.json({ error: "OWNER_REQUIRED" }, { status: 403 });
   const parsed = ruleSchema.safeParse(await request.json().catch(() => null));
@@ -54,6 +57,7 @@ export async function PATCH(request: Request) {
 export async function POST() {
   const context = await getSessionContext();
   if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (!(await hasBusinessWideRead(context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   if (!["OWNER", "MANAGER"].includes(context.membership.role))
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const signals = (await currentBusinessSignals(context.business.id)).slice(0, 250);
