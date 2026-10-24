@@ -9,7 +9,7 @@ import {
   canEnterRoleWorkbench, effectivePermissions, roleLandingLabel,
 } from "@/lib/role-workspaces";
 
-export const metadata = { title: "مساحة العمل | تِجرا" };
+export const metadata = { title: "مساحة العمل | مدار" };
 export const dynamic = "force-dynamic";
 
 type Tile = { title: string; value: string; description: string; href: string };
@@ -87,7 +87,7 @@ export default async function WorkbenchPage() {
   if (manager) {
     tiles.push({ title: "مهام تشغيل مفتوحة", value: String(openTasks ?? 0),
       description: "تتطلب متابعة من مسؤول", href: "/flow" });
-    actions.push({ title: "تِجرا Flow", href: "/flow", description: "القرارات والتأخيرات عبر الأقسام" });
+    actions.push({ title: "مدار Flow", href: "/flow", description: "القرارات والتأخيرات عبر الأقسام" });
     actions.push({ title: "العملاء والمبيعات", href: "/crm", description: "العملاء وعروض الأسعار" });
     actions.push({ title: "نبض الأعمال", href: "/intelligence", description: "متابعة أداء الأقسام" });
   }
