@@ -43,7 +43,7 @@ export default async function WorkbenchPage() {
   if (permissions.includes("INVENTORY")) {
     tiles.push({ title: "مخزون يحتاج مراجعة",
       value: String((lowStock || []).filter((p) => Number(p.quantity) <= Number(p.reorderPoint)).length),
-      description: "ضمن أول 2000 صنف نشط (النتيجة قد تكون جزئية)", href: "/inventory" });
+      description: "ضمن أول 2000 صنف نشط (النتيجة قد تكون جزئية)", href: context.membership.role === "STAFF" ? "/staff/inventory" : "/inventory" });
     actions.push({ title: "المستودع والجرد", href: context.membership.role === "STAFF" ? "/staff/inventory" : "/inventory",
       description: "الكميات والحركة والاستلام ضمن الصلاحيات" });
   }
