@@ -8,6 +8,7 @@ import { StatusPill } from "@/components/status-pill";
 import { SupplierShareButton } from "@/components/supplier-share-button";
 import { CancelSupplierOrderButton } from "@/components/cancel-supplier-order-button";
 import { getSessionContext } from "@/lib/auth";
+import { hasAppPermission } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
 import { combineIncomingQuantities, getIncomingPurchaseQuantities, getMarketplaceIncomingQuantities } from "@/lib/operating-intelligence";
@@ -28,6 +29,7 @@ const statusLabels: Record<string, string> = {
 export default async function PurchasesPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!hasAppPermission(context.membership, "PURCHASES")) redirect("/no-access");
   const businessId = context.business.id;
 
   const [products, purchaseOrders, pendingOrderLines, pendingMarketplaceOrders] = await Promise.all([
