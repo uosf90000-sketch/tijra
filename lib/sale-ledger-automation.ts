@@ -18,6 +18,13 @@ export async function draftSaleJournal(input: {
       } },
     });
     if (!event) throw new Error("ACCOUNTING_SOURCE_NOT_FOUND");
+    async function block(reason: string) {
+      await tx.accountingSourceEvent.update({
+        where: { id: event.id },
+        data: { status: "BLOCKED", errorCode: reason, attempts: { increment: 1 } },
+      });
+      return { status: "BLOCKED" as const, reason };
+    }
     if (event.draftEntryId) return { status: "DRAFTED" as const, draftEntryId: event.draftEntryId, duplicate: true };
 
     const mapping = await tx.salesAccountingMap.findUnique({ where: { businessId: input.businessId } });
@@ -29,8 +36,8 @@ export async function draftSaleJournal(input: {
       }),
     ]);
     if (!sale) throw new Error("SALE_NOT_FOUND");
-    if (business.taxNumber) return { status: "BLOCKED" as const, reason: "VAT_ACCOUNTING_INTEGRATION_NOT_READY" };
-    if (business.currency !== "SAR") return { status: "BLOCKED" as const, reason: "NON_SAR_LEDGER_NOT_SUPPORTED" };
+    if (business.taxNumber) return block("VAT_ACCOUNTING_INTEGRATION_NOT_READY");
+    if (business.currency !== "SAR") return block("NON_SAR_LEDGER_NOT_SUPPORTED");
 
     const period = await tx.fiscalPeriod.findFirst({
       where: { businessId: input.businessId, status: "OPEN",
@@ -53,9 +60,9 @@ export async function draftSaleJournal(input: {
       where: { businessId: input.businessId, id: { in: ids }, active: true },
       select: { id: true },
     });
-    if (valid.length !== ids.length)
-      return { status: "BLOCKED" as const, reason: "LEDGER_ACCOUNT_INACTIVE" };
+    if (valid.length !== ids.length) return block("LEDGER_ACCOUNT_INACTIVE");
 
+    if (sale.total.isZero() && sale.costTotal.isZero()) return block("ZERO_SALE_NO_JOURNAL");
     const lines = buildSaleLedgerDraft({
       total: sale.total.toFixed(2), costTotal: sale.costTotal.toFixed(2),
       paymentMethod: sale.paymentMethod,
