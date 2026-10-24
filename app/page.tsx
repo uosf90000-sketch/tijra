@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
 import { AlertTriangle, Boxes, ClipboardList, PackageCheck, ShoppingCart, Store, TrendingUp } from "lucide-react";
-import { firstPermissionHref } from "@/lib/access";
+import { roleLandingHref } from "@/lib/role-workspaces";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
@@ -190,7 +190,7 @@ async function SupplierDashboard({ businessId, firstName }: { businessId: string
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
   const context = await getSessionContext();
   if (!context) redirect("/login");
-  if (context.membership.role === "STAFF") redirect(firstPermissionHref(context.membership));
+  if (context.membership.role !== "OWNER") redirect(roleLandingHref(context.membership));
 
   const params = await searchParams;
   const firstName = context.user.name.split(" ")[0];
