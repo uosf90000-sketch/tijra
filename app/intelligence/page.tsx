@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { db } from "@/lib/db";
 import { currentBusinessSignals } from "@/lib/business-signals";
 import { buildMarginAlerts } from "@/lib/operating-intelligence";
@@ -17,6 +18,7 @@ const money = (n: number | string) => new Intl.NumberFormat("ar-SA", {
 export default async function IntelligencePage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!(await hasBusinessWideRead(context))) redirect("/no-access");
   if (!["OWNER", "MANAGER", "ACCOUNTANT"].includes(context.membership.role))
     redirect("/no-access");
   const businessId = context.business.id;
