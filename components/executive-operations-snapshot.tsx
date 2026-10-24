@@ -43,7 +43,7 @@ export async function ExecutiveOperationsSnapshot({ businessId, visible }: { bus
   ];
   return <section className="panel" style={{ marginBlock: 20 }}>
     <div className="panelHeader">
-      <div><span className="eyebrow">تِجرا 360 · لوحة الرئيس</span>
+      <div><span className="eyebrow">مدار 360 · لوحة الرئيس</span>
         <h2>جميع أنشطة المنشأة في مكان واحد</h2>
         <p className="policyNote">الأرقام من المنشأة النشطة فقط؛ يمكن الانتقال للملف المسؤول عن كل مؤشر.</p>
       </div>
