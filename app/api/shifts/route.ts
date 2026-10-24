@@ -28,11 +28,16 @@ export async function GET() {
   if (!selected) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
   const locationSet = new Set(allowedLocations.map((item) => item.id));
   const shifts = await listShifts(auth.context.business.id, 30);
+  const elevated = ["OWNER", "MANAGER"].includes(auth.context.membership.role);
+  const visibleShifts = shifts.filter((shift) =>
+    (elevated || shift.actorUserId === auth.context.user.id) &&
+    (!auth.context.business.locationAccessEnforced ||
+      Boolean(shift.locationId && locationSet.has(shift.locationId))));
+  const currentOpen = await getOpenShift(auth.context.business.id, selected.id);
   return NextResponse.json({
-    openShift: await getOpenShift(auth.context.business.id, selected.id),
-    shifts: auth.context.business.locationAccessEnforced
-      ? shifts.filter((shift) => Boolean(shift.locationId && locationSet.has(shift.locationId)))
-      : shifts,
+    openShift: currentOpen && (elevated || currentOpen.actorUserId === auth.context.user.id)
+      ? currentOpen : null,
+    shifts: visibleShifts,
     defaultLocation: selected,
     locations: allowedLocations,
   });
@@ -70,6 +75,8 @@ export async function POST(request: Request) {
     const shift = shifts.find((item) => item.id === data.shiftId);
     if (!shift) return NextResponse.json({ error: "SHIFT_NOT_FOUND" }, { status: 404 });
     if (shift.status === "CLOSED") return NextResponse.json({ error: "SHIFT_ALREADY_CLOSED" }, { status: 409 });
+    if (!["OWNER", "MANAGER"].includes(auth.context.membership.role) && shift.actorUserId !== auth.context.user.id)
+      return NextResponse.json({ error: "CANNOT_CLOSE_OTHER_CASHIER_SHIFT" }, { status: 403 });
     if (!(await locationAuthorized(auth.context, shift.locationId || defaultLocation.id))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
 
     const branchId = shift.locationId || defaultLocation.id;
