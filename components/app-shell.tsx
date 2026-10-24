@@ -78,6 +78,10 @@ const staffInventory: NavItem = { href: "/staff/inventory", label: "إدخال �
 const productsHub: NavItem = { href: "/products", label: "المنتجات", icon: PackageSearch };
 const managementHub: NavItem = { href: "/management", label: "الإدارة والمحاسبة", icon: UsersRound };
 const workspaceSetup: NavItem = { href: "/management/workspace", label: "الشركات ومساحة العمل", icon: Store };
+const crm360: NavItem = { href: "/crm", label: "العملاء والعروض", icon: UsersRound };
+const receivables360: NavItem = { href: "/crm/receivables", label: "المستحقات والتحصيل", icon: WalletCards };
+const sourcing360: NavItem = { href: "/sourcing", label: "عروض الموردين", icon: ShoppingBasket };
+const flow360: NavItem = { href: "/flow", label: "تِجرا Flow", icon: Activity };
 
 const sellerProducts: NavItem = { href: "/marketplace/seller", label: "المنتجات", icon: Store };
 const importProducts: NavItem = { href: "/supplier/import", label: "استيراد Excel / CSV", icon: FileSpreadsheet };
@@ -150,8 +154,9 @@ function retailerSections(): NavSection[] {
   return [
     { label: "البيع", items: [sales, shifts] },
     { label: "المخزون والتشغيل", items: [inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, waste, dayClosing] },
-    { label: "الشراء والسوق", items: [market, smartBuy, reorder, catalog, marketplaceSuppliers, smartPrice, smartAlerts, purchases, purchaseGuardian, orders] },
-    { label: "الإدارة", items: [activityCenter, { ...accounting, label: "الملخص المالي" }, reconciliation, employees, payroll] },
+    { label: "الشراء والسوق", items: [market, smartBuy, reorder, sourcing360, catalog, marketplaceSuppliers, smartPrice, smartAlerts, purchases, purchaseGuardian, orders] },
+    { label: "العملاء والتحصيل", items: [crm360, receivables360] },
+    { label: "الإدارة", items: [flow360, activityCenter, { ...accounting, label: "الملخص المالي" }, reconciliation, employees, payroll] },
   ];
 }
 
@@ -159,12 +164,12 @@ function supplierSections(isOwner: boolean): NavSection[] {
   return [
     { label: "البيع والطلبات", items: [sales, shifts, sellerOrders, supplierPicking, externalSale] },
     { label: "المخزون", items: [sellerProducts, importProducts, stockUpdate, stockCount, inventory, receiving, returns, locations, units, batches, productSettings, movements] },
-    { label: "التجار والتسعير", items: [customers, dormantCustomers, supplierPricing, supplierPrice, supplierForecast, supplierAlerts] },
-    { label: "الإدارة", items: [...(isOwner ? [salesAnalytics, controlCenter] : []), supplierActivity, accounting, reconciliation, employees, payroll] },
+    { label: "التجار والتسعير", items: [crm360, receivables360, customers, dormantCustomers, supplierPricing, supplierPrice, supplierForecast, supplierAlerts] },
+    { label: "الإدارة", items: [flow360, sourcing360, ...(isOwner ? [salesAnalytics, controlCenter] : []), supplierActivity, accounting, reconciliation, employees, payroll] },
   ];
 }
 
-function staffSections(permissions: Set<Permission>, businessType: "RETAILER" | "SUPPLIER" | "BOTH"): NavSection[] {
+function staffSections(permissions: Set<Permission>, businessType: "RETAILER" | "SUPPLIER" | "BOTH", enabled: Set<string>): NavSection[] {
   const sections: NavSection[] = [];
   if (permissions.has("CASHIER")) sections.push({ label: "مهمتك", items: [sales] });
   if (permissions.has("INVENTORY")) {
@@ -172,7 +177,7 @@ function staffSections(permissions: Set<Permission>, businessType: "RETAILER" | 
     if (businessType === "SUPPLIER" || businessType === "BOTH") items.push(supplierPicking);
     sections.push({ label: "المخزون", items });
   }
-  if (permissions.has("PURCHASES")) sections.push({ label: "الطلبات", items: [orders] });
+  if (permissions.has("PURCHASES")) sections.push({ label: "الطلبات", items: [orders, ...(enabled.has("SOURCING") ? [sourcing360] : [])] });
   if (permissions.has("ACCOUNTING")) sections.push({ label: "المحاسبة", items: [accounting, reconciliation] });
   sections.push({ label: "الشركة", items: [workspaceSetup] });
   return sections;
@@ -219,7 +224,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     ));
 
     if (isStaff) {
-      const sections = staffSections(permissions, businessType);
+      const sections = staffSections(permissions, businessType, enabled);
       const all = sections.flatMap((section) => section.items);
       const preferred = permissions.has("CASHIER") ? sales : permissions.has("INVENTORY") ? staffInventory : permissions.has("PURCHASES") ? orders : permissions.has("ACCOUNTING") ? accounting : null;
       return {
@@ -241,12 +246,21 @@ export function AppShell({ children }: { children: ReactNode }) {
       ...(enabled.has("SALES") ? [sales] : []),
       ...(enabled.has("INVENTORY") ? [inventory, productsHub] : []),
       ...(enabled.has("MARKETPLACE") ? [market] : []),
+      ...(enabled.has("CRM") ? [crm360] : []),
+      ...(enabled.has("FLOW") ? [flow360] : []),
+      ...(enabled.has("SOURCING") ? [sourcing360] : []),
       managementHub,
     ] : [];
     const sourceSections = effectiveMode === "supplier" ? supplierSections(isOwner) : retailerSections();
     // Adaptive menus are presentation preferences only; API authorization remains membership-based.
     const hidden = (href: string) => {
       const path = cleanHref(href);
+      if (path.startsWith("/crm")) return !enabled.has("CRM") ||
+        !["OWNER", "MANAGER", "ACCOUNTANT"].includes(viewer.membership.role);
+      if (path === "/flow") return !enabled.has("FLOW") ||
+        !["OWNER", "MANAGER", "ACCOUNTANT"].includes(viewer.membership.role);
+      if (path === "/sourcing") return !enabled.has("SOURCING") ||
+        !["OWNER", "MANAGER"].includes(viewer.membership.role);
       if (path.startsWith("/sales")) return !enabled.has("SALES");
       if (path.startsWith("/inventory")) return !enabled.has("INVENTORY");
       if (path.startsWith("/marketplace")) return !enabled.has("MARKETPLACE");
