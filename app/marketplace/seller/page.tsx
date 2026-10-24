@@ -22,6 +22,7 @@ const stockUpdateFormatter = new Intl.DateTimeFormat("ar-SA", { dateStyle: "shor
 export default async function MarketplaceSellerPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!["OWNER", "MANAGER", "SUPPLIER"].includes(context.membership.role)) redirect("/no-access");
   if (!["SUPPLIER", "BOTH"].includes(context.business.businessType)) redirect("/marketplace");
 
   const [listings, listingCount, orders, auditEvents] = await Promise.all([
