@@ -119,7 +119,7 @@ export default async function SmartBuyPage() {
 
   return (
     <>
-      <PageHeader eyebrow="الشراء الذكي" title="وفّر لي مشتريات هذا الأسبوع" description="تِجرا يقرأ البيع المباشر واستهلاك مكونات الوصفات خلال 30 يومًا، يلتقط حالات النفاد حتى بدون سجل مبيعات، ثم يقترح الكمية ويختار أقل مورد تكلفة." actions={<><Link className="button secondary" href="/purchases/insights">مراقب المشتريات</Link><Link className="button secondary" href="/catalog"><Sparkles size={17} /> الكتالوج الموحد</Link></>} />
+      <PageHeader eyebrow="الشراء الذكي" title="وفّر لي مشتريات هذا الأسبوع" description="مدار يقرأ البيع المباشر واستهلاك مكونات الوصفات خلال 30 يومًا، يلتقط حالات النفاد حتى بدون سجل مبيعات، ثم يقترح الكمية ويختار أقل مورد تكلفة." actions={<><Link className="button secondary" href="/purchases/insights">مراقب المشتريات</Link><Link className="button secondary" href="/catalog"><Sparkles size={17} /> الكتالوج الموحد</Link></>} />
       <div className="infoNote">حُسبت طلبات الموردين المفتوحة وطلبات السوق غير المستلمة ذات تطابق باركود ووحدة فريدين قبل اقتراح شراء جديد. الكميات قيد التوريد ليست مخزونًا مستلمًا، والعروض غير المطابقة تحتاج مراجعة يدويًا.</div>
       <section className="metricsGrid four">
         <MetricCard label="أصناف مقترحة" value={`${plan.suggestions.length}`} note="مواد ومخزون تحتاج تغطية" icon={ShoppingBasket} />
