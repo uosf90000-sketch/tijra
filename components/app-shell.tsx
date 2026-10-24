@@ -176,20 +176,6 @@ function supplierSections(isOwner: boolean): NavSection[] {
   ];
 }
 
-function staffSections(permissions: Set<Permission>, businessType: "RETAILER" | "SUPPLIER" | "BOTH", enabled: Set<string>): NavSection[] {
-  const sections: NavSection[] = [];
-  if (permissions.has("CASHIER")) sections.push({ label: "مهمتك", items: [sales] });
-  if (permissions.has("INVENTORY")) {
-    const items = [staffInventory];
-    if (businessType === "SUPPLIER" || businessType === "BOTH") items.push(supplierPicking);
-    sections.push({ label: "المخزون", items });
-  }
-  if (permissions.has("PURCHASES")) sections.push({ label: "الطلبات", items: [orders, ...(enabled.has("SOURCING") ? [sourcing360] : [])] });
-  if (permissions.has("ACCOUNTING")) sections.push({ label: "المحاسبة", items: [accounting, reconciliation] });
-  sections.push({ label: "الشركة", items: [workspaceSetup] });
-  return sections;
-}
-
 type Viewer = {
   user: { name: string; email: string };
   membership: { role: string; permissions: Permission[] };
@@ -223,7 +209,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
 
     const businessType = viewer.business.businessType;
-    const isStaff = viewer.membership.role !== "OWNER";
     const isOwner = viewer.membership.role === "OWNER";
     const permissions = new Set(viewer.membership.permissions ?? []);
     const enabled = new Set(resolveWorkspaceModules(
@@ -244,7 +229,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       });
       const permitted: NavItem[] = [];
       if (role === "MANAGER") permitted.push(roleWorkbench);
-      if (role === "ACCOUNTANT" || (role === "STAFF" && allowedPermissions.has("ACCOUNTING")))
+      if (role === "ACCOUNTANT" || role === "MANAGER" || (role === "STAFF" && allowedPermissions.has("ACCOUNTING")))
         permitted.push(financeWorkbench);
       if (role === "STAFF" && allowedPermissions.size > 1) permitted.push(roleWorkbench);
       if (allowedPermissions.has("CASHIER")) permitted.push(sales);
@@ -441,7 +426,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   if (isStaff) {
-    const tasks = navigation.sections.flatMap((section) => section.items);
+    const tasks = navigation.sections.flatMap((section) => section.items).slice(0, 10);
     const allowed = navigation.allowedHrefs ?? [];
     const pathAllowed = allowed.includes(pathname);
     return (
