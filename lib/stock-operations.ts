@@ -382,6 +382,11 @@ export async function recordSale(input: RecordSaleInput) {
       });
     }
 
+    // Accounting source outbox shares POS transaction and cannot disappear after
+    // stock/revenue commit. Posting is a separate reviewed/approved operation.
+    await tx.accountingSourceEvent.create({
+      data: { businessId: input.businessId, sourceType: "SALE", sourceId: sale.id },
+    });
     return sale;
   });
 }
