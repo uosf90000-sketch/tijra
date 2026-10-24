@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 
 const schema = z.object({
   status: z.enum(["DONE", "CANCELLED"]),
@@ -11,6 +12,7 @@ const schema = z.object({
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getSessionContext();
   if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (!(await hasBusinessWideRead(context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   if (!["OWNER", "MANAGER"].includes(context.membership.role))
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
