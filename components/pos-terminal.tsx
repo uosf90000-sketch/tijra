@@ -61,6 +61,7 @@ type SalePayload = {
   invoiceNumber: string;
   recordedAt: string;
   locationId: string;
+  customerId?: string;
   items: Array<{
     productId: string;
     quantity: number;
@@ -86,12 +87,13 @@ function parseSerials(value: string) {
   return value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
 }
 
-export function PosTerminal({ products, locationId, businessActivity }: { products: Product[]; locationId: string; businessActivity: string }) {
+export function PosTerminal({ products, locationId, businessActivity, customers = [] }: { products: Product[]; locationId: string; businessActivity: string; customers?: Array<{ id: string; name: string }> }) {
   const router = useRouter();
   const experience = posExperienceFor(businessActivity);
   const activityLabel = businessActivityLabels[businessActivity] ?? "نشاطك";
   const { online, pending } = useOfflineStatus("SALE");
   const [query, setQuery] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -296,6 +298,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
       invoiceNumber: `POS-${operationId}`,
       recordedAt: new Date().toISOString(),
       locationId,
+      ...(selectedCustomerId ? { customerId: selectedCustomerId } : {}),
       items: cart.map((item) => ({
         productId: item.id,
         quantity: item.qty * item.factor,
@@ -346,6 +349,7 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
       }
 
       setCart([]);
+      setSelectedCustomerId("");
       setMessage("تم تسجيل البيع وتحديث المخزون تلقائيًا ✅");
       router.refresh();
     } catch {
@@ -432,6 +436,13 @@ export function PosTerminal({ products, locationId, businessActivity }: { produc
           })}
           {!cart.length && <div className="infoNote">{experience === "MENU" ? "اختر المنتج من القائمة لإضافته للطلب." : experience === "PART_LOOKUP" ? "اكتب رقم القطعة ثم اضغط على النتيجة لإضافتها للسلة." : "امسح المنتج أو ابحث عنه لإضافته للسلة."}</div>}
         </div>
+        {customers.length > 0 && <label className="field" style={{ marginBlock: 10 }}>
+          <span>ربط البيع بعميل مسجل (اختياري)</span>
+          <select value={selectedCustomerId} onChange={(event) => setSelectedCustomerId(event.target.value)}>
+            <option value="">بيع مباشر دون عميل</option>
+            {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+          </select>
+        </label>}
         <div className="cartTotals"><div className="grandTotal"><span>الإجمالي</span><strong>{formatSar(total)}</strong></div></div>
         {message && <div className="infoNote">{message}</div>}
         <div className="paymentButtons">
