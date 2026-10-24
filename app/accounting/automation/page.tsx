@@ -36,7 +36,7 @@ export default async function SaleAccountingAutomationPage() {
       accounts={accounts} initial={selected}
       events={events.map((event) => ({
         id: event.id, sourceId: event.sourceId, draftEntryId: event.draftEntryId,
-        status: event.status, createdAt: event.createdAt.toISOString(),
+        status: event.status, errorCode: event.errorCode, createdAt: event.createdAt.toISOString(),
       }))}/>
   </>;
 }
