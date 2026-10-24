@@ -64,3 +64,20 @@ test("Flow signals explain outstanding AR, quantity inbound and pending approval
   ]);
   assert.ok(signals.every((signal) => signal.href.startsWith("/")));
 });
+
+
+test("Business compliance document expiry appears as an action rather than official verification", () => {
+  const now = new Date("2026-10-24T12:00:00Z");
+  const signals = identifyOperatingSignals({
+    products: [], receivables: [], approvals: [], rfqs: [],
+    documents: [
+      { id: "doc-1", title: "تصريح عربة", expiresAt: new Date("2026-11-10T00:00:00Z"), supplierName: null },
+      { id: "doc-2", title: "Insurance", expiresAt: new Date("2027-11-10T00:00:00Z"), supplierName: "ABC" },
+    ],
+    now,
+  });
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0].type, "DOCUMENT_EXPIRY");
+  assert.equal(signals[0].href, "/compliance");
+  assert.ok(signals[0].description.includes("راجع"));
+});
