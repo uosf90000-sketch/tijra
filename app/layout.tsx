@@ -24,18 +24,19 @@ import "./owner-six-door.css";
 import "./smart-owner-home.css";
 import "./executive-ui.css";
 import "./offline.css";
+import "./madaar-theme.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "تِجرا | التجارة الذكية بين المورد والتاجر",
-    template: "%s | تِجرا",
+    default: "مدار | نظام أعمال واحد لكل منشأتك",
+    template: "%s | مدار",
   },
-  description: "منصة B2B عربية تربط الموردين بتجار التجزئة مع السوق الذكي وإدارة المخزون والمشتريات والمحاسبة والرواتب.",
-  applicationName: "TIJRA",
+  description: "مدار، منصة تشغيل أعمال متكاملة تربط المبيعات والكاشير والمحاسبة والمخزون والمشتريات والموظفين والحوكمة لكل منشأة.",
+  applicationName: "Madaar",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0F4D4D",
+  themeColor: "#0E5755",
   colorScheme: "light",
 };
 
