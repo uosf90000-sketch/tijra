@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 
 const types = z.enum([
   "COMMERCIAL_REGISTRATION", "MUNICIPAL_LICENSE", "FOOD_TRUCK_PERMIT",
@@ -23,6 +24,7 @@ const reviewSchema = z.object({
 export async function GET() {
   const context = await getSessionContext();
   if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (!(await hasBusinessWideRead(context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   if (!["OWNER", "MANAGER", "ACCOUNTANT"].includes(context.membership.role))
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const documents = await db.complianceDocument.findMany({
@@ -36,6 +38,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const context = await getSessionContext();
   if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (!(await hasBusinessWideRead(context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   if (!["OWNER", "MANAGER"].includes(context.membership.role))
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
@@ -72,6 +75,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const context = await getSessionContext();
   if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (!(await hasBusinessWideRead(context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   if (context.membership.role !== "OWNER")
     return NextResponse.json({ error: "OWNER_REQUIRED" }, { status: 403 });
   const parsed = reviewSchema.safeParse(await request.json().catch(() => null));
