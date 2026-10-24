@@ -49,7 +49,7 @@ export default async function WorkbenchPage() {
   }
   if (permissions.includes("PURCHASES")) {
     tiles.push({ title: "مشتريات تنتظر الاعتماد", value: String(pendingPurchases ?? 0),
-      description: "طلبات لم ترسل للمورد بعد", href: "/purchases" });
+      description: "طلبات لم ترسل للمورد بعد", href: context.membership.role === "STAFF" ? "/marketplace/orders" : "/purchases" });
     actions.push({ title: "طلبات السوق", href: "/marketplace/orders",
       description: "الطلبات المسموحة ومتابعة الاستلام" });
     if (manager) actions.push({ title: "عروض أسعار الموردين", href: "/sourcing",
