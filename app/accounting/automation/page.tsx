@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { SaleAccountingAutomation } from "@/components/sale-accounting-automation";
 import { getSessionContext } from "@/lib/auth";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { db } from "@/lib/db";
 
 export const metadata = { title: "ربط البيع بدفتر الحسابات | تِجرا" };
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function SaleAccountingAutomationPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!(await hasBusinessWideRead(context))) redirect("/no-access");
   if (!["OWNER", "ACCOUNTANT"].includes(context.membership.role)) redirect("/no-access");
   const businessId = context.business.id;
   const [accounts, mapping, events] = await Promise.all([
