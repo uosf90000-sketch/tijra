@@ -20,7 +20,7 @@ export default async function NewProductPage() {
       <PageHeader
         eyebrow="المنتجات"
         title="إضافة منتج"
-        description={foodBusiness ? "أضف اسم المنتج وصورته وسعره ليظهر مباشرة كصورة في كاشير المطعم أو المقهى." : context.business.businessActivity === "HARDWARE" ? "أضف اسم القطعة ورقمها والكمية. الكاشير يقدر يبحث برقم القطعة ويشوف المتوفر فورًا." : "أضف الصنف وبياناته الأساسية. تِجرا يجهز طريقة البيع المناسبة حسب نشاطك."}
+        description={foodBusiness ? "أضف اسم المنتج وصورته وسعره ليظهر مباشرة كصورة في كاشير المطعم أو المقهى." : context.business.businessActivity === "HARDWARE" ? "أضف اسم القطعة ورقمها والكمية. الكاشير يقدر يبحث برقم القطعة ويشوف المتوفر فورًا." : "أضف الصنف وبياناته الأساسية. مدار يجهز طريقة البيع المناسبة حسب نشاطك."}
         actions={<Link className="button secondary" href="/products"><ArrowRight size={17} /> رجوع للمنتجات</Link>}
       />
       <ProductCreateForm businessActivity={context.business.businessActivity} />
