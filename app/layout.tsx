@@ -24,7 +24,7 @@ import "./owner-six-door.css";
 import "./smart-owner-home.css";
 import "./executive-ui.css";
 import "./offline.css";
-import "./madaar-design-system.css";
+import "./madaar-theme.css";
 
 export const metadata: Metadata = {
   title: {
