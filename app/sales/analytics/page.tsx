@@ -25,7 +25,7 @@ const labels: Record<Range, string> = { day: "اليوم", week: "آخر 7 أي�
 export default async function SalesAnalyticsPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
   const context = await getSessionContext();
   if (!context) redirect("/login");
-  if (context.membership.role !== "OWNER") redirect("/sales");
+  if (!["OWNER", "MANAGER"].includes(context.membership.role)) redirect("/no-access");
 
   const params = await searchParams;
   const range: Range = params.range === "week" || params.range === "month" ? params.range : "day";
