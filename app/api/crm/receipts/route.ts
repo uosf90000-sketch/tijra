@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiRoles } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { halalasToDecimal, moneyHalalas, outstandingHalalas } from "@/lib/tijra-360";
 
 const schema = z.object({
@@ -15,6 +16,7 @@ const schema = z.object({
 export async function POST(request: Request) {
   const auth = await requireApiRoles(["OWNER", "ACCOUNTANT"]);
   if (auth.response) return auth.response;
+  if (!(await hasBusinessWideRead(auth.context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "INVALID_RECEIPT" }, { status: 400 });
   if (moneyHalalas(parsed.data.amount) <= 0n)
