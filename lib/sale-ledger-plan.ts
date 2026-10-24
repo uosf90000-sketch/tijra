@@ -1,4 +1,9 @@
-import { balancedJournal, type LedgerLineInput } from "@/lib/financial-ledger";
+export type LedgerLineInput = {
+  accountId: string;
+  side: "DEBIT" | "CREDIT";
+  amount: string;
+  description?: string;
+};
 
 export type SaleLedgerMapping = {
   cashAccountId: string; cardAccountId: string; transferAccountId: string;
@@ -29,7 +34,12 @@ export function buildSaleLedgerDraft(sale: {
     { accountId: map.cogsAccountId, side: "DEBIT", amount: amount(cost), description: "تكلفة البضاعة/المكونات المباعة" },
     { accountId: map.inventoryAccountId, side: "CREDIT", amount: amount(cost), description: "خفض قيمة المخزون الدفتري" },
   );
-  balancedJournal(lines);
+  const debits = lines.filter((line) => line.side === "DEBIT")
+    .reduce((sum, line) => sum + parse(line.amount), 0n);
+  const credits = lines.filter((line) => line.side === "CREDIT")
+    .reduce((sum, line) => sum + parse(line.amount), 0n);
+  if (debits <= 0n || debits !== credits) throw new Error("UNBALANCED_JOURNAL");
+  if (lines.some((line) => !line.accountId)) throw new Error("UNMAPPED_ACCOUNT");
   return lines;
 }
 
