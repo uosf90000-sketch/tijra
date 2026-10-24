@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { db } from "@/lib/db";
 import { canEnterFinanceWorkbench } from "@/lib/role-workspaces";
 import { formatSar } from "@/lib/format";
@@ -21,6 +22,7 @@ const financialLinks = [
 export default async function AccountingWorkbenchPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!(await hasBusinessWideRead(context))) redirect("/no-access");
   if (!canEnterFinanceWorkbench(context.membership)) redirect("/no-access");
   const businessId = context.business.id;
   const visible = await loadVisibleRoleWidgets(businessId, context.membership);
