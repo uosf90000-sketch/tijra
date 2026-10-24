@@ -7,12 +7,12 @@ export type IncomingPurchaseOrder = {
   items: Array<{ productId: string; orderedQty: number; receivedQty: number }>;
 };
 
-const COMMITTED_PO_STATES = new Set(["PENDING_APPROVAL", "SENT", "CONFIRMED", "PARTIALLY_RECEIVED"]);
+const PLANNED_PO_STATES = new Set(["PENDING_APPROVAL", "SENT", "CONFIRMED", "PARTIALLY_RECEIVED"]);
 
 export function getIncomingPurchaseQuantities(orders: IncomingPurchaseOrder[]) {
   const incoming = new Map<string, number>();
   for (const order of orders) {
-    if (!COMMITTED_PO_STATES.has(order.status)) continue;
+    if (!PLANNED_PO_STATES.has(order.status)) continue;
     for (const item of order.items) {
       const remaining = Math.max(0, item.orderedQty - item.receivedQty);
       if (!Number.isFinite(remaining) || remaining <= 0) continue;
