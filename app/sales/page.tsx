@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { PosTerminal } from "@/components/pos-terminal";
 import { getSessionContext } from "@/lib/auth";
+import { hasAppPermission } from "@/lib/access";
 import { isFoodActivity, posExperienceFor } from "@/lib/business-experience";
 import { ensureDefaultLocation, listUnitConversions, safeJson } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
@@ -34,6 +35,7 @@ function recipeShortages(recipe: RecipeState[]) {
 export default async function SalesPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!hasAppPermission(context.membership, "CASHIER")) redirect("/no-access");
 
   const businessId = context.business.id;
   const activity = context.business.businessActivity;
