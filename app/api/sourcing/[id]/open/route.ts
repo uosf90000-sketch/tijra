@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { requireApiPermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiPermission("PURCHASES");
   if (auth.response) return auth.response;
+  if (!(await hasBusinessWideRead(auth.context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   const { id } = await params;
   const response = await db.$transaction(async (tx) => {
     const rfq = await tx.sourcingRequest.findFirst({
