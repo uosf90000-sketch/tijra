@@ -97,7 +97,7 @@ export function AuthenticatorSecurityForm({ enabled, available }: { enabled: boo
     <div className="infoNote">
       الحالة: {enabled ? "مفعلة" : "غير مفعلة"}.
       {available ? " يمكنك استخدام أي تطبيق يدعم رمز TOTP ذي الستة أرقام." :
-        " يلزم مسؤول استضافة تِجرا إعداد مفتاح MFA_ENCRYPTION_KEY آمن في بيئة الخادم أولًا."}
+        " يلزم مسؤول استضافة مدار إعداد مفتاح MFA_ENCRYPTION_KEY آمن في بيئة الخادم أولًا."}
     </div>
     {!enabled && available && !secret && <div style={{ display: "grid", gap: 10 }}>
       <label className="field"><span>أعد إدخال كلمة المرور للبدء</span>
