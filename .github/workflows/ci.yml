@@ -5,6 +5,8 @@ on:
     branches: [main]
   push:
     branches: [main, feat/mvp-foundation]
+    tags:
+      - "v*"
 
 jobs:
   validate:
