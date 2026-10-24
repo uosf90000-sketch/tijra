@@ -12,6 +12,7 @@ const saleSchema = z.object({
   recordedAt: z.coerce.date().optional(),
   paymentMethod: z.enum(["CASH", "CARD", "TRANSFER", "OTHER"]).optional(),
   locationId: z.string().optional(),
+  customerId: z.string().min(1).optional(),
   items: z.array(
     z.object({
       productId: z.string().min(1),
@@ -94,6 +95,13 @@ export async function POST(request: Request) {
   const defaultLocation = await ensureDefaultLocation(auth.context.business.id);
   const saleLocationId = parsed.data.locationId || defaultLocation.id;
   if (!(await locationAuthorized(auth.context, saleLocationId))) return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
+  if (parsed.data.customerId) {
+    const customer = await db.customer.findFirst({
+      where: { businessId: auth.context.business.id, id: parsed.data.customerId },
+      select: { id: true },
+    });
+    if (!customer) return NextResponse.json({ error: "CUSTOMER_NOT_FOUND" }, { status: 404 });
+  }
   if (parsed.data.invoiceNumber) {
     const existingSale = await db.sale.findFirst({
       where: { businessId: auth.context.business.id, invoiceNumber: parsed.data.invoiceNumber },
@@ -124,6 +132,7 @@ export async function POST(request: Request) {
       : message === "CASHIER_DISCOUNT_LIMIT_EXCEEDED" ? 403
       : message === "INVALID_SALE_PRICE" ? 400
       : message.startsWith("INSUFFICIENT_STOCK") || message.startsWith("INSUFFICIENT_LOCATION_STOCK") ? 409
+      : message === "CUSTOMER_NOT_FOUND" ? 404
       : message === "PRODUCT_NOT_FOUND" ? 404
       : message.startsWith("SERIAL") || message === "DUPLICATE_SERIALS" ? 409
       : message.startsWith("INCOMPATIBLE_RECIPE_UNITS") || message.startsWith("INVALID_RECIPE") || message.startsWith("RECIPE_") ? 409
