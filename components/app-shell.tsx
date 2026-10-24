@@ -328,7 +328,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         if (!active || !data) return;
         setViewer(data);
         if (data.business?.businessType === "BOTH") {
-          const saved = window.localStorage.getItem("tijra-trade-mode");
+          const saved = window.localStorage.getItem("madaar-trade-mode");
           const mode = saved === "supplier" ? "supplier" : "retailer";
           setTradeMode(mode);
           if (data.membership?.role !== "STAFF" && mode === "supplier" && pathname === "/" && !window.location.search.includes("mode=supplier")) {
@@ -380,7 +380,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   function chooseMode(mode: TradeMode) {
     setTradeMode(mode);
-    window.localStorage.setItem("tijra-trade-mode", mode);
+    window.localStorage.setItem("madaar-trade-mode", mode);
     router.push(mode === "supplier" ? "/?mode=supplier" : "/?mode=retailer");
   }
 
