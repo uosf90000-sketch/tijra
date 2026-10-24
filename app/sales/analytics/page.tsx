@@ -4,6 +4,7 @@ import { BarChart3, CalendarDays, PackageSearch, TrendingDown, TrendingUp, Users
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
 
@@ -25,6 +26,7 @@ const labels: Record<Range, string> = { day: "اليوم", week: "آخر 7 أي�
 export default async function SalesAnalyticsPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!(await hasBusinessWideRead(context))) redirect("/no-access");
   if (!["OWNER", "MANAGER"].includes(context.membership.role)) redirect("/no-access");
 
   const params = await searchParams;
