@@ -25,7 +25,6 @@ import "./smart-owner-home.css";
 import "./executive-ui.css";
 import "./offline.css";
 import "./madaar-design-system.css";
-import "./madaar-theme.css";
 
 export const metadata: Metadata = {
   title: {
@@ -37,7 +36,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0E5755",
+  themeColor: "#0C6869",
   colorScheme: "light",
 };
 
