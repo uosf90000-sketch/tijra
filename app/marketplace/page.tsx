@@ -9,7 +9,7 @@ import { normalizeCityKey } from "@/lib/city";
 import { db } from "@/lib/db";
 import { expandProductSearchTerms, productNameSearchScore } from "@/lib/product-search";
 
-export const metadata = { title: "سوق تِجرا" };
+export const metadata = { title: "سوق مدار" };
 export const dynamic = "force-dynamic";
 
 type CityOption = { key: string; label: string; variants: string[] };
@@ -175,7 +175,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
       <PageHeader
         eyebrow="سوق الجملة"
         title="السوق"
-        description="ابحث بالاسم أو SKU أو الباركود، اختر الكمية، وأرسل سلة واحدة. تِجرا يقسمها تلقائيًا حسب المورد."
+        description="ابحث بالاسم أو SKU أو الباركود، اختر الكمية، وأرسل سلة واحدة. مدار يقسمها تلقائيًا حسب المورد."
         actions={<Link className="button secondary" href="/marketplace/orders"><ClipboardList size={17} /> طلباتي</Link>}
       />
 
