@@ -68,7 +68,7 @@ export default async function OnboardingPage() {
         </article>
 
         <aside className="panel onboardingAside">
-          <span className="eyebrow">حدود تِجرا</span>
+          <span className="eyebrow">حدود مدار</span>
           <h2>نشغّل تجارتك، ولا ندخل بينك وبين المورد في التوصيل</h2>
           <div className="onboardingSteps">
             <div className="onboardingStep"><span><Check size={15} /></span><div><strong>المحاسبة والمخزون</strong><p>المبيعات والتكلفة والمصروفات والربح.</p></div></div>
