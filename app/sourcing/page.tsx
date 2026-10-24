@@ -7,7 +7,7 @@ import { getSessionContext } from "@/lib/auth";
 import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { db } from "@/lib/db";
 
-export const metadata = { title: "مقارنة الموردين وطلبات عروض الأسعار | تِجرا" };
+export const metadata = { title: "مقارنة الموردين وطلبات عروض الأسعار | مدار" };
 export const dynamic = "force-dynamic";
 
 export default async function SourcingPage() {
@@ -34,7 +34,7 @@ export default async function SourcingPage() {
     }),
   ]);
   return <>
-    <PageHeader eyebrow="تِجرا 360" title="المنافسة بين الموردين"
+    <PageHeader eyebrow="مدار 360" title="المنافسة بين الموردين"
       description="اطلب تسعير احتياجك، قارن الأسعار، واعتمد المورد ثم أنشئ طلب شراء وفق حوكمة المنشأة."
       actions={<Link className="button secondary" href="/purchases">المشتريات</Link>} />
     <SourcingWorkspace
