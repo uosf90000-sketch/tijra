@@ -329,7 +329,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [viewer, tradeMode]);
 
   const businessType = viewer?.business.businessType ?? "RETAILER";
-  const isStaff = viewer?.membership.role === "STAFF";
+  const isStaff = Boolean(viewer && viewer.membership.role !== "OWNER");
   const canSwitchMode = businessType === "BOTH" && !isStaff;
 
   useEffect(() => {
