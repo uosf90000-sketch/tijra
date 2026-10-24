@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiRoles } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { calculateQuoteHalalas, halalasToDecimal } from "@/lib/tijra-360";
 
 const line = z.object({
@@ -22,6 +23,7 @@ const schema = z.object({
 export async function GET() {
   const auth = await requireApiRoles(["OWNER", "MANAGER", "ACCOUNTANT"]);
   if (auth.response) return auth.response;
+  if (!(await hasBusinessWideRead(auth.context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   const quotes = await db.salesQuote.findMany({
     where: { businessId: auth.context.business.id },
     include: { customer: { select: { name: true } }, lines: true },
@@ -33,6 +35,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireApiRoles(["OWNER", "MANAGER", "ACCOUNTANT"]);
   if (auth.response) return auth.response;
+  if (!(await hasBusinessWideRead(auth.context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "INVALID_QUOTE" }, { status: 400 });
   let total: string;
