@@ -83,10 +83,26 @@ enum SourcingBidStatus {
 }
 
 enum BusinessSignalType {
+  DOCUMENT_EXPIRY
   LOW_STOCK
   OVERDUE_RECEIVABLE
   APPROVAL_WAITING
   RFQ_DEADLINE
+}
+
+enum ComplianceDocumentType {
+  COMMERCIAL_REGISTRATION
+  MUNICIPAL_LICENSE
+  FOOD_TRUCK_PERMIT
+  VAT_CERTIFICATE
+  INSURANCE
+  SUPPLIER_LICENSE
+  OTHER
+}
+
+enum ComplianceReviewStatus {
+  SELF_REPORTED
+  INTERNALLY_REVIEWED
 }
 
 enum OperatingTaskStatus {
@@ -293,6 +309,7 @@ model Business {
   sourcingBids               SourcingBid[]
   automationRules            AutomationRule[]
   operatingTasks             OperatingTask[]
+  complianceDocuments         ComplianceDocument[]
 
   @@index([organizationId])
 }
@@ -439,6 +456,7 @@ model Supplier {
   purchaseInvoices PurchaseInvoice[]
   priceHistory      SupplierPriceHistory[]
   sourcingBids      SourcingBid[]
+  complianceDocuments ComplianceDocument[]
 
   @@index([businessId, name])
 }
@@ -894,6 +912,28 @@ model OperatingTask {
 
   @@unique([businessId, ruleId, sourceId])
   @@index([businessId, status, createdAt])
+}
+
+model ComplianceDocument {
+  id              String                 @id @default(cuid())
+  businessId      String
+  supplierId      String?
+  documentType    ComplianceDocumentType
+  title           String
+  reference       String?
+  expiresAt       DateTime
+  note            String?
+  reviewStatus    ComplianceReviewStatus @default(SELF_REPORTED)
+  createdByUserId String
+  reviewedByUserId String?
+  reviewedAt      DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  business        Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  supplier        Supplier?              @relation(fields: [supplierId], references: [id])
+
+  @@index([businessId, expiresAt])
+  @@index([businessId, supplierId])
 }
 
 /// End TIJRA 360 foundation.
