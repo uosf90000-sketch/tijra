@@ -5,6 +5,7 @@ import { AlertTriangle, Boxes, ClipboardList, PackageCheck, ShoppingCart, Store,
 import { roleLandingHref } from "@/lib/role-workspaces";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ExecutiveOperationsSnapshot } from "@/components/executive-operations-snapshot";
 import { formatSar } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -197,7 +198,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const businessType = context.business.businessType;
   const requestedMode = params.mode === "supplier" ? "supplier" : "retailer";
 
-  if (businessType === "SUPPLIER") return <SupplierDashboard businessId={context.business.id} firstName={firstName} />;
-  if (businessType === "BOTH" && requestedMode === "supplier") return <SupplierDashboard businessId={context.business.id} firstName={firstName} />;
-  return <RetailerDashboard businessId={context.business.id} firstName={firstName} />;
+  const chosen = businessType === "SUPPLIER" || (businessType === "BOTH" && requestedMode === "supplier")
+    ? <SupplierDashboard businessId={context.business.id} firstName={firstName} />
+    : <RetailerDashboard businessId={context.business.id} firstName={firstName} />;
+  return <>
+    <ExecutiveOperationsSnapshot businessId={context.business.id} />
+    {chosen}
+  </>;
 }
