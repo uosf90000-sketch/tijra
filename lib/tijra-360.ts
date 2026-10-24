@@ -84,7 +84,7 @@ export function identifyOperatingSignals(input: {
   for (const p of input.products) {
     if (p.reorderPoint > 0 && p.quantity + p.incoming < p.reorderPoint) signals.push({
       sourceId: p.id, type: "LOW_STOCK", title: "مخزون منخفض: " + p.name,
-      description: "الرصيد " + p.quantity + "، بالطريق " + p.incoming + "، حد الطلب " + p.reorderPoint,
+      description: "الرصيد " + p.quantity + "، على طلبات معلقة/توريد مخطط " + p.incoming + "، حد الطلب " + p.reorderPoint,
       href: "/smart-buy",
     });
   }
