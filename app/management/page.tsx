@@ -14,7 +14,7 @@ const tools = [
   { href: "/management/governance", title: "مركز الحوكمة والرقابة", description: "حدود الموافقات، الصلاحيات، سجل القرارات والعمليات الحساسة.", icon: ShieldCheck, module: "ALWAYS" },
   { href: "/compliance", title: "التصاريح والمستندات", description: "تواريخ انتهاء رخص المنشأة والموردين.", icon: Bell, module: "COMPLIANCE" },
   { href: "/intelligence", title: "نبض الأعمال", description: "مؤشرات حقيقية مشتركة من المبيعات والمخزون والمستحقات.", icon: BarChart3, module: "INSIGHTS" },
-  { href: "/flow", title: "تِجرا Flow", description: "حوّل تنبيهات المخزون والتحصيل والموافقات إلى مهام قابلة للمراجعة.", icon: Activity, module: "FLOW" },
+  { href: "/flow", title: "مدار Flow", description: "حوّل تنبيهات المخزون والتحصيل والموافقات إلى مهام قابلة للمراجعة.", icon: Activity, module: "FLOW" },
   { href: "/crm", title: "العملاء والعروض", description: "ملفات العملاء والائتمان وعروض الأسعار.", icon: UsersRound, module: "CRM" },
   { href: "/crm/receivables", title: "التحصيل والمستحقات", description: "متابعة ديون العملاء وإثباتات التحصيل.", icon: WalletCards, module: "CRM" },
   { href: "/sourcing", title: "مناقصات الموردين", description: "مقارنة عروض الموردين وتحويل العرض الفائز إلى طلب شراء.", icon: Landmark, module: "SOURCING" },
