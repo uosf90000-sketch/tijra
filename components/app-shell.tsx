@@ -246,7 +246,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         if (role === "MANAGER") permitted.push(purchases, purchaseApprovals, sourcing360);
       }
       if (allowedPermissions.has("ACCOUNTING")) permitted.push(accounting, reconciliation);
-      if (role === "MANAGER" && allowedPermissions.has("ACCOUNTING")) permitted.push(saleLedgerAutomation);
       if (role === "ACCOUNTANT") permitted.push(financeLedger, saleLedgerAutomation, receivables360);
       if (role === "MANAGER") permitted.push(
         crm360, receivables360, flow360, intelligence360, compliance360, salesAnalytics,
