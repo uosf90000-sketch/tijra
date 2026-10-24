@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { saleLedgerAccountKinds } from "@/lib/sale-ledger-plan";
 
 const accountFields = Object.keys(saleLedgerAccountKinds) as Array<keyof typeof saleLedgerAccountKinds>;
@@ -16,6 +17,7 @@ const schema = z.object({
 export async function GET() {
   const context = await getSessionContext();
   if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (!(await hasBusinessWideRead(context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   if (!["OWNER", "ACCOUNTANT"].includes(context.membership.role))
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const [mapping, accounts, pending] = await Promise.all([
@@ -32,6 +34,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   const context = await getSessionContext();
   if (!context) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (!(await hasBusinessWideRead(context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   if (context.membership.role !== "OWNER")
     return NextResponse.json({ error: "OWNER_REQUIRED" }, { status: 403 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
