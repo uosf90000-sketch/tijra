@@ -26,7 +26,7 @@ export default async function ProductsHubPage() {
 
   return (
     <>
-      <PageHeader eyebrow="إعداد المنشأة" title="المنتجات" description="كل ما يخص إعداد المنتج في مكان واحد. تِجرا يظهر لك الأدوات المناسبة لنشاطك فقط." />
+      <PageHeader eyebrow="إعداد المنشأة" title="المنتجات" description="كل ما يخص إعداد المنتج في مكان واحد. مدار يظهر لك الأدوات المناسبة لنشاطك فقط." />
       <section className="ownerHubGrid">
         {tools.map(({ href, title, description, icon: Icon }) => (
           <Link className="ownerHubCard" href={href} key={href}>
