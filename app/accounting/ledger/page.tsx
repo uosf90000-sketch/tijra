@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { LedgerWorkspace } from "@/components/ledger-workspace";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export const metadata = { title: "دفتر القيود المحاسبية" };
 export default async function LedgerPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!(await hasBusinessWideRead(context))) redirect("/no-access");
   if (!["OWNER", "ACCOUNTANT"].includes(context.membership.role)) redirect("/");
 
   const [accounts, periods, entries] = await Promise.all([
@@ -34,7 +36,7 @@ export default async function LedgerPage() {
       description="قيود محاسبية مزدوجة تُرحّل بعد المراجعة داخل فترات مالية محددة، مع الفصل بين المنشئ والمعتمد عند تفعيل السياسة."
       actions={<Link className="button secondary" href="/accounting">الملخص المالي</Link>} />
     <div className="infoNote" style={{ marginBottom: 16 }}>
-      هذا دفتر قيود يدوي مستقل قيد التطوير؛ لا يتم بعد إنشاء القيود تلقائيًا من المبيعات أو الرواتب أو فواتير الموردين، ولا يُعد القيد إثباتًا لتحويل بنكي أو فحصًا للامتثال الضريبي.
+      يمكن إعداد مسودات قيود المبيعات تلقائيًا عند تفعيل خريطة الحسابات لمنشأة غير مسجلة ضريبيًا؛ وتظل في حالة مسودة لحين اعتمادها. الرواتب والمشتريات والربط الضريبي والبنكي لم يكتمل بعد، ولا تُعد المسودة إثباتًا لتحويل بنكي.
     </div>
     <LedgerWorkspace
       accounts={accounts.map((a) => ({ id: a.id, code: a.code, name: a.name, kind: a.kind }))}
