@@ -58,7 +58,7 @@ export function FlowWorkspace({
       <article className="panel"><span className="eyebrow">قواعد مفعّلة</span><h2>{keys.filter(enabled).length}</h2></article>
     </section>
     {owner && <section className="panel" style={{ display: "grid", gap: 11 }}>
-      <div className="panelHeader"><div><span className="eyebrow">قواعد التشغيل</span><h2>ما الذي يراقبه تِجرا Flow؟</h2></div></div>
+      <div className="panelHeader"><div><span className="eyebrow">قواعد التشغيل</span><h2>ما الذي يراقبه مدار Flow؟</h2></div></div>
       <p className="policyNote">تفعيل القاعدة يتيح تحويل الإشارة إلى مهمة عند الضغط على «مراجعة وإنشاء مهام». في هذه النسخة لا يوجد مجدول تلقائي ولا إرسال واتساب أو أوامر شراء دون موافقة.</p>
       {keys.map((type) => <label key={type} style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <input type="checkbox" checked={enabled(type)} disabled={busy}
