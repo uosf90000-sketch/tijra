@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-type RuleType = "LOW_STOCK" | "OVERDUE_RECEIVABLE" | "APPROVAL_WAITING" | "RFQ_DEADLINE";
+type RuleType = "LOW_STOCK" | "OVERDUE_RECEIVABLE" | "APPROVAL_WAITING" | "RFQ_DEADLINE" | "DOCUMENT_EXPIRY";
 type Rule = { id: string; signalType: RuleType; enabled: boolean };
 type Signal = { sourceId: string; type: RuleType; title: string; description: string; href: string };
 type Task = { id: string; title: string; description: string | null; status: string; href: string };
@@ -12,6 +12,7 @@ const labels: Record<RuleType, string> = {
   OVERDUE_RECEIVABLE: "تنبيه الذمم المدينة المتأخرة",
   APPROVAL_WAITING: "طلبات مشتريات تنتظر الاعتماد",
   RFQ_DEADLINE: "مواعيد إغلاق عروض الموردين",
+  DOCUMENT_EXPIRY: "انتهاء تصاريح ومستندات المنشأة والموردين",
 };
 const keys = Object.keys(labels) as RuleType[];
 
