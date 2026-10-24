@@ -17,7 +17,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (auth.response) return auth.response;
   const { id } = await params;
   const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success || moneyHalalas(parsed.data?.unitPrice || "0") <= 0n)
+  if (!parsed.success) return NextResponse.json({ error: "INVALID_SUPPLIER_BID" }, { status: 400 });
+  if (moneyHalalas(parsed.data.unitPrice) <= 0n)
     return NextResponse.json({ error: "INVALID_SUPPLIER_BID" }, { status: 400 });
   try {
     const bid = await db.$transaction(async (tx) => {
