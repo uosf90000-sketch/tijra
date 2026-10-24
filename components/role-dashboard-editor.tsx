@@ -23,7 +23,7 @@ export function RoleDashboardEditor({ initial }: {
     Object.fromEntries(roles.map(({ role }) => [
       role, initial.find((p) => p.role === role)?.widgetKeys?.length
         ? initial.find((p) => p.role === role)!.widgetKeys as DashboardWidgetKey[]
-        : permittedDashboardWidgets({ role, permissions: [] }),
+        : permittedDashboardWidgets({ role, permissions: role === "STAFF" ? ["CASHIER", "INVENTORY", "PURCHASES", "ACCOUNTING"] : [] }),
     ])),
   );
   const [reason, setReason] = useState("");
