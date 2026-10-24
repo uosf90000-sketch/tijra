@@ -75,7 +75,7 @@ export function SupplierInventoryAuditForm({ listings }: { listings: ListingOpti
         <button className="button primary" disabled={loading || !listings.length}>
           <ClipboardCheck size={17} /> {loading ? "جاري حفظ الجرد..." : "اعتماد نتيجة الجرد"}
         </button>
-        <span>يسجل تِجرا تلقائيًا اسم الموظف الذي اعتمد الجرد ووقت التنفيذ والفرق.</span>
+        <span>يسجل مدار تلقائيًا اسم الموظف الذي اعتمد الجرد ووقت التنفيذ والفرق.</span>
       </div>
 
       {message && <div className="infoNote" style={{ color: "#176b3a", background: "#edf8f1" }}>{message}</div>}
