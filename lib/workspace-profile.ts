@@ -14,6 +14,7 @@ export const workspaceModules = [
   { key: "CRM", label: "العملاء وعروض الأسعار", href: "/crm", description: "العملاء، العروض، الذمم والتحصيل" },
   { key: "SOURCING", label: "مقارنة الموردين", href: "/sourcing", description: "طلب عروض الأسعار واختيار العرض الأفضل" },
   { key: "FLOW", label: "تِجرا Flow", href: "/flow", description: "قواعد التنبيهات والمهام المشتركة" },
+  { key: "COMPLIANCE", label: "التصاريح والمستندات", href: "/compliance", description: "متابعة صلاحية مستندات المنشأة والموردين" },
 ] as const;
 
 export type WorkspaceModuleKey = (typeof workspaceModules)[number]["key"];
@@ -39,13 +40,13 @@ export type BusinessScaleValue = (typeof scaleOptions)[number]["value"];
 export type OperatingModelValue = (typeof modelOptions)[number]["value"];
 
 const defaultModules: Record<OperatingModelValue, WorkspaceModuleKey[]> = {
-  FOOD_TRUCK: ["SALES", "INVENTORY", "PURCHASING", "ACCOUNTING", "INSIGHTS"],
+  FOOD_TRUCK: ["SALES", "INVENTORY", "PURCHASING", "ACCOUNTING", "INSIGHTS", "COMPLIANCE"],
   SHOP: ["SALES", "INVENTORY", "PURCHASING", "MARKETPLACE", "ACCOUNTING", "INSIGHTS", "CRM", "FLOW"],
-  RESTAURANT: ["SALES", "INVENTORY", "PURCHASING", "ACCOUNTING", "STAFF", "INSIGHTS", "CRM", "FLOW"],
-  WHOLESALE: ["SALES", "INVENTORY", "PURCHASING", "MARKETPLACE", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS", "CRM", "SOURCING", "FLOW"],
+  RESTAURANT: ["SALES", "INVENTORY", "PURCHASING", "ACCOUNTING", "STAFF", "INSIGHTS", "CRM", "FLOW", "COMPLIANCE"],
+  WHOLESALE: ["SALES", "INVENTORY", "PURCHASING", "MARKETPLACE", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS", "CRM", "SOURCING", "FLOW", "COMPLIANCE"],
   SERVICES: ["SALES", "PURCHASING", "ACCOUNTING", "STAFF", "INSIGHTS", "CRM", "FLOW"],
   MANUFACTURING: ["INVENTORY", "PURCHASING", "MARKETPLACE", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS", "CRM", "SOURCING", "FLOW"],
-  LOGISTICS: ["SALES", "PURCHASING", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS", "CRM", "FLOW"],
+  LOGISTICS: ["SALES", "PURCHASING", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS", "CRM", "FLOW", "COMPLIANCE"],
   MIXED: [...moduleKeys],
 };
 
