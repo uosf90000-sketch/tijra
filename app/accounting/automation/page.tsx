@@ -6,7 +6,7 @@ import { getSessionContext } from "@/lib/auth";
 import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { db } from "@/lib/db";
 
-export const metadata = { title: "ربط البيع بدفتر الحسابات | تِجرا" };
+export const metadata = { title: "ربط البيع بدفتر الحسابات | مدار" };
 export const dynamic = "force-dynamic";
 
 export default async function SaleAccountingAutomationPage() {
