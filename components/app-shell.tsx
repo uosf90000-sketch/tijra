@@ -40,6 +40,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CommandPalette } from "@/components/command-palette";
 import { TijraLogo } from "@/components/tijra-logo";
 import { resolveWorkspaceModules } from "@/lib/workspace-profile";
+import { effectivePermissions, roleLandingHref } from "@/lib/role-workspaces";
 
 type Permission = "CASHIER" | "INVENTORY" | "PURCHASES" | "ACCOUNTING";
 type TradeMode = "retailer" | "supplier";
@@ -78,6 +79,10 @@ const staffInventory: NavItem = { href: "/staff/inventory", label: "إدخال �
 const productsHub: NavItem = { href: "/products", label: "المنتجات", icon: PackageSearch };
 const managementHub: NavItem = { href: "/management", label: "الإدارة والمحاسبة", icon: UsersRound };
 const workspaceSetup: NavItem = { href: "/management/workspace", label: "الشركات ومساحة العمل", icon: Store };
+const roleWorkbench: NavItem = { href: "/workbench", label: "مركز عملي", icon: LayoutDashboard };
+const financeWorkbench: NavItem = { href: "/workbench/accounting", label: "مكتبي المالي", icon: Calculator };
+const financeLedger: NavItem = { href: "/accounting/ledger", label: "دفتر القيود", icon: Landmark };
+const accountSecurity: NavItem = { href: "/account/security", label: "أمان حسابي", icon: CircleUserRound };
 const crm360: NavItem = { href: "/crm", label: "العملاء والعروض", icon: UsersRound };
 const receivables360: NavItem = { href: "/crm/receivables", label: "المستحقات والتحصيل", icon: WalletCards };
 const sourcing360: NavItem = { href: "/sourcing", label: "عروض الموردين", icon: ShoppingBasket };
@@ -218,24 +223,56 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
 
     const businessType = viewer.business.businessType;
-    const isStaff = viewer.membership.role === "STAFF";
+    const isStaff = viewer.membership.role !== "OWNER";
     const isOwner = viewer.membership.role === "OWNER";
     const permissions = new Set(viewer.membership.permissions ?? []);
     const enabled = new Set(resolveWorkspaceModules(
       viewer.business.businessScale, viewer.business.operatingModel, viewer.business.workspaceModules,
     ));
 
-    if (isStaff) {
-      const sections = staffSections(permissions, businessType, enabled);
-      const all = sections.flatMap((section) => section.items);
-      const preferred = permissions.has("CASHIER") ? sales : permissions.has("INVENTORY") ? staffInventory : permissions.has("PURCHASES") ? orders : permissions.has("ACCOUNTING") ? accounting : null;
+    // Every non-owner uses a role-specific, intentionally limited workspace.
+    // This is UI policy; the server/individual APIs must check permissions too.
+    if (!isOwner) {
+      const allowedPermissions = new Set(effectivePermissions({
+        role: viewer.membership.role as "MANAGER" | "ACCOUNTANT" | "CASHIER" | "SUPPLIER" | "STAFF",
+        permissions: viewer.membership.permissions ?? [],
+      }));
+      const role = viewer.membership.role;
+      const homeHref = roleLandingHref({
+        role: role as "MANAGER" | "ACCOUNTANT" | "CASHIER" | "SUPPLIER" | "STAFF",
+        permissions: viewer.membership.permissions ?? [],
+      });
+      const permitted: NavItem[] = [];
+      if (role === "MANAGER") permitted.push(roleWorkbench);
+      if (role === "ACCOUNTANT" || (role === "STAFF" && allowedPermissions.has("ACCOUNTING")))
+        permitted.push(financeWorkbench);
+      if (role === "STAFF" && allowedPermissions.size > 1) permitted.push(roleWorkbench);
+      if (allowedPermissions.has("CASHIER")) permitted.push(sales);
+      if (allowedPermissions.has("CASHIER") && role !== "STAFF") permitted.push(shifts);
+      if (allowedPermissions.has("INVENTORY")) {
+        if (role === "STAFF") permitted.push(staffInventory);
+        else if (role === "SUPPLIER") permitted.push(sellerProducts, supplierPicking, stockUpdate, stockCount);
+        else permitted.push(inventory, inventoryAudit, receiving, returns, locations, movements);
+      }
+      if (allowedPermissions.has("PURCHASES")) {
+        permitted.push(orders);
+        if (role === "MANAGER") permitted.push(purchases, sourcing360);
+      }
+      if (allowedPermissions.has("ACCOUNTING")) permitted.push(accounting, reconciliation);
+      if (role === "ACCOUNTANT") permitted.push(financeLedger, receivables360);
+      if (role === "MANAGER") permitted.push(
+        crm360, receivables360, flow360, intelligence360, compliance360, salesAnalytics,
+      );
+      if (role === "SUPPLIER") permitted.push(sellerOrders, supplierActivity);
+      permitted.push(workspaceSetup, accountSecurity);
+      const all = [...new Map(permitted.map((item) => [cleanHref(item.href), item])).values()];
       return {
-        sections,
+        sections: [{ label: "مساحة العمل", items: all }],
         directItems: [] as NavItem[],
         homeItem: null,
-        homeHref: preferred?.href ?? "/no-access",
-        allowedHrefs: Array.from(new Set(all.map((item) => cleanHref(item.href)))),
-        quick: preferred,
+        homeHref,
+        allowedHrefs: Array.from(new Set([homeHref, ...all.map((item) => cleanHref(item.href))])),
+        quick: all.find((item) => item.href === homeHref) ?? all[0] ?? null,
         mode: tradeMode,
       };
     }
@@ -321,7 +358,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [publicPage, pathname, router]);
 
   useEffect(() => {
-    if (!viewer || viewer.membership.role !== "STAFF" || publicPage) return;
+    if (!viewer || viewer.membership.role === "OWNER" || publicPage) return;
     const allowed = navigation.allowedHrefs ?? [];
     if (pathname === "/" || !allowed.includes(pathname)) router.replace(navigation.homeHref);
   }, [viewer, publicPage, pathname, router, navigation.allowedHrefs, navigation.homeHref]);
