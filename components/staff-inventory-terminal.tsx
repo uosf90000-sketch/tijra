@@ -53,7 +53,7 @@ export function StaffInventoryTerminal({ products, locations }: { products: Prod
         controlsRef.current = controls;
       } catch {
         setScannerOpen(false);
-        setMessage("تعذر فتح الكاميرا. تأكد من السماح لتِجرا باستخدامها.");
+        setMessage("تعذر فتح الكاميرا. تأكد من السماح لمدار باستخدامها.");
       }
     }, 50);
   }
