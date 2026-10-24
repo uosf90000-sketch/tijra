@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { ProgressBar } from "@/components/progress-bar";
 import { StatusPill } from "@/components/status-pill";
 import { getSessionContext } from "@/lib/auth";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { hasAppPermission } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
@@ -18,6 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function InventoryPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!(await hasBusinessWideRead(context))) redirect("/no-access");
   if (!hasAppPermission(context.membership, "INVENTORY") || context.membership.role === "STAFF") redirect("/no-access");
 
   const since = new Date();
