@@ -48,10 +48,11 @@ export default async function SalesPage() {
   const recipeMap = foodBusiness ? await loadRecipesForBusiness(businessId) : new Map<string, never[]>();
 
   const productIds = products.map((item) => item.id);
-  const [conversions, configRows, serialRows] = await Promise.all([
+  const [conversions, configRows, serialRows, customers] = await Promise.all([
     listUnitConversions(businessId, productIds),
     db.inventoryAuditEvent.findMany({ where: { businessId, action: "PRODUCT_CONFIG", listingId: { in: productIds } } }),
     db.inventoryAuditEvent.findMany({ where: { businessId, action: "PRODUCT_SERIAL", listingId: { in: productIds }, quantity: { gt: 0 } }, orderBy: { itemName: "asc" } }),
+    db.customer.findMany({ where: { businessId }, select: { id: true, name: true }, orderBy: { name: "asc" }, take: 250 }),
   ]);
 
   const conversionMap = new Map<string, typeof conversions>();
@@ -127,7 +128,7 @@ export default async function SalesPage() {
         <div><span>نقطة البيع</span><h1>{copy.title}</h1></div>
         <p>{copy.note}</p>
       </header>
-      <PosTerminal products={posProducts} locationId={defaultLocation.id} businessActivity={activity} />
+      <PosTerminal products={posProducts} locationId={defaultLocation.id} businessActivity={activity} customers={customers} />
     </main>
   );
 }
