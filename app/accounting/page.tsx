@@ -4,6 +4,7 @@ import { ArrowDownLeft, ArrowUpRight, Banknote, CircleDollarSign, ClipboardList,
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
+import { hasAppPermission } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
 
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function AccountingPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!hasAppPermission(context.membership, "ACCOUNTING")) redirect("/no-access");
   const businessId = context.business.id;
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
