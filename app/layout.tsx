@@ -24,14 +24,15 @@ import "./owner-six-door.css";
 import "./smart-owner-home.css";
 import "./executive-ui.css";
 import "./offline.css";
+import "./madaar-design-system.css";
 import "./madaar-theme.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "مدار | نظام أعمال واحد لكل منشأتك",
+    default: "مدار | منصة إدارة الأعمال",
     template: "%s | مدار",
   },
-  description: "مدار، منصة تشغيل أعمال متكاملة تربط المبيعات والكاشير والمحاسبة والمخزون والمشتريات والموظفين والحوكمة لكل منشأة.",
+  description: "نظام أعمال عربي موحد يجمع الكاشير والمالية والمخزون والموردين والموظفين والحوكمة في مدار واحد.",
   applicationName: "Madaar",
 };
 
