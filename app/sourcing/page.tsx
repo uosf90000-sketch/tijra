@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/page-header";
 import { SourcingWorkspace } from "@/components/sourcing-workspace";
 import { hasAppPermission } from "@/lib/access";
 import { getSessionContext } from "@/lib/auth";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { db } from "@/lib/db";
 
 export const metadata = { title: "مقارنة الموردين وطلبات عروض الأسعار | تِجرا" };
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function SourcingPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!(await hasBusinessWideRead(context))) redirect("/no-access");
   if (!hasAppPermission(context.membership, "PURCHASES")) redirect("/no-access");
   const [products, suppliers, rfqs] = await Promise.all([
     db.product.findMany({
