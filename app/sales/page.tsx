@@ -4,6 +4,7 @@ import { getSessionContext } from "@/lib/auth";
 import { hasAppPermission } from "@/lib/access";
 import { isFoodActivity, posExperienceFor } from "@/lib/business-experience";
 import { ensureDefaultLocation, listUnitConversions, safeJson } from "@/lib/commerce-ops";
+import { accessibleLocations } from "@/lib/location-access";
 import { db } from "@/lib/db";
 import { loadRecipesForBusiness, recipeMaxServings, requiredStockQuantity, type RecipeState } from "@/lib/recipes";
 
@@ -40,7 +41,10 @@ export default async function SalesPage() {
   const businessId = context.business.id;
   const activity = context.business.businessActivity;
   const foodBusiness = isFoodActivity(activity);
-  const defaultLocation = await ensureDefaultLocation(businessId);
+  await ensureDefaultLocation(businessId);
+  const allowedLocations = (await accessibleLocations(context)).filter((location) => location.active);
+  const defaultLocation = allowedLocations.find((location) => location.isDefault) || allowedLocations[0];
+  if (!defaultLocation) redirect("/no-access");
 
   const products = await db.product.findMany({
     where: { businessId, active: true },
@@ -130,7 +134,7 @@ export default async function SalesPage() {
         <div><span>نقطة البيع</span><h1>{copy.title}</h1></div>
         <p>{copy.note}</p>
       </header>
-      <PosTerminal products={posProducts} locationId={defaultLocation.id} businessActivity={activity} customers={customers} />
+      <PosTerminal products={posProducts} locationId={defaultLocation.id} locations={allowedLocations.map((location) => ({ id: location.id, name: location.name }))} businessActivity={activity} customers={customers} />
     </main>
   );
 }
