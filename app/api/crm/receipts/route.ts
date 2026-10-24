@@ -16,7 +16,8 @@ export async function POST(request: Request) {
   const auth = await requireApiRoles(["OWNER", "ACCOUNTANT"]);
   if (auth.response) return auth.response;
   const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success || moneyHalalas(parsed.data?.amount || "0") <= 0n)
+  if (!parsed.success) return NextResponse.json({ error: "INVALID_RECEIPT" }, { status: 400 });
+  if (moneyHalalas(parsed.data.amount) <= 0n)
     return NextResponse.json({ error: "INVALID_RECEIPT" }, { status: 400 });
   if (parsed.data.receivedAt && parsed.data.receivedAt.getTime() > Date.now() + 60_000)
     return NextResponse.json({ error: "FUTURE_RECEIPT_NOT_ALLOWED" }, { status: 400 });
