@@ -22,7 +22,7 @@ export async function GET() {
     currentBusinessSignals(context.business.id),
   ]);
   return NextResponse.json({ rules, tasks, signals: signals.slice(0, 250),
-    note: "Recommendations are informational. No purchase, payment, email or WhatsApp message is sent." });
+    note: "Recommendations are informational and evaluated from bounded records. No purchase, payment, email or WhatsApp message is sent." });
 }
 
 export async function PATCH(request: Request) {
