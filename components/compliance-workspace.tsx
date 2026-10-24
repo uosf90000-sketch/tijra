@@ -31,7 +31,7 @@ export function ComplianceWorkspace({ documents, suppliers, owner, canEdit }: {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) { setMessage("تعذر الحفظ: " + (data.error || "راجع البيانات")); return; }
-      setMessage("حُفظت البيانات بسجل داخلي. لم يتحقق تِجرا من المستند لدى الجهة المصدرة.");
+      setMessage("حُفظت البيانات بسجل داخلي. لم يتحقق مدار من المستند لدى الجهة المصدرة.");
       router.refresh();
     } catch { setMessage("فشل الاتصال. راجع السجل قبل تكرار العملية."); }
     finally { setBusy(false); }
