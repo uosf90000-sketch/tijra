@@ -7,7 +7,7 @@ import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { db } from "@/lib/db";
 import { currentBusinessSignals } from "@/lib/business-signals";
 
-export const metadata = { title: "تِجرا Flow | مركز الأتمتة" };
+export const metadata = { title: "مدار Flow | مركز الأتمتة" };
 export const dynamic = "force-dynamic";
 
 export default async function FlowPage() {
@@ -25,7 +25,7 @@ export default async function FlowPage() {
     currentBusinessSignals(context.business.id),
   ]);
   return <>
-    <PageHeader eyebrow="نظام التشغيل الذكي" title="تِجرا Flow"
+    <PageHeader eyebrow="نظام التشغيل الذكي" title="مدار Flow"
       description="التنبيهات تصبح مهامًا واضحة للمسؤول؛ تنفيذ العمليات المالية والشراء ما زال يحتاج موافقة بشرية."
       actions={<Link className="button secondary" href="/management">الإدارة</Link>} />
     <FlowWorkspace
