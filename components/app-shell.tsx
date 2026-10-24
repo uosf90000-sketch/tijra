@@ -72,6 +72,7 @@ const sales: NavItem = { href: "/sales", label: "الكاشير", icon: Shopping
 const salesAnalytics: NavItem = { href: "/sales/analytics", label: "تحليلات المبيعات", icon: BarChart3 };
 const shifts: NavItem = { href: "/sales/shifts", label: "الورديات", icon: ClipboardCheck };
 const purchases: NavItem = { href: "/purchases", label: "المشتريات", icon: ShoppingBasket };
+const purchaseApprovals: NavItem = { href: "/purchases/approvals", label: "موافقات الشراء", icon: ClipboardCheck };
 const purchaseGuardian: NavItem = { href: "/purchases/insights", label: "مراقب المشتريات", icon: Tags };
 const activityCenter: NavItem = { href: "/activity", label: "مركز النشاط", icon: Activity };
 const controlCenter: NavItem = { href: "/control-center", label: "مركز الرقابة", icon: Bell };
@@ -241,7 +242,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       }
       if (allowedPermissions.has("PURCHASES")) {
         permitted.push(orders);
-        if (role === "MANAGER") permitted.push(purchases, sourcing360);
+        if (role === "MANAGER") permitted.push(purchases, purchaseApprovals, sourcing360);
       }
       if (allowedPermissions.has("ACCOUNTING")) permitted.push(accounting, reconciliation);
       if (role === "ACCOUNTANT") permitted.push(financeLedger, receivables360);
