@@ -5,6 +5,7 @@ import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { ensureDefaultLocation, listInventoryLocations, listLocationStocks } from "@/lib/commerce-ops";
 import { getSessionContext } from "@/lib/auth";
+import { hasAppPermission } from "@/lib/access";
 import { db } from "@/lib/db";
 
 export const metadata = { title: "الفروع والمستودعات" };
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function LocationsPage() {
   const context = await getSessionContext(); if (!context) redirect("/login");
+  if (!["OWNER", "MANAGER", "SUPPLIER"].includes(context.membership.role) || !hasAppPermission(context.membership, "INVENTORY")) redirect("/no-access");
   await ensureDefaultLocation(context.business.id);
   const [locations, products] = await Promise.all([
     listInventoryLocations(context.business.id),
