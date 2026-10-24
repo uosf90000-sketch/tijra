@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CommandPalette } from "@/components/command-palette";
-import { TijraLogo } from "@/components/tijra-logo";
+import { MadaarLogo } from "@/components/madaar-logo";
 import { resolveWorkspaceModules } from "@/lib/workspace-profile";
 import { effectivePermissions, roleLandingHref } from "@/lib/role-workspaces";
 
@@ -88,7 +88,7 @@ const accountSecurity: NavItem = { href: "/account/security", label: "أمان �
 const crm360: NavItem = { href: "/crm", label: "العملاء والعروض", icon: UsersRound };
 const receivables360: NavItem = { href: "/crm/receivables", label: "المستحقات والتحصيل", icon: WalletCards };
 const sourcing360: NavItem = { href: "/sourcing", label: "عروض الموردين", icon: ShoppingBasket };
-const flow360: NavItem = { href: "/flow", label: "تِجرا Flow", icon: Activity };
+const flow360: NavItem = { href: "/flow", label: "مدار Flow", icon: Activity };
 const compliance360: NavItem = { href: "/compliance", label: "التصاريح والمستندات", icon: ClipboardCheck };
 const intelligence360: NavItem = { href: "/intelligence", label: "نبض الأعمال", icon: BarChart3 };
 
@@ -424,7 +424,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (publicPage) return <>{children}</>;
 
   if (!viewer) {
-    return <div className="staffLoadingShell"><TijraLogo compact size={46} /><span>جاري فتح تِجرا...</span></div>;
+    return <div className="staffLoadingShell"><MadaarLogo compact size={46} /><span>جاري فتح مدار...</span></div>;
   }
 
   if (isStaff) {
@@ -434,7 +434,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return (
       <div className="staffFrame">
         <header className="staffTopbar">
-          <Link href={navigation.homeHref} className="brand brandCompact" aria-label="تِجرا"><TijraLogo compact size={42} /></Link>
+          <Link href={navigation.homeHref} className="brand brandCompact" aria-label="مدار"><MadaarLogo compact size={42} /></Link>
           <div className="staffIdentity"><span>{viewer.business.name}</span><strong>{viewer.user.name}</strong></div>
           <button type="button" className="staffLogout" onClick={logout} aria-label="تسجيل الخروج"><LogOut size={18} /></button>
         </header>
@@ -456,7 +456,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <aside className={`sidebar ${open ? "open" : ""}`}>
         <div className="sidebarTop">
-          <Link href={navigation.homeHref} className="brand" aria-label="تِجرا"><TijraLogo size={54} /></Link>
+          <Link href={navigation.homeHref} className="brand" aria-label="مدار"><MadaarLogo size={45} inverse /></Link>
           <button type="button" className="iconButton sidebarClose" onClick={() => setOpen(false)} aria-label="إغلاق القائمة"><X size={20} /></button>
         </div>
 
@@ -484,7 +484,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="sidebarInsight">
           <div className="sidebarInsightIcon"><PackageCheck size={18} /></div>
           <div>
-            <strong>{navigation.mode === "supplier" ? "مخزون واحد لكل قنوات البيع" : "تِجرا يساعدك في القرار"}</strong>
+            <strong>{navigation.mode === "supplier" ? "مخزون واحد لكل قنوات البيع" : "مدار يساعدك في القرار"}</strong>
             <span>{navigation.mode === "supplier" ? "السوق والكاشير والبيع الخارجي والطلبات تعمل على نفس حركة المخزون." : "السوق والكاشير والمخزون والموردين والرقابة في نظام واحد."}</span>
           </div>
         </div>
@@ -500,7 +500,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="appTopbar">
           <div className="mobileBrand">
             <button type="button" className="iconButton" onClick={() => setOpen(true)} aria-label="فتح القائمة"><Menu size={21} /></button>
-            <Link href={navigation.homeHref} className="brand brandCompact"><TijraLogo compact size={42} /></Link>
+            <Link href={navigation.homeHref} className="brand brandCompact"><MadaarLogo compact size={42} /></Link>
           </div>
           <button type="button" className="searchTrigger" onClick={() => setCommandOpen(true)} aria-label="فتح البحث السريع">
             <Search size={17} /><span>{navigation.mode === "supplier" ? "ابحث عن منتج، طلب أو مخزون..." : "ابحث عن منتج، مورد أو طلب..."}</span><kbd>⌘ K</kbd>
