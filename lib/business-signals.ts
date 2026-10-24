@@ -10,7 +10,7 @@ import { identifyOperatingSignals, halalasToDecimal, outstandingHalalas } from "
  * messages, bank transactions or customer notifications.
  */
 export async function currentBusinessSignals(businessId: string, now = new Date()) {
-  const [products, orders, marketplaceOrders, receivables, approvals, rfqs] = await Promise.all([
+  const [products, orders, marketplaceOrders, receivables, approvals, rfqs, documents] = await Promise.all([
     db.product.findMany({
       where: { businessId, active: true }, select: {
         id: true, name: true, barcode: true, unit: true,
@@ -40,6 +40,10 @@ export async function currentBusinessSignals(businessId: string, now = new Date(
     db.sourcingRequest.findMany({
       where: { businessId, status: "OPEN", quoteDeadline: { not: null } },
       include: { product: { select: { name: true } } }, take: 1000,
+    }),
+    db.complianceDocument.findMany({
+      where: { businessId, expiresAt: { lte: new Date(now.getTime() + 30 * 86_400_000) } },
+      include: { supplier: { select: { name: true } } }, take: 1000,
     }),
   ]);
   const incoming = combineIncomingQuantities(
@@ -74,6 +78,9 @@ export async function currentBusinessSignals(businessId: string, now = new Date(
     })),
     rfqs: rfqs.filter((r): r is typeof r & { quoteDeadline: Date } => r.quoteDeadline !== null)
       .map((r) => ({ id: r.id, productName: r.product.name, deadline: r.quoteDeadline })),
+    documents: documents.map((doc) => ({
+      id: doc.id, title: doc.title, expiresAt: doc.expiresAt, supplierName: doc.supplier?.name || null,
+    })),
     now,
   });
 }
