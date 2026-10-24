@@ -221,7 +221,7 @@ export function PosTerminal({ products, locationId, locations = [], businessActi
       } else if (scanError && scanError.name !== "NotFoundException") {
         console.warn("POS barcode scan error", scanError);
       }
-    }).then((controls) => { if (!cancelled) scannerControlsRef.current = controls; else controls.stop(); }).catch(() => setMessage("تعذر فتح الكاميرا. تأكد من السماح لتِجرا باستخدامها."));
+    }).then((controls) => { if (!cancelled) scannerControlsRef.current = controls; else controls.stop(); }).catch(() => setMessage("تعذر فتح الكاميرا. تأكد من السماح لمدار باستخدامها."));
     return () => { cancelled = true; scannerControlsRef.current?.stop(); scannerControlsRef.current = null; };
   }, [scannerOpen, scanTargets]);
 
@@ -460,7 +460,7 @@ export function PosTerminal({ products, locationId, locations = [], businessActi
         </div>
       </article>
 
-      {scannerOpen ? <div className="barcodeScannerOverlay" role="dialog" aria-modal="true" aria-label="ماسح باركود الكاشير"><div className="barcodeScannerCard"><div className="barcodeScannerHeader"><div><strong>المسح المتواصل</strong><span>امسح المنتجات واحدًا بعد الآخر؛ تِجرا يضيفها للسلة ويبقي الكاميرا مفتوحة.</span></div><button type="button" className="iconButton" onClick={closeScanner}><X size={20} /></button></div><div className="barcodeVideoFrame"><video ref={videoRef} playsInline muted autoPlay /><div className="barcodeTarget" aria-hidden="true"><span /></div></div><div className="barcodeScannerFooter"><span><ScanLine size={15} /> كل قراءة صحيحة تُضاف مباشرة للسلة.</span><button type="button" className="button secondary" onClick={closeScanner}>إغلاق الماسح</button></div></div></div> : null}
+      {scannerOpen ? <div className="barcodeScannerOverlay" role="dialog" aria-modal="true" aria-label="ماسح باركود الكاشير"><div className="barcodeScannerCard"><div className="barcodeScannerHeader"><div><strong>المسح المتواصل</strong><span>امسح المنتجات واحدًا بعد الآخر؛ مدار يضيفها للسلة ويبقي الكاميرا مفتوحة.</span></div><button type="button" className="iconButton" onClick={closeScanner}><X size={20} /></button></div><div className="barcodeVideoFrame"><video ref={videoRef} playsInline muted autoPlay /><div className="barcodeTarget" aria-hidden="true"><span /></div></div><div className="barcodeScannerFooter"><span><ScanLine size={15} /> كل قراءة صحيحة تُضاف مباشرة للسلة.</span><button type="button" className="button secondary" onClick={closeScanner}>إغلاق الماسح</button></div></div></div> : null}
     </section>
   );
 }
