@@ -64,7 +64,7 @@ export default async function AccountingWorkbenchPage() {
     { label: "مستحقات عملاء متأخرة", value: String(receivables), note: "تحصيلات أو فواتير مفتوحة" },
   ];
   const visibleFinancialLinks = context.membership.role === "OWNER" || context.membership.role === "ACCOUNTANT"
-    ? financialLinks : financialLinks.filter((link) => link.href !== "/accounting/ledger");
+    ? financialLinks : financialLinks.filter((link) => !["/accounting/ledger", "/accounting/automation"].includes(link.href));
   const cardCategory = (name: string) =>
     name.includes("مستحقات") ? "RECEIVABLES" :
     name.includes("قيود") ? "JOURNALS" : "FINANCE";
