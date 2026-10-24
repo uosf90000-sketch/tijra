@@ -11,7 +11,7 @@ import { listInventoryLocations } from "@/lib/commerce-ops";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-export const metadata = { title: "مركز الحوكمة والرقابة | تِجرا" };
+export const metadata = { title: "مركز الحوكمة والرقابة | مدار" };
 export const dynamic = "force-dynamic";
 
 const categories: Record<string, string> = {
@@ -89,7 +89,7 @@ export default async function GovernancePage() {
   ]);
 
   return <>
-    <PageHeader eyebrow="الرقابة والإدارة" title="مركز حوكمة تِجرا"
+    <PageHeader eyebrow="الرقابة والإدارة" title="مركز حوكمة مدار"
       description="سياسات المخاطر، فصل المسؤوليات، مراجعة صلاحيات الموظفين، وآثار العمليات الحساسة في منشأتك."
       actions={<Link className="button secondary" href="/management">العودة للإدارة</Link>} />
     <section className="metricsGrid four">
