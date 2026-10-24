@@ -1,4 +1,5 @@
 import type { AppPermission, UserRole } from "@prisma/client";
+import { effectivePermissions, roleLandingHref } from "@/lib/role-workspaces";
 
 export const appPermissions = ["CASHIER", "INVENTORY", "PURCHASES", "ACCOUNTING"] as const satisfies readonly AppPermission[];
 
@@ -14,17 +15,8 @@ type AccessMembership = {
   permissions: AppPermission[];
 };
 
-const legacyRolePermissions: Partial<Record<UserRole, AppPermission[]>> = {
-  MANAGER: ["CASHIER", "INVENTORY", "PURCHASES", "ACCOUNTING"],
-  CASHIER: ["CASHIER"],
-  ACCOUNTANT: ["ACCOUNTING"],
-  SUPPLIER: ["INVENTORY", "PURCHASES"],
-};
-
 export function hasAppPermission(membership: AccessMembership, permission: AppPermission) {
-  if (membership.role === "OWNER") return true;
-  if (membership.role === "STAFF") return membership.permissions.includes(permission);
-  return legacyRolePermissions[membership.role]?.includes(permission) ?? false;
+  return effectivePermissions(membership).includes(permission);
 }
 
 export function hasAnyAppPermission(membership: AccessMembership, permissions: readonly AppPermission[]) {
@@ -32,9 +24,5 @@ export function hasAnyAppPermission(membership: AccessMembership, permissions: r
 }
 
 export function firstPermissionHref(membership: AccessMembership) {
-  if (hasAppPermission(membership, "CASHIER")) return "/sales";
-  if (hasAppPermission(membership, "INVENTORY")) return membership.role === "STAFF" ? "/staff/inventory" : "/inventory";
-  if (hasAppPermission(membership, "PURCHASES")) return membership.role === "STAFF" ? "/marketplace/orders" : "/marketplace";
-  if (hasAppPermission(membership, "ACCOUNTING")) return "/accounting";
-  return "/no-access";
+  return roleLandingHref(membership);
 }
