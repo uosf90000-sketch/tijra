@@ -5,6 +5,7 @@ import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { ensureDefaultLocation, getOpenShift, listShifts } from "@/lib/commerce-ops";
 import { getSessionContext } from "@/lib/auth";
+import { accessibleLocations } from "@/lib/location-access";
 import { hasAppPermission } from "@/lib/access";
 import { formatSar } from "@/lib/format";
 
@@ -14,11 +15,16 @@ export const dynamic = "force-dynamic";
 export default async function ShiftsPage() {
   const context = await getSessionContext(); if (!context) redirect("/login");
   if (!hasAppPermission(context.membership, "CASHIER")) redirect("/no-access");
-  const location = await ensureDefaultLocation(context.business.id);
+  await ensureDefaultLocation(context.business.id);
+  const allowedLocations = (await accessibleLocations(context)).filter((location) => location.active);
+  const location = allowedLocations.find((location) => location.isDefault) || allowedLocations[0];
+  if (!location) redirect("/no-access");
   const [openShift, shifts] = await Promise.all([getOpenShift(context.business.id, location.id), listShifts(context.business.id, 50)]);
   const canReviewAll = ["OWNER", "MANAGER"].includes(context.membership.role);
+  const allowedIds = new Set(allowedLocations.map((site) => site.id));
   const visibleShifts = shifts.filter((shift) =>
-    canReviewAll || shift.actorUserId === context.user.id);
+    (canReviewAll || shift.actorUserId === context.user.id) &&
+    (!context.business.locationAccessEnforced || (shift.locationId && allowedIds.has(shift.locationId))));
   const ownOpenShift = openShift && (canReviewAll || openShift.actorUserId === context.user.id)
     ? openShift : null;
   const closed = visibleShifts.filter((x) => x.status === "CLOSED");
