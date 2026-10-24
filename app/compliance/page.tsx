@@ -6,7 +6,7 @@ import { getSessionContext } from "@/lib/auth";
 import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { db } from "@/lib/db";
 
-export const metadata = { title: "سجل التصاريح والمستندات | تِجرا" };
+export const metadata = { title: "سجل التصاريح والمستندات | مدار" };
 export const dynamic = "force-dynamic";
 
 export default async function CompliancePage() {
@@ -27,7 +27,7 @@ export default async function CompliancePage() {
     }),
   ]);
   return <>
-    <PageHeader eyebrow="تِجرا 360" title="متابعة التصاريح والمستندات"
+    <PageHeader eyebrow="مدار 360" title="متابعة التصاريح والمستندات"
       description="سجل تواريخ الرخص والتأمينات والمستندات ذات الصلاحية، وراجع ما يحتاج تجديدًا قبل التعطل."
       actions={<Link className="button secondary" href="/flow">متابعة انتهاء المستندات في Flow</Link>} />
     <ComplianceWorkspace
