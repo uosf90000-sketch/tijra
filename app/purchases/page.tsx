@@ -99,7 +99,7 @@ export default async function PurchasesPage() {
       <PageHeader
         eyebrow="المشتريات الذكية"
         title="المشتريات"
-        description="تِجرا يقترح الكمية، يقسم الطلب حسب المورد، ثم تعطي المورد رابطًا يؤكد منه بدون حساب."
+        description="مدار يقترح الكمية، يقسم الطلب حسب المورد، ثم تعطي المورد رابطًا يؤكد منه بدون حساب."
         actions={<><Link className="button secondary" href="/purchases/approvals">الموافقات</Link><Link className="button secondary" href="/purchases/insights"><Sparkles size={17} /> مراقب المشتريات</Link><Link className="button secondary" href="/purchases/invoice"><Camera size={17} /> مطابقة فاتورة</Link><Link className="button primary" href="/suppliers/prices/new"><CirclePlus size={17} /> إضافة سعر مورد</Link></>}
       />
 
@@ -123,7 +123,7 @@ export default async function PurchasesPage() {
           {!suggestions.length && <div className="infoNote">لا توجد أصناف منخفضة لها سعر مورد مسجل.</div>}
         </div>
         <div className="orderSummaryBar"><div><span>الإجمالي التقديري</span><strong>{formatSar(suggestionTotal)}</strong></div><SmartOrderButton /></div>
-        <p className="policyNote">تِجرا ينظم الطلب والتأكيد فقط. التوصيل وموعده يبقيان مباشرة بين التاجر والمورد.</p>
+        <p className="policyNote">مدار ينظم الطلب والتأكيد فقط. التوصيل وموعده يبقيان مباشرة بين التاجر والمورد.</p>
       </section>
 
       <section className="panel tablePanel">
