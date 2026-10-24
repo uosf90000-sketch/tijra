@@ -13,7 +13,7 @@ const schema = z.object({
 }).strict();
 const policyRole = (role: DashboardRoleKey) => ({
   role,
-  permissions: [] as Array<"CASHIER" | "INVENTORY" | "PURCHASES" | "ACCOUNTING">,
+  permissions: (role === "STAFF" ? ["CASHIER", "INVENTORY", "PURCHASES", "ACCOUNTING"] : []) as Array<"CASHIER" | "INVENTORY" | "PURCHASES" | "ACCOUNTING">,
 });
 
 export async function GET() {
