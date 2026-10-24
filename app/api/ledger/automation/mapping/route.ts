@@ -11,6 +11,7 @@ const schema = z.object({
   transferAccountId: z.string().min(1), otherAccountId: z.string().min(1),
   revenueAccountId: z.string().min(1), cogsAccountId: z.string().min(1),
   inventoryAccountId: z.string().min(1), enabled: z.boolean(),
+  taxBasisConfirmed: z.boolean(),
   reason: z.string().trim().min(8).max(500),
 }).strict();
 
@@ -50,11 +51,13 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "ACCOUNT_KINDS_MISMATCH" }, { status: 400 });
   // Never permit automated gross-revenue recognition when VAT registration
   // is configured: no tax breakdown exists in the current POS schema.
+  if (parsed.data.enabled && !parsed.data.taxBasisConfirmed)
+    return NextResponse.json({ error: "NON_VAT_ACCOUNTING_ACKNOWLEDGEMENT_REQUIRED" }, { status: 400 });
   if (parsed.data.enabled && context.business.taxNumber)
     return NextResponse.json({ error: "VAT_ACCOUNTING_INTEGRATION_NOT_READY" }, { status: 409 });
   const record = await db.$transaction(async (tx) => {
     const previous = await tx.salesAccountingMap.findUnique({ where: { businessId: context.business.id } });
-    const { reason, ...data } = parsed.data;
+    const { reason, taxBasisConfirmed, ...data } = parsed.data;
     const updated = await tx.salesAccountingMap.upsert({
       where: { businessId: context.business.id },
       create: { businessId: context.business.id, ...data },
@@ -64,7 +67,8 @@ export async function PATCH(request: Request) {
       businessId: context.business.id, action: "ACCOUNTING_MAPPING_CHANGED",
       actorUserId: context.user.id, actorName: context.user.name,
       actorRole: context.membership.role,
-      note: JSON.stringify({ previous, current: updated, reason }),
+      note: JSON.stringify({ previous, current: updated, reason, taxBasisConfirmed,
+        limitation: "No tax invoice issuance / VAT allocation performed" }),
     } });
     return updated;
   });
