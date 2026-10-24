@@ -20,6 +20,7 @@ export type RecordSaleInput = {
   actorName?: string;
   actorRole?: string;
   locationId?: string | null;
+  customerId?: string;
   items: SaleLineInput[];
 };
 
@@ -45,6 +46,13 @@ export async function recordSale(input: RecordSaleInput) {
         select: { id: true },
       });
       if (exists) throw new Error("DUPLICATE_INVOICE_NUMBER");
+    }
+    if (input.customerId) {
+      const customer = await tx.customer.findFirst({
+        where: { id: input.customerId, businessId: input.businessId },
+        select: { id: true },
+      });
+      if (!customer) throw new Error("CUSTOMER_NOT_FOUND");
     }
     const productIds = Array.from(new Set(input.items.map((item) => item.productId)));
     const products = await tx.product.findMany({
@@ -185,6 +193,7 @@ export async function recordSale(input: RecordSaleInput) {
       data: {
         businessId: input.businessId,
         locationId: input.locationId || null,
+        customerId: input.customerId || null,
         invoiceNumber: input.invoiceNumber,
         paymentMethod: input.paymentMethod ?? "CASH",
         total,
