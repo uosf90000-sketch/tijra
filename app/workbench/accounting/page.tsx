@@ -5,6 +5,7 @@ import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canEnterFinanceWorkbench } from "@/lib/role-workspaces";
 import { formatSar } from "@/lib/format";
+import { loadVisibleRoleWidgets } from "@/lib/role-dashboard-config";
 
 export const metadata = { title: "مساحة المحاسب | تِجرا" };
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ export default async function AccountingWorkbenchPage() {
   if (!context) redirect("/login");
   if (!canEnterFinanceWorkbench(context.membership)) redirect("/no-access");
   const businessId = context.business.id;
+  const visible = await loadVisibleRoleWidgets(businessId, context.membership);
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
@@ -62,11 +64,14 @@ export default async function AccountingWorkbenchPage() {
   ];
   const visibleFinancialLinks = context.membership.role === "OWNER" || context.membership.role === "ACCOUNTANT"
     ? financialLinks : financialLinks.filter((link) => link.href !== "/accounting/ledger");
+  const cardCategory = (name: string) =>
+    name.includes("مستحقات") ? "RECEIVABLES" :
+    name.includes("قيود") ? "JOURNALS" : "FINANCE";
   return <>
     <PageHeader eyebrow="المحاسبة والمالية" title={"مكتب المحاسب · " + context.business.name}
       description="إيرادات ومصروفات وتحويلات ومستحقات المنشأة، مع مهام مالية واضحة دون تشتيت الموظف ببقية الأقسام." />
     <section className="metricsGrid four">
-      {cards.map((c) => <article className="panel" key={c.label}>
+      {cards.filter((c) => visible.has(cardCategory(c.label))).map((c) => <article className="panel" key={c.label}>
         <span className="eyebrow">{c.label}</span><h2>{c.value}</h2>
         <p className="policyNote">{c.note}</p>
       </article>)}
@@ -74,12 +79,12 @@ export default async function AccountingWorkbenchPage() {
     <section className="panel" style={{ marginTop: 18 }}>
       <div className="panelHeader"><div><span className="eyebrow">الأعمال اليومية</span><h2>شاشات المحاسب</h2></div></div>
       <div className="ownerHubGrid">
-        {visibleFinancialLinks.map((link) => <Link key={link.href} href={link.href} className="ownerHubCard">
+        {visibleFinancialLinks.filter((link) => visible.has(link.href.includes("receivables") ? "RECEIVABLES" : link.href.includes("ledger") ? "JOURNALS" : "FINANCE")).map((link) => <Link key={link.href} href={link.href} className="ownerHubCard">
           <div><strong>{link.name}</strong><span>{link.desc}</span></div>
         </Link>)}
       </div>
     </section>
-    <section className="panel tablePanel" style={{ marginTop: 18 }}>
+    {visible.has("RECEIVABLES") &&     <section className="panel tablePanel" style={{ marginTop: 18 }}>
       <div className="panelHeader"><div><span className="eyebrow">مراجعة المستندات</span><h2>آخر التحصيلات المدخلة</h2></div></div>
       <div className="infoNote">التحصيل المدخل يدويًا ليس إثباتًا للتحقق من البنك. طابقه مع التسويات قبل إقفاله محاسبيًا.</div>
       <div className="tableScroll"><table className="dataTable">
@@ -91,6 +96,6 @@ export default async function AccountingWorkbenchPage() {
         {!recentReceipts.length && <tr><td colSpan={4}>لا توجد إثباتات تحصيل مسجلة.</td></tr>}
         </tbody>
       </table></div>
-    </section>
+    </section>}
   </>;
 }
