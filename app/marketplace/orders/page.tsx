@@ -5,6 +5,7 @@ import { MarketplaceOrderActions } from "@/components/marketplace-order-actions"
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
+import { hasAppPermission } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
 
@@ -21,6 +22,7 @@ const statusLabels: Record<string, string> = {
 export default async function MarketplaceOrdersPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!hasAppPermission(context.membership, "PURCHASES")) redirect("/no-access");
 
   const orders = await db.marketplaceOrder.findMany({
     where: { buyerBusinessId: context.business.id },
