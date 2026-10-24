@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 const financialLinks = [
   { href: "/accounting", name: "تقرير الإيرادات والتكاليف", desc: "الأرقام المالية المسجلة" },
+  { href: "/accounting/automation", name: "قيود الكاشير الآلية", desc: "المصادر المالية ومسودات القيود المتوازنة" },
   { href: "/accounting/ledger", name: "دفتر القيود والفترات", desc: "مسودات القيود والإقفال" },
   { href: "/accounting/reconciliation", name: "مطابقة المدفوعات", desc: "بطاقات وتحويلات وتسويات" },
   { href: "/crm/receivables", name: "الذمم والتحصيل", desc: "الديون ومتابعة التحصيل" },
