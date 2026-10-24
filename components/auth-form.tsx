@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Building2, Store, UsersRound } from "lucide-react";
 import { FormEvent, useState } from "react";
-import { TijraLogo } from "@/components/tijra-logo";
+import { MadaarLogo } from "@/components/madaar-logo";
 import { scaleOptions, modelOptions } from "@/lib/workspace-profile";
 import styles from "./auth-form.module.css";
 
@@ -83,10 +83,10 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
   return <main className={styles.page}>
     <div className={styles.glowOne} aria-hidden="true" /><div className={styles.glowTwo} aria-hidden="true" />
     <section className={styles.authWrap}>
-      <header className={styles.brandHeader}><TijraLogo size={84} /><p>المورد والتاجر في مكان واحد</p></header>
+      <header className={styles.brandHeader}><MadaarLogo size={84} /><p>المورد والتاجر في مكان واحد</p></header>
       <div className={styles.card}>
         <div className={styles.modeTabs} role="tablist" aria-label="الدخول أو إنشاء حساب"><button type="button" role="tab" aria-selected={!register} className={!register ? styles.activeTab : ""} onClick={() => switchMode("login")}>تسجيل الدخول</button><button type="button" role="tab" aria-selected={register} className={register ? styles.activeTab : ""} onClick={() => switchMode("register")}>إنشاء حساب</button></div>
-        <div className={styles.cardIntro}><h1>{register ? "ابدأ مع تِجرا" : "مرحبًا بعودتك"}</h1><p>{register ? "أنشئ منشأتك واختر دورك، وسنجهز لك الواجهة المناسبة." : "ادخل لحسابك وتابع السوق والطلبات وإحصائيات منشأتك."}</p></div>
+        <div className={styles.cardIntro}><h1>{register ? "ابدأ مع مدار" : "مرحبًا بعودتك"}</h1><p>{register ? "أنشئ منشأتك واختر دورك، وسنجهز لك الواجهة المناسبة." : "ادخل لحسابك وتابع السوق والطلبات وإحصائيات منشأتك."}</p></div>
         <form className={styles.form} onSubmit={submit} noValidate>
           {register && <>
             <div className={styles.typeGrid} role="radiogroup" aria-label="نوع الحساب">{accountTypes.map(([value, title, note, Icon]) => <button key={value} type="button" className={`${styles.typeCard} ${businessType === value ? styles.typeCardActive : ""}`} onClick={() => setBusinessType(value)} aria-pressed={businessType === value}><span className={styles.typeIcon}><Icon size={18} /></span><strong>{title}</strong><span>{note}</span></button>)}</div>
@@ -120,7 +120,7 @@ export function AuthForm({ initialMode = "login" }: { initialMode?: Mode }) {
           <button className={styles.submit} disabled={loading}>{loading ? "جاري الحفظ..." : register ? "إنشاء الحساب والمتابعة" : "تسجيل الدخول"}</button>
         </form>
       </div>
-      <p className={styles.footerNote}>تِجرا · منصة التجارة الذكية بين المورد والتاجر</p>
+      <p className={styles.footerNote}>مدار · نظام أعمال موحّد لجميع أقسام منشأتك</p>
     </section>
   </main>;
 }
