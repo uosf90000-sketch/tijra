@@ -52,19 +52,14 @@ export function SourcingWorkspace({
       note: form.get("note") || undefined,
     });
   }
-  async function addBid(requestId: string) {
-    if (!suppliers.length) return setMessage("أضف الموردين في قسم الموردين أولًا.");
-    const supplierId = window.prompt("انسخ رقم المورد من القائمة أدناه ثم أدخله:");
-    if (!supplierId) return;
-    const price = window.prompt("سعر الوحدة بالريال من عرض المورد:");
-    if (!price || !/^\d+(?:\.\d{1,2})?$/.test(price)) return;
-    const days = window.prompt("أيام التوريد المتوقعة من المورد (اختياري):", "");
-    const deliveryDays = days?.trim() ? Number(days) : undefined;
-    if (deliveryDays !== undefined && (!Number.isInteger(deliveryDays) || deliveryDays < 0 || deliveryDays > 365))
-      return setMessage("أيام التوريد يجب أن تكون عددًا صحيحًا من 0 إلى 365.");
+  async function addBid(event: FormEvent<HTMLFormElement>, requestId: string) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const delivery = String(form.get("deliveryDays") || "").trim();
     await act("/api/sourcing/" + requestId + "/bids", {
-      supplierId: supplierId.trim(), unitPrice: price, deliveryDays,
-      note: "مدخل يدويًا بحسب عرض المورد؛ لم يتم التحقق من السعر أو المدة خارجيًا",
+      supplierId: form.get("supplierId"), unitPrice: String(form.get("unitPrice")),
+      deliveryDays: delivery ? Number(delivery) : undefined,
+      note: String(form.get("note") || "").trim() || undefined,
     });
   }
   async function award(requestId: string, bidId: string) {
@@ -90,9 +85,9 @@ export function SourcingWorkspace({
     </section>
     <section className="panel" style={{ display: "grid", gap: 12 }}>
       <div className="panelHeader"><div><span className="eyebrow">دليل الموردين</span><h2>أرقام الموردين المتاحين داخل منشأتك</h2></div></div>
-      <div className="infoNote">تُستخدم أرقام الموردين عند تسجيل عروضهم يدويًا. لم تُفعل دعوات البريد أو بوابة عروض الموردين العامة بعد.</div>
+      <div className="infoNote">هؤلاء الموردون المسجلون داخليًا. تُختار أسماؤهم في نموذج العرض؛ لم تُفعل دعوات البريد أو بوابة عروض الموردين العامة بعد.</div>
       {suppliers.map((s) => <div className="alertRow" key={s.id}>
-        <strong>{s.name}</strong><code dir="ltr">{s.id}</code>
+        <strong>{s.name}</strong>
       </div>)}
       {!suppliers.length && <p className="policyNote">أضف مورديك الحاليين أولًا.</p>}
     </section>
@@ -107,9 +102,21 @@ export function SourcingWorkspace({
           <div className="formActions">
             {row.status === "DRAFT" && <button type="button" className="button secondary" disabled={busy}
               onClick={() => act("/api/sourcing/" + row.id + "/open")}>فتح طلب العروض</button>}
-            {row.status === "OPEN" && <button type="button" className="button secondary" disabled={busy}
-              onClick={() => addBid(row.id)}>تسجيل عرض مورد</button>}
+
           </div>
+          {row.status === "OPEN" && suppliers.length > 0 && <form className="formGrid" onSubmit={(event) => addBid(event, row.id)}>
+            <label className="field"><span>المورد الذي قدم العرض</span><select name="supplierId" required>
+              {suppliers.filter((supplier) => !row.bids.some((bid) => bid.supplierId === supplier.id))
+                .map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}
+            </select></label>
+            <label className="field"><span>سعر الوحدة (ر.س)</span>
+              <input name="unitPrice" required pattern="[0-9]+([.][0-9]{1,2})?" placeholder="25.00"/></label>
+            <label className="field"><span>مدة التوريد المعلنة بالأيام</span>
+              <input name="deliveryDays" type="number" min={0} max={365}/></label>
+            <label className="field"><span>ملاحظة عرض المورد</span><input name="note" maxLength={800}/></label>
+            <div className="formActions"><button className="button secondary" disabled={busy ||
+              row.bids.length >= suppliers.length}>إضافة عرض المورد</button></div>
+          </form>}
           <div className="tableScroll"><table className="dataTable">
             <thead><tr><th>المورد</th><th>سعر الوحدة</th><th>مدة التوريد المعلنة</th><th>الحالة</th><th>المفاضلة</th></tr></thead>
             <tbody>{sorted.map((bid, i) => <tr key={bid.id}>
