@@ -26,7 +26,7 @@ const employeeSchema = z.object({
 });
 
 export async function GET() {
-  const auth = await requireApiRoles(["OWNER", "MANAGER", "ACCOUNTANT"]);
+  const auth = await requireApiRoles(["OWNER"]);
   if (auth.response) return auth.response;
   const employees = await db.employee.findMany({
     where: { businessId: auth.context.business.id, active: true },
@@ -48,7 +48,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireApiRoles(["OWNER", "MANAGER"]);
+  const auth = await requireApiRoles(["OWNER"]);
   if (auth.response) return auth.response;
   const parsed = employeeSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
