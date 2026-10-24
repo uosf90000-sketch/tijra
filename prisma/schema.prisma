@@ -82,6 +82,25 @@ enum SourcingBidStatus {
   REJECTED
 }
 
+enum AccountingSourceType {
+  SALE
+}
+
+enum AccountingQueueStatus {
+  PENDING
+  DRAFTED
+  BLOCKED
+}
+
+enum DashboardRole {
+  OWNER
+  MANAGER
+  CASHIER
+  ACCOUNTANT
+  SUPPLIER
+  STAFF
+}
+
 enum BusinessSignalType {
   DOCUMENT_EXPIRY
   LOW_STOCK
@@ -310,6 +329,9 @@ model Business {
   automationRules            AutomationRule[]
   operatingTasks             OperatingTask[]
   complianceDocuments         ComplianceDocument[]
+  roleDashboards              RoleDashboardProfile[]
+  accountingEvents            AccountingSourceEvent[]
+  salesAccountMap             SalesAccountingMap?
 
   @@index([organizationId])
 }
@@ -727,9 +749,56 @@ model JournalEntry {
   business          Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
   period            FiscalPeriod  @relation(fields: [periodId], references: [id])
   lines             JournalLine[]
+  accountingSource  AccountingSourceEvent?
 
   @@index([businessId, status, entryDate])
   @@index([periodId, status])
+}
+
+/// Owner-selected dashboard widgets by company and role; never authorization.
+model RoleDashboardProfile {
+  id              String        @id @default(cuid())
+  businessId      String
+  role            DashboardRole
+  widgetKeys      String[]
+  updatedByUserId String
+  updatedAt       DateTime      @updatedAt
+  business        Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, role])
+}
+
+/// Persist with POS checkout, draft financial journals later without double booking.
+model AccountingSourceEvent {
+  id           String                  @id @default(cuid())
+  businessId   String
+  sourceType   AccountingSourceType
+  sourceId     String
+  status       AccountingQueueStatus   @default(PENDING)
+  draftEntryId String?                 @unique
+  errorCode    String?
+  attempts     Int                     @default(0)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  business     Business                @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  draftEntry   JournalEntry?           @relation(fields: [draftEntryId], references: [id], onDelete: SetNull)
+
+  @@unique([businessId, sourceType, sourceId])
+  @@index([businessId, status, createdAt])
+}
+
+model SalesAccountingMap {
+  businessId         String @id
+  cashAccountId      String
+  cardAccountId      String
+  transferAccountId  String
+  otherAccountId     String
+  revenueAccountId   String
+  cogsAccountId      String
+  inventoryAccountId String
+  enabled            Boolean @default(false)
+  updatedAt          DateTime @updatedAt
+  business           Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model JournalLine {
