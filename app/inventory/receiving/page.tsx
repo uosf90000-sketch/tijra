@@ -40,7 +40,7 @@ export default async function ReceivingPage() {
   const marketplaceUnits = marketplaceOrders.reduce((sum, order) => sum + order.items.reduce((n, item) => n + Number(item.quantity), 0), 0);
 
   return <>
-    <PageHeader eyebrow="المخزون" title="الاستلام الذكي" description="استلم طلبات الشراء وطلبات سوق تِجرا من شاشة واحدة. عند تأكيد طلب السوق تدخل الكمية مباشرة إلى مخزون منشأتك ومتوسط التكلفة." />
+    <PageHeader eyebrow="المخزون" title="الاستلام الذكي" description="استلم طلبات الشراء وطلبات سوق مدار من شاشة واحدة. عند تأكيد طلب السوق تدخل الكمية مباشرة إلى مخزون منشأتك ومتوسط التكلفة." />
     <section className="metricsGrid three">
       <MetricCard label="طلبات شراء مفتوحة" value={`${orders.length}`} note="لم يكتمل استلامها" icon={PackageCheck} />
       <MetricCard label="طلبات سوق جاهزة" value={`${marketplaceOrders.length}`} note={`${marketplaceUnits.toLocaleString("ar-SA")} وحدة بانتظار الاستلام`} icon={ShoppingBag} tone="blue" />
@@ -48,7 +48,7 @@ export default async function ReceivingPage() {
     </section>
 
     {marketplaceOrders.length ? <section className="panel tablePanel">
-      <div className="panelHeader tableHeader"><div><span className="eyebrow">سوق تِجرا</span><h2>طلبات جاهزة للاستلام</h2></div></div>
+      <div className="panelHeader tableHeader"><div><span className="eyebrow">سوق مدار</span><h2>طلبات جاهزة للاستلام</h2></div></div>
       <div className="tableScroll"><table className="dataTable">
         <thead><tr><th>المورد</th><th>المنتجات</th><th>الإجمالي</th><th>الإجراء</th></tr></thead>
         <tbody>{marketplaceOrders.map((order) => <tr key={order.id}>
