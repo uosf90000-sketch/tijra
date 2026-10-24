@@ -1,14 +1,15 @@
 import type { MetadataRoute } from "next";
+import { BRAND } from "@/lib/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "مدار | Madaar",
-    short_name: "مدار",
-    description: "مدار لإدارة جميع عمليات المنشأة من نظام واحد.",
+    name: BRAND.productName,
+    short_name: BRAND.name,
+    description: BRAND.description,
     start_url: "/",
     display: "standalone",
-    background_color: "#F4F9F8",
-    theme_color: "#0E5755",
+    background_color: BRAND.colors.background,
+    theme_color: BRAND.colors.primary,
     lang: "ar",
     dir: "rtl",
     icons: [
