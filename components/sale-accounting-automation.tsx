@@ -34,6 +34,7 @@ export function SaleAccountingAutomation({
   const [form, setForm] = useState<Config>(initial || blank);
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
+  const [taxBasisConfirmed, setTaxBasisConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   async function submit(url: string, method: "POST" | "PATCH", payload: object) {
     if (busy) return;
@@ -78,12 +79,18 @@ export function SaleAccountingAutomation({
             onChange={(event) => setForm((prev) => ({ ...prev, enabled: event.target.checked }))}/>
           إنشاء مسودات قيود البيع تلقائيًا بعد تسجيل الفواتير
         </label>
+        <label style={{ display: "flex", gap: 9, alignItems: "start" }}>
+          <input type="checkbox" checked={taxBasisConfirmed}
+            onChange={(event) => setTaxBasisConfirmed(event.target.checked)}/>
+          أقرّ بأن منشأتي غير مطالبة حاليًا بتخصيص ضريبة قيمة مضافة على هذه المبيعات،
+          وأنني مسؤول عن مراجعة المعالجة الضريبية لدى محاسب مختص قبل الترحيل.
+        </label>
         <label className="field"><span>سبب اعتماد أو تغيير الخريطة</span>
           <input value={reason} maxLength={500} onChange={(event) => setReason(event.target.value)}/>
         </label>
         <div className="formActions">
-          <button type="button" className="button primary" disabled={!ready || busy}
-            onClick={() => void submit("/api/ledger/automation/mapping", "PATCH", { ...form, reason })}>
+          <button type="button" className="button primary" disabled={!ready || busy || (form.enabled && !taxBasisConfirmed)}
+            onClick={() => void submit("/api/ledger/automation/mapping", "PATCH", { ...form, reason, taxBasisConfirmed })}>
             حفظ حسابات الربط
           </button>
           <Link className="button secondary" href="/accounting/ledger">إدارة دليل الحسابات والقيود</Link>
