@@ -49,6 +49,52 @@ model Organization {
   businesses  Business[]
 }
 
+enum CustomerType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum SalesQuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum ReceivableStatus {
+  OPEN
+  PARTIALLY_PAID
+  PAID
+  VOID
+}
+
+enum SourcingRequestStatus {
+  DRAFT
+  OPEN
+  AWARDED
+  CANCELLED
+}
+
+enum SourcingBidStatus {
+  SUBMITTED
+  AWARDED
+  REJECTED
+}
+
+enum BusinessSignalType {
+  LOW_STOCK
+  OVERDUE_RECEIVABLE
+  APPROVAL_WAITING
+  RFQ_DEADLINE
+}
+
+enum OperatingTaskStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
 enum BusinessType {
   RETAILER
   SUPPLIER
@@ -239,6 +285,14 @@ model Business {
   financialAccounts          FinancialAccount[]
   fiscalPeriods              FiscalPeriod[]
   journalEntries             JournalEntry[]
+  customers                  Customer[]
+  salesQuotes                SalesQuote[]
+  receivables                Receivable[]
+  customerReceipts           CustomerReceipt[]
+  sourcingRequests           SourcingRequest[]
+  sourcingBids               SourcingBid[]
+  automationRules            AutomationRule[]
+  operatingTasks             OperatingTask[]
 
   @@index([organizationId])
 }
@@ -363,6 +417,7 @@ model Product {
   supplierPriceHistory SupplierPriceHistory[]
   saleItems            SaleItem[]
   stockMovements       StockMovement[]
+  sourcedRequests      SourcingRequest[]
 
   @@unique([businessId, sku])
   @@index([businessId, barcode])
@@ -383,6 +438,7 @@ model Supplier {
   purchaseOrders   PurchaseOrder[]
   purchaseInvoices PurchaseInvoice[]
   priceHistory      SupplierPriceHistory[]
+  sourcingBids      SourcingBid[]
 
   @@index([businessId, name])
 }
@@ -667,6 +723,176 @@ model JournalLine {
 
   @@index([accountId, journalEntryId])
 }
+
+
+/// TIJRA 360: governed customer master. This is NOT a payment gateway.
+model Customer {
+  id               String        @id @default(cuid())
+  businessId       String
+  name             String
+  customerType     CustomerType  @default(BUSINESS)
+  phone            String?
+  email            String?
+  taxNumber        String?
+  paymentTermsDays Int           @default(0)
+  creditLimit      Decimal       @default(0) @db.Decimal(14, 2)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  business         Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  quotes           SalesQuote[]
+  receivables      Receivable[]
+  receipts         CustomerReceipt[]
+
+  @@index([businessId, name])
+  @@index([businessId, createdAt])
+}
+
+model SalesQuote {
+  id              String           @id @default(cuid())
+  businessId      String
+  customerId      String
+  quoteNumber     String
+  status          SalesQuoteStatus @default(DRAFT)
+  expiresAt       DateTime?
+  note            String?
+  total           Decimal          @default(0) @db.Decimal(14, 2)
+  createdByUserId String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  business        Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  lines           SalesQuoteLine[]
+  receivables     Receivable[]
+
+  @@unique([businessId, quoteNumber])
+  @@index([businessId, status, createdAt])
+  @@index([customerId, createdAt])
+}
+
+model SalesQuoteLine {
+  id          String     @id @default(cuid())
+  quoteId     String
+  productId   String?
+  description String
+  quantity    Decimal    @db.Decimal(14, 3)
+  unitPrice   Decimal    @db.Decimal(14, 2)
+  quote       SalesQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+}
+
+model Receivable {
+  id              String           @id @default(cuid())
+  businessId      String
+  customerId      String
+  quoteId         String?
+  invoiceRef      String
+  amount          Decimal          @db.Decimal(14, 2)
+  dueAt           DateTime
+  status          ReceivableStatus @default(OPEN)
+  description     String?
+  createdByUserId String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  business        Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  quote           SalesQuote?      @relation(fields: [quoteId], references: [id])
+  receipts        CustomerReceipt[]
+
+  @@unique([businessId, invoiceRef])
+  @@index([businessId, dueAt, status])
+  @@index([customerId, status])
+}
+
+model CustomerReceipt {
+  id              String     @id @default(cuid())
+  businessId      String
+  customerId      String
+  receivableId    String
+  amount          Decimal    @db.Decimal(14, 2)
+  reference       String
+  receivedAt      DateTime   @default(now())
+  createdByUserId String
+  createdAt       DateTime   @default(now())
+  business        Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer        Customer   @relation(fields: [customerId], references: [id])
+  receivable      Receivable @relation(fields: [receivableId], references: [id])
+
+  @@unique([businessId, reference])
+  @@index([receivableId, receivedAt])
+}
+
+model SourcingRequest {
+  id              String                 @id @default(cuid())
+  businessId      String
+  productId       String
+  quantity        Decimal                @db.Decimal(14, 3)
+  status          SourcingRequestStatus  @default(DRAFT)
+  quoteDeadline   DateTime?
+  note            String?
+  createdByUserId String
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  business        Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  product         Product                @relation(fields: [productId], references: [id])
+  bids            SourcingBid[]
+
+  @@index([businessId, status, createdAt])
+  @@index([businessId, quoteDeadline])
+}
+
+model SourcingBid {
+  id                String            @id @default(cuid())
+  businessId        String
+  requestId         String
+  supplierId        String
+  unitPrice         Decimal           @db.Decimal(14, 2)
+  deliveryDays      Int?
+  note              String?
+  status            SourcingBidStatus @default(SUBMITTED)
+  createdAt         DateTime          @default(now())
+  business          Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  request           SourcingRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  supplier          Supplier          @relation(fields: [supplierId], references: [id])
+
+  @@unique([requestId, supplierId])
+  @@index([businessId, status])
+}
+
+model AutomationRule {
+  id          String              @id @default(cuid())
+  businessId  String
+  signalType  BusinessSignalType
+  enabled     Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  business    Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  tasks       OperatingTask[]
+
+  @@unique([businessId, signalType])
+}
+
+model OperatingTask {
+  id              String              @id @default(cuid())
+  businessId      String
+  ruleId          String
+  sourceId        String
+  sourceType      BusinessSignalType
+  title           String
+  description     String?
+  href            String
+  status          OperatingTaskStatus @default(OPEN)
+  dueAt           DateTime?
+  closedByUserId  String?
+  closedAt        DateTime?
+  createdAt       DateTime            @default(now())
+  business        Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  rule            AutomationRule      @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, ruleId, sourceId])
+  @@index([businessId, status, createdAt])
+}
+
+/// End TIJRA 360 foundation.
 
 model Expense {
   id          String   @id @default(cuid())
