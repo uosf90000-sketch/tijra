@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiRoles } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { balancedJournal, dateWithinPeriod } from "@/lib/financial-ledger";
 
 const lineSchema = z.object({
@@ -26,6 +27,7 @@ const deleteSchema = z.object({
 export async function GET() {
   const auth = await requireApiRoles(["OWNER", "ACCOUNTANT"]);
   if (auth.response) return auth.response;
+  if (!(await hasBusinessWideRead(auth.context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   const entries = await db.journalEntry.findMany({
     where: { businessId: auth.context.business.id },
     include: { period: { select: { title: true, status: true } },
@@ -38,6 +40,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireApiRoles(["OWNER", "ACCOUNTANT"]);
   if (auth.response) return auth.response;
+  if (!(await hasBusinessWideRead(auth.context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "INVALID_JOURNAL" }, { status: 400 });
   try {
@@ -102,6 +105,7 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const auth = await requireApiRoles(["OWNER", "ACCOUNTANT"]);
   if (auth.response) return auth.response;
+  if (!(await hasBusinessWideRead(auth.context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   const parsed = deleteSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
 
