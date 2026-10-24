@@ -8,7 +8,7 @@ import { canEnterFinanceWorkbench } from "@/lib/role-workspaces";
 import { formatSar } from "@/lib/format";
 import { loadVisibleRoleWidgets } from "@/lib/role-dashboard-config";
 
-export const metadata = { title: "مساحة المحاسب | تِجرا" };
+export const metadata = { title: "مساحة المحاسب | مدار" };
 export const dynamic = "force-dynamic";
 
 const financialLinks = [
