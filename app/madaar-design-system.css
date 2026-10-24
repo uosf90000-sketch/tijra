@@ -1,0 +1,221 @@
+/* MADAAR | unified visual system.
+ * Loaded LAST after legacy Tijra styles. UI skin only: no functional changes.
+ * The token aliases keep older modules consistent without risky rewrites.
+ */
+:root {
+  color-scheme:light;
+  --madaar-ink:#122F34;
+  --madaar-primary:#0C6869;
+  --madaar-primary-deep:#074A50;
+  --madaar-accent:#19A78D;
+  --madaar-accent-soft:#DDF5EC;
+  --madaar-canvas:#F4F8F7;
+  --madaar-paper:#FFFFFF;
+  --madaar-subtle:#F8FBFA;
+  --madaar-muted:#687E7E;
+  --madaar-border:#E0EAE7;
+  --madaar-gold:#D9AE79;
+  --madaar-shadow:0 1px 3px rgba(12,67,65,.025),0 12px 30px rgba(12,67,65,.045);
+  --madaar-shadow-hover:0 12px 42px rgba(12,67,65,.10);
+  --madaar-radius:18px;
+  --brand:var(--madaar-primary);
+  --brand-dark:var(--madaar-primary-deep);
+  --brand-soft:var(--madaar-accent-soft);
+  --bg:var(--madaar-canvas);
+  --surface:var(--madaar-paper);
+  --surface-soft:var(--madaar-subtle);
+  --surface-tint:#EFF7F3;
+  --text:var(--madaar-ink);
+  --text-soft:#385459;
+  --muted:var(--madaar-muted);
+  --line:var(--madaar-border);
+  --line-strong:#C8DDD8;
+  --shadow-sm:var(--madaar-shadow);
+  --shadow-md:var(--madaar-shadow-hover);
+  --radius-sm:10px;
+  --radius-md:13px;
+  --radius-lg:var(--madaar-radius);
+  --tijra-teal:var(--madaar-primary);
+  --tijra-teal-strong:var(--madaar-primary-deep);
+  --tijra-teal-soft:var(--madaar-accent-soft);
+  --tijra-cream:var(--madaar-canvas);
+  --tijra-ink:var(--madaar-ink);
+  --tijra-text:#385459;
+  --tijra-muted:var(--madaar-muted);
+  --tijra-line:var(--madaar-border);
+  --tijra-shadow-sm:var(--madaar-shadow);
+  --tijra-shadow-md:var(--madaar-shadow-hover);
+  --approved-bg:var(--madaar-canvas);
+  --approved-card:#fff;
+  --approved-teal:var(--madaar-primary);
+  --approved-teal-deep:var(--madaar-primary-deep);
+  --approved-teal-soft:var(--madaar-accent-soft);
+  --approved-line:var(--madaar-border);
+  --approved-text:var(--madaar-ink);
+  --approved-muted:var(--madaar-muted);
+  --approved-shadow:var(--madaar-shadow);
+}
+html { background:var(--madaar-canvas);scroll-behavior:smooth }
+body {
+  color:var(--madaar-ink);
+  background:radial-gradient(circle at 78% -12%,rgba(25,167,141,.09),transparent 34rem),var(--madaar-canvas);
+  font-family:"IBM Plex Sans Arabic","Noto Sans Arabic","SF Arabic","Segoe UI",Tahoma,Arial,sans-serif;
+  font-feature-settings:"tnum" 1;
+}
+:where(button,input,select,textarea,a) { -webkit-tap-highlight-color:transparent }
+:where(button,input,select,textarea,a):focus-visible { outline:3px solid rgba(18,163,138,.53);outline-offset:3px }
+:where(button,input,select,textarea):disabled { cursor:not-allowed;opacity:.65 }
+
+/* Brand system: works in public auth, desktop sidebar and staff/mobile views */
+.madaarLogo{display:inline-flex;align-items:center;gap:10px;line-height:1;color:var(--madaar-primary-deep);text-decoration:none;white-space:nowrap;flex:none}
+.madaarLogoSymbol{display:grid;place-items:center;flex:none}
+.madaarLogoSymbol svg{display:block}
+.madaarLogoWords{display:grid;gap:4px;line-height:1}
+.madaarLogoWords strong{font-size:22px;font-weight:900;letter-spacing:-.75px}
+.madaarLogoWords span{font-size:9px;letter-spacing:.28em;font-weight:800;opacity:.7}
+.madaarLogoInverse{color:white}
+.madaarLogoCompact{gap:0}
+.sidebarTop .madaarLogoWords strong{font-size:21px}
+.staffTopbar .madaarLogo{color:var(--madaar-primary)}
+.staffLoadingShell .madaarLogo{color:var(--madaar-primary)}
+.authPage .madaarLogo{justify-content:center}
+
+.appFrame{grid-template-columns:252px minmax(0,1fr)!important}
+.sidebar{
+  width:252px!important;
+  background:#fff!important;
+  border-inline-end:1px solid var(--madaar-border)!important;
+  color:var(--madaar-ink)!important;
+  box-shadow:0 0 28px rgba(12,66,64,.025)!important;
+}
+.sidebarTop{border-bottom:1px solid var(--madaar-border);min-height:68px}
+.sidebar .brand{color:var(--madaar-primary-deep)}
+.workspaceSwitcher,.workspaceSwitcher.staticWorkspace{
+  background:var(--madaar-subtle)!important;
+  border:1px solid var(--madaar-border)!important;
+  border-radius:14px;
+}
+.workspaceSwitcher strong{color:var(--madaar-ink)!important;font-size:12px}
+.workspaceSwitcher span{color:var(--madaar-muted)!important}
+.workspaceIcon{color:var(--madaar-primary)!important;background:var(--madaar-accent-soft)!important}
+.navSection{background:#fff!important;border:1px solid var(--madaar-border)!important}
+.navSection>summary{color:#53696B!important;min-height:43px}
+.navSection[open]>summary{background:var(--madaar-subtle)!important;color:var(--madaar-primary)!important}
+.navSection>summary svg{color:var(--madaar-primary)!important}
+.navSectionItems{border-color:var(--madaar-border)!important}
+.navItem,.ownerDirectNav>.navItem{color:#49676C!important;border-radius:11px}
+.navItem svg{color:#657E82!important}
+.navItem:hover,.ownerDirectNav>.navItem:hover{color:var(--madaar-primary-deep)!important;background:#EAF7F2!important}
+.navItem.active,.ownerDirectNav>.navItem.active{
+  background:#E4F5EF!important;
+  box-shadow:inset -3px 0 var(--madaar-accent)!important;
+  color:var(--madaar-primary-deep)!important;
+  border-color:#C9E6DC!important;
+}
+.navItem.active svg{color:var(--madaar-primary)!important}
+.sidebarInsight{background:#F0F8F5!important;border:1px solid #D8EAE4!important}
+.sidebarInsightIcon{background:#DAF3EB!important;color:var(--madaar-primary)!important}
+.sidebarInsight strong{color:var(--madaar-ink)!important}
+.sidebarInsight span{color:var(--madaar-muted)!important}
+.accountBlock{border-color:var(--madaar-border)!important}
+.accountBlock strong{color:var(--madaar-ink)!important}
+.accountBlock span{color:var(--madaar-muted)!important}
+.avatar{background:#E4F2EE!important;color:var(--madaar-primary)!important}
+.logoutButton{color:var(--madaar-muted)!important}
+.navBadge,.modePill{border-color:#CCE8DE!important}
+
+.appTopbar{background:rgba(244,248,247,.96)!important;border-bottom:1px solid var(--madaar-border)!important;backdrop-filter:blur(16px)}
+.searchTrigger,.iconButton{background:#fff!important;border-color:var(--madaar-border)!important;color:#4B686B!important}
+.searchTrigger:hover,.iconButton:hover{border-color:#B8D7CD!important;color:var(--madaar-primary)!important}
+.quickSale,.button.primary,.staffPrimaryAction,.staffCameraButton{
+  color:#fff!important;background:linear-gradient(125deg,var(--madaar-primary),var(--madaar-primary-deep))!important;
+  border-color:var(--madaar-primary)!important;
+  box-shadow:0 7px 19px rgba(12,104,105,.14)!important;
+}
+.quickSale:hover,.button.primary:hover{filter:brightness(1.065)}
+.button.secondary{background:#fff!important;border-color:#D9E7E2!important;color:var(--madaar-ink)!important}
+.button.secondary:hover{background:#EAF7F2!important;color:var(--madaar-primary)!important}
+.button{font-size:12px!important;font-weight:750!important;min-height:40px;border-radius:12px}
+.pageContent{max-width:1500px}
+.pageHeader{gap:18px}
+.pageHeader h1{color:var(--madaar-ink)!important;font-size:clamp(26px,2.6vw,36px);font-weight:850}
+.pageHeader p,.policyNote{color:var(--madaar-muted)!important;line-height:1.85}
+.eyebrow{color:var(--madaar-primary)!important;font-weight:800;font-size:11px!important}
+.madaarPageSignature{display:inline-flex;align-items:center;gap:7px;margin-bottom:7px;color:var(--madaar-primary);font-size:10px;letter-spacing:.015em;font-weight:800}
+.madaarPageSignature::before{content:"";width:16px;height:3px;border-radius:4px;background:var(--madaar-accent)}
+.panel,.metricCard,.dashboardStripItem,.ownerHubCard,.marketCard,.roleActionCard,.smartOwnerPanel{
+  background:#fff!important;
+  border-color:var(--madaar-border)!important;
+  box-shadow:var(--madaar-shadow)!important;
+  border-radius:var(--madaar-radius)!important;
+}
+.panel:hover,.metricCard:hover,.ownerHubCard:hover,.marketCard:hover{
+  border-color:#C0DFD5!important;
+}
+.panelHeader h2{font-size:18px;color:var(--madaar-ink)}
+.metricCard>strong,.dashboardStripItem strong{color:var(--madaar-ink)}
+.metricsGrid{gap:14px}
+.dataTable{width:100%;border-collapse:separate;border-spacing:0}
+.dataTable thead{background:#F0F7F5!important}
+.dataTable th{font-size:11px!important;color:#516C6D!important;font-weight:800;white-space:nowrap}
+.dataTable td{font-size:12px;color:#2D4C50}
+.dataTable tbody tr:hover{background:#F4FAF7!important}
+.dataTable :is(td,th){padding:12px 13px}
+.tableScroll{overflow-x:auto}
+.formGrid{gap:13px}
+.field :is(input,select,textarea),.formGrid :is(input,select,textarea){
+  border:1px solid #DAE8E4!important;
+  border-radius:12px!important;
+  background:#fff!important;
+  color:var(--madaar-ink)!important;
+  font-size:13px!important;
+  min-height:42px;
+}
+.field :is(input,select,textarea):focus,.formGrid :is(input,select,textarea):focus{
+  border-color:var(--madaar-accent)!important;
+  box-shadow:0 0 0 3px rgba(25,167,141,.11)!important;
+}
+.field span{color:#446166}
+.alertRow{border-color:var(--madaar-border)!important}
+.infoNote{border-color:#D4E9E2!important;background:#F2FAF6!important;color:#315F5D!important}
+.dataTable tr:last-child td{border-bottom-color:transparent}
+.posCatalog,.cartPanel,.posGrid>.panel{background:#fff!important;border-color:var(--madaar-border)!important}
+.posCatalog .panelHeader h2,.cartPanel .panelHeader h2{color:var(--madaar-ink)!important}
+.posCatalog .quickProduct,.quickProduct,.menuProductGrid button{border-radius:15px}
+.barcodeField{border-color:#D8E8E3!important}
+.staffFrame,.staffLoadingShell{background:var(--madaar-canvas)!important;color:var(--madaar-ink)!important}
+.staffTopbar,.staffTaskNav{background:rgba(244,248,247,.96)!important;border-bottom:1px solid var(--madaar-border)!important}
+.staffContent{width:min(1340px,100%)!important;padding:22px clamp(14px,3vw,36px) 55px!important}
+.staffIdentity span{color:var(--madaar-muted)}
+.staffTaskNav a{border-color:var(--madaar-border)!important;background:white!important;color:#4F696B!important;font-size:12px}
+.staffTaskNav a.active{background:var(--madaar-primary)!important;color:#fff!important;border-color:var(--madaar-primary)!important}
+.staffPageIntro>span{color:var(--madaar-primary)}
+.staffPageIntro h1{color:var(--madaar-ink)}
+.staffManualBarcode,.staffQuantityField,.staffScannedProduct,.staffDirectionSwitch button{border-color:var(--madaar-border)!important;border-radius:15px!important}
+.staffDirectionSwitch button.active{background:var(--madaar-accent-soft)!important;color:var(--madaar-primary)!important}
+.staffManualBarcode input,.staffQuantityField input{background:#F5FAF8!important}
+.staffLogout{border-color:var(--madaar-border)!important}
+.mobileBottomNav{background:#fff!important;border-color:var(--madaar-border)!important}
+.mobileBottomNav a.active{background:#E8F7F1!important;color:var(--madaar-primary)!important}
+:where(a,button,input,select,textarea) {transition-property:color,background-color,border-color,box-shadow;transition-duration:.16s}
+@media(max-width:980px){
+  .appFrame{display:block!important}
+  .sidebar{width:min(88vw,315px)!important}
+  .pageContent{padding-inline:clamp(14px,3vw,26px)}
+  .metricsGrid,.metricsGrid.three,.metricsGrid.four{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(min-width:981px){
+  .appMain{grid-column:2}
+}
+@media(max-width:640px){
+  .staffContent{padding:16px 12px 35px!important}
+  .pageHeader{align-items:flex-start;flex-wrap:wrap}
+  .pageHeader h1{font-size:25px}
+  .metricsGrid,.metricsGrid.three,.metricsGrid.four{gap:9px}
+  .panelHeader{flex-wrap:wrap}
+  .dataTable :is(td,th){padding:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important}
+}
