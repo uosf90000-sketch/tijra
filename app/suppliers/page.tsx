@@ -81,7 +81,7 @@ export default async function SuppliersPage() {
       <PageHeader
         eyebrow="شبكة التوريد"
         title="الموردون"
-        description="احتفظ بمورديك الحاليين وسجّل أسعارهم. تِجرا يقارن نفس الصنف تلقائيًا وينبهك عند وجود مورد أرخص."
+        description="احتفظ بمورديك الحاليين وسجّل أسعارهم. مدار يقارن نفس الصنف تلقائيًا وينبهك عند وجود مورد أرخص."
         actions={
           <>
             <Link className="button secondary" href="/alerts"><BellRing size={17} /> السعر الأذكى</Link><Link className="button secondary" href="/purchases/insights"><Tags size={17} /> سجل الأسعار</Link>
