@@ -17,7 +17,7 @@ export default async function SecurityPage() {
   const available = Buffer.from(process.env.MFA_ENCRYPTION_KEY || "", "base64url").length === 32;
 
   return <>
-    <PageHeader eyebrow="تِجرا وحماية الدخول" title="أمان حسابك"
+    <PageHeader eyebrow="مدار وحماية الدخول" title="أمان حسابك"
       description="فعّل تطبيق المصادقة لإضافة رمز متغير بجانب كلمة المرور."
       actions={<Link href="/management/workspace" className="button secondary">العودة للشركات</Link>} />
     <AuthenticatorSecurityForm enabled={Boolean(user.totpSecretEncrypted)} available={available}/>
