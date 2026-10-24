@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { FlowWorkspace } from "@/components/flow-workspace";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { db } from "@/lib/db";
 import { currentBusinessSignals } from "@/lib/business-signals";
 
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function FlowPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!(await hasBusinessWideRead(context))) redirect("/no-access");
   if (!["OWNER", "MANAGER", "ACCOUNTANT"].includes(context.membership.role))
     redirect("/no-access");
   const [rules, tasks, signals] = await Promise.all([
