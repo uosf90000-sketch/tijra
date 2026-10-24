@@ -60,6 +60,8 @@ export default async function AccountingWorkbenchPage() {
     { label: "قيود تنتظر الترحيل", value: String(journals), note: "دفتر القيود اليدوي المستقل" },
     { label: "مستحقات عملاء متأخرة", value: String(receivables), note: "تحصيلات أو فواتير مفتوحة" },
   ];
+  const visibleFinancialLinks = context.membership.role === "OWNER" || context.membership.role === "ACCOUNTANT"
+    ? financialLinks : financialLinks.filter((link) => link.href !== "/accounting/ledger");
   return <>
     <PageHeader eyebrow="المحاسبة والمالية" title={"مكتب المحاسب · " + context.business.name}
       description="إيرادات ومصروفات وتحويلات ومستحقات المنشأة، مع مهام مالية واضحة دون تشتيت الموظف ببقية الأقسام." />
@@ -72,7 +74,7 @@ export default async function AccountingWorkbenchPage() {
     <section className="panel" style={{ marginTop: 18 }}>
       <div className="panelHeader"><div><span className="eyebrow">الأعمال اليومية</span><h2>شاشات المحاسب</h2></div></div>
       <div className="ownerHubGrid">
-        {financialLinks.map((link) => <Link key={link.href} href={link.href} className="ownerHubCard">
+        {visibleFinancialLinks.map((link) => <Link key={link.href} href={link.href} className="ownerHubCard">
           <div><strong>{link.name}</strong><span>{link.desc}</span></div>
         </Link>)}
       </div>
