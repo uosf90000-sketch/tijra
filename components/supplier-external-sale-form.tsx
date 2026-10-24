@@ -73,7 +73,7 @@ export function SupplierExternalSaleForm({ listings }: { listings: ListingOption
           </select>
         </label>
         <label>
-          الكمية المباعة خارج تِجرا
+          الكمية المباعة خارج مدار
           <input name="quantity" type="number" min="0.001" step="0.001" defaultValue="1" required inputMode="decimal" />
         </label>
       </div>
