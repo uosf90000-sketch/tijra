@@ -7,6 +7,7 @@ import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ExecutiveOperationsSnapshot } from "@/components/executive-operations-snapshot";
 import { ExecutiveActivityTimeline } from "@/components/executive-activity-timeline";
+import { loadVisibleRoleWidgets } from "@/lib/role-dashboard-config";
 import { formatSar } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -194,6 +195,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   if (!context) redirect("/login");
   if (context.membership.role !== "OWNER") redirect(roleLandingHref(context.membership));
 
+  const visibleWidgets = await loadVisibleRoleWidgets(context.business.id, context.membership);
   const params = await searchParams;
   const firstName = context.user.name.split(" ")[0];
   const businessType = context.business.businessType;
@@ -203,7 +205,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     ? <SupplierDashboard businessId={context.business.id} firstName={firstName} />
     : <RetailerDashboard businessId={context.business.id} firstName={firstName} />;
   return <>
-    <ExecutiveOperationsSnapshot businessId={context.business.id} />
+    <ExecutiveOperationsSnapshot businessId={context.business.id} visible={[...visibleWidgets]} />
     <ExecutiveActivityTimeline businessId={context.business.id} />
     {chosen}
   </>;
