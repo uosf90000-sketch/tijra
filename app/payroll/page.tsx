@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function PayrollPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
-  if (!["OWNER", "MANAGER", "ACCOUNTANT"].includes(context.membership.role)) redirect("/no-access");
+  if (!["OWNER", "ACCOUNTANT"].includes(context.membership.role)) redirect("/no-access");
 
   const [employees, runs] = await Promise.all([
     db.employee.findMany({ where: { businessId: context.business.id, active: true }, orderBy: { name: "asc" } }),
