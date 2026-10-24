@@ -82,7 +82,7 @@ export async function ExecutiveActivityTimeline({ businessId }: { businessId: st
 
   return <section className="panel" style={{ marginBottom: 22 }}>
     <div className="panelHeader">
-      <div><span className="eyebrow">نشاطات تِجرا الموحدة</span><h2>آخر ما حدث في منشأتك</h2></div>
+      <div><span className="eyebrow">نشاطات مدار الموحدة</span><h2>آخر ما حدث في منشأتك</h2></div>
       <Link href="/activity" className="button secondary">مركز النشاط والتدقيق</Link>
     </div>
     <div style={{ display: "grid", gap: 9 }}>
