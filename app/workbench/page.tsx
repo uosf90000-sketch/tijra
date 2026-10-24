@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { loadVisibleRoleWidgets } from "@/lib/role-dashboard-config";
 import {
   canEnterRoleWorkbench, effectivePermissions, roleLandingLabel,
 } from "@/lib/role-workspaces";
@@ -19,6 +20,7 @@ export default async function WorkbenchPage() {
   if (!canEnterRoleWorkbench(context.membership)) redirect("/no-access");
 
   const businessId = context.business.id;
+  const visible = await loadVisibleRoleWidgets(businessId, context.membership);
   const permissions = effectivePermissions(context.membership);
   const manager = context.membership.role === "MANAGER";
   const [pendingPurchases, lowStock, overdueReceivables, openTasks, todaySales] = await Promise.all([
@@ -73,19 +75,30 @@ export default async function WorkbenchPage() {
     actions.push({ title: "نبض الأعمال", href: "/intelligence", description: "متابعة أداء الأقسام" });
   }
 
+  const widgetForTile = (title: string) =>
+    title === "فواتير اليوم" ? "SALES" :
+    title === "مخزون يحتاج مراجعة" ? "INVENTORY" :
+    title === "مشتريات تنتظر الاعتماد" ? "PURCHASES" :
+    title === "ذمم متأخرة" ? "RECEIVABLES" : "TASKS";
+  const widgetForLink = (href: string) =>
+    href === "/sales" ? "SALES" :
+    href.includes("inventory") ? "INVENTORY" :
+    href.includes("accounting") || href.includes("receivable") ? "FINANCE" :
+    href.includes("marketplace") || href.includes("sourcing") ? "PURCHASES" :
+    href.includes("crm") ? "CUSTOMERS" : "TASKS";
   return <>
     <PageHeader eyebrow={roleLandingLabel(context.membership)}
       title={"مرحبًا " + context.user.name.split(" ")[0]}
       description={"هذه مساحة عملك في " + context.business.name + "؛ بيانات الأقسام الأخرى لا تُعرض إلا حسب صلاحيات الحساب."} />
     <section className="metricsGrid four">
-      {tiles.map((tile) => <Link key={tile.title} href={tile.href} className="panel" style={{ display: "grid", gap: 8 }}>
+      {tiles.filter((tile) => visible.has(widgetForTile(tile.title))).map((tile) => <Link key={tile.title} href={tile.href} className="panel" style={{ display: "grid", gap: 8 }}>
         <span className="eyebrow">{tile.title}</span><h2>{tile.value}</h2><p className="policyNote">{tile.description}</p>
       </Link>)}
     </section>
     <section className="panel" style={{ marginTop: 18 }}>
       <div className="panelHeader"><div><span className="eyebrow">مهامي</span><h2>الأقسام المسموح لك بالعمل عليها</h2></div></div>
       <div className="ownerHubGrid">
-        {actions.map((action) => <Link key={action.href} className="ownerHubCard" href={action.href}>
+        {actions.filter((action) => visible.has(widgetForLink(action.href))).map((action) => <Link key={action.href} className="ownerHubCard" href={action.href}>
           <div><strong>{action.title}</strong><span>{action.description}</span></div>
         </Link>)}
       </div>
