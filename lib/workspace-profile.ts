@@ -11,6 +11,9 @@ export const workspaceModules = [
   { key: "STAFF", label: "الموظفون والرواتب", href: "/employees", description: "الموظفون والصلاحيات والرواتب" },
   { key: "LOCATIONS", label: "الفروع والمستودعات", href: "/inventory/locations", description: "أماكن التخزين وجردها" },
   { key: "INSIGHTS", label: "التحليلات ومراقب المشتريات", href: "/purchases/insights", description: "التنبيهات والفروقات وهوامش الربح" },
+  { key: "CRM", label: "العملاء وعروض الأسعار", href: "/crm", description: "العملاء، العروض، الذمم والتحصيل" },
+  { key: "SOURCING", label: "مقارنة الموردين", href: "/sourcing", description: "طلب عروض الأسعار واختيار العرض الأفضل" },
+  { key: "FLOW", label: "تِجرا Flow", href: "/flow", description: "قواعد التنبيهات والمهام المشتركة" },
 ] as const;
 
 export type WorkspaceModuleKey = (typeof workspaceModules)[number]["key"];
@@ -37,12 +40,12 @@ export type OperatingModelValue = (typeof modelOptions)[number]["value"];
 
 const defaultModules: Record<OperatingModelValue, WorkspaceModuleKey[]> = {
   FOOD_TRUCK: ["SALES", "INVENTORY", "PURCHASING", "ACCOUNTING", "INSIGHTS"],
-  SHOP: ["SALES", "INVENTORY", "PURCHASING", "MARKETPLACE", "ACCOUNTING", "INSIGHTS"],
-  RESTAURANT: ["SALES", "INVENTORY", "PURCHASING", "ACCOUNTING", "STAFF", "INSIGHTS"],
-  WHOLESALE: ["SALES", "INVENTORY", "PURCHASING", "MARKETPLACE", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS"],
-  SERVICES: ["SALES", "PURCHASING", "ACCOUNTING", "STAFF", "INSIGHTS"],
-  MANUFACTURING: ["INVENTORY", "PURCHASING", "MARKETPLACE", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS"],
-  LOGISTICS: ["SALES", "PURCHASING", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS"],
+  SHOP: ["SALES", "INVENTORY", "PURCHASING", "MARKETPLACE", "ACCOUNTING", "INSIGHTS", "CRM", "FLOW"],
+  RESTAURANT: ["SALES", "INVENTORY", "PURCHASING", "ACCOUNTING", "STAFF", "INSIGHTS", "CRM", "FLOW"],
+  WHOLESALE: ["SALES", "INVENTORY", "PURCHASING", "MARKETPLACE", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS", "CRM", "SOURCING", "FLOW"],
+  SERVICES: ["SALES", "PURCHASING", "ACCOUNTING", "STAFF", "INSIGHTS", "CRM", "FLOW"],
+  MANUFACTURING: ["INVENTORY", "PURCHASING", "MARKETPLACE", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS", "CRM", "SOURCING", "FLOW"],
+  LOGISTICS: ["SALES", "PURCHASING", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS", "CRM", "FLOW"],
   MIXED: [...moduleKeys],
 };
 
