@@ -6,6 +6,7 @@ import { roleLandingHref } from "@/lib/role-workspaces";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ExecutiveOperationsSnapshot } from "@/components/executive-operations-snapshot";
+import { ExecutiveActivityTimeline } from "@/components/executive-activity-timeline";
 import { formatSar } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -203,6 +204,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     : <RetailerDashboard businessId={context.business.id} firstName={firstName} />;
   return <>
     <ExecutiveOperationsSnapshot businessId={context.business.id} />
+    <ExecutiveActivityTimeline businessId={context.business.id} />
     {chosen}
   </>;
 }
