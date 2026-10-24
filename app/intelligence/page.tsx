@@ -8,7 +8,7 @@ import { currentBusinessSignals } from "@/lib/business-signals";
 import { buildMarginAlerts } from "@/lib/operating-intelligence";
 import { halalasToDecimal, outstandingHalalas } from "@/lib/tijra-360";
 
-export const metadata = { title: "نبض الأعمال | تِجرا 360" };
+export const metadata = { title: "نبض الأعمال | مدار 360" };
 export const dynamic = "force-dynamic";
 
 const money = (n: number | string) => new Intl.NumberFormat("ar-SA", {
@@ -63,9 +63,9 @@ export default async function IntelligencePage() {
     { label: "عدد فواتير البيع", value: String(sales._count._all), hint: "خلال آخر 30 يومًا" },
   ];
   return <>
-    <PageHeader eyebrow="نبض المنشأة — تِجرا 360" title="مركز القرار المالي والتشغيلي"
+    <PageHeader eyebrow="نبض المنشأة — مدار 360" title="مركز القرار المالي والتشغيلي"
       description="بيانات مشتركة من الكاشير والمخزون والمشتريات والعملاء؛ أرقام فعلية لا تقديرات ذكاء اصطناعي غير موثقة."
-      actions={<Link className="button secondary" href="/flow">تنبيهات تِجرا Flow</Link>} />
+      actions={<Link className="button secondary" href="/flow">تنبيهات مدار Flow</Link>} />
     <section className="metricsGrid four">
       {indicators.map((item) => <article key={item.label} className="panel">
         <span className="eyebrow">{item.label}</span>
