@@ -5,6 +5,7 @@ import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { SettlementImportForm } from "@/components/settlement-import-form";
 import { getSessionContext } from "@/lib/auth";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { hasAppPermission } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatSar } from "@/lib/format";
@@ -33,6 +34,7 @@ const methodLabel = {
 export default async function ReconciliationPage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!(await hasBusinessWideRead(context))) redirect("/no-access");
   if (!hasAppPermission(context.membership, "ACCOUNTING")) redirect("/no-access");
 
   const businessId = context.business.id;
