@@ -2,11 +2,13 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiRoles } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { balancedJournal, canPostJournal, dateWithinPeriod } from "@/lib/financial-ledger";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiRoles(["OWNER", "ACCOUNTANT"]);
   if (auth.response) return auth.response;
+  if (!(await hasBusinessWideRead(auth.context))) return NextResponse.json({ error: "BRANCH_SCOPED_REPORT_UNAVAILABLE" }, { status: 403 });
   const { id } = await params;
   try {
     const result = await db.$transaction(async (tx) => {
