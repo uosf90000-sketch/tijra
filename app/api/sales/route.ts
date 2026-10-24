@@ -5,6 +5,7 @@ import { ensureDefaultLocation } from "@/lib/commerce-ops";
 import { db } from "@/lib/db";
 import { decodeRecipeNote } from "@/lib/recipes";
 import { recordSale } from "@/lib/stock-operations";
+import { draftSaleJournal } from "@/lib/sale-ledger-automation";
 import { locationAuthorized } from "@/lib/location-access";
 
 const saleSchema = z.object({
@@ -142,7 +143,17 @@ export async function POST(request: Request) {
         console.error("Unable to record offline POS timestamp", error);
       });
     }
-    return NextResponse.json({ sale: finalSale }, { status: 201 });
+    // Best-effort immediate ledger drafting. The durable source event was
+    // committed with the sale, so a failure cannot lose the accounting handoff.
+    // No ledger POST happens here: accountant/owner reviews the draft separately.
+    const accounting = await draftSaleJournal({
+      businessId: auth.context.business.id, saleId: finalSale.id,
+      fallbackCreatorId: auth.context.user.id,
+    }).catch((error) => {
+      console.error("Sale recorded; accounting draft is safely queued for retry", error);
+      return { status: "PENDING" as const, reason: "ACCOUNTING_DRAFT_RETRY_REQUIRED" };
+    });
+    return NextResponse.json({ sale: finalSale, accounting }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "SALE_FAILED";
     const status = message === "DUPLICATE_INVOICE_NUMBER" ? 409
