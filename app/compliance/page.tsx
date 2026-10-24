@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ComplianceWorkspace } from "@/components/compliance-workspace";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { db } from "@/lib/db";
 
 export const metadata = { title: "سجل التصاريح والمستندات | تِجرا" };
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function CompliancePage() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
+  if (!(await hasBusinessWideRead(context))) redirect("/no-access");
   if (!["OWNER", "MANAGER", "ACCOUNTANT"].includes(context.membership.role))
     redirect("/no-access");
   const [documents, suppliers] = await Promise.all([
