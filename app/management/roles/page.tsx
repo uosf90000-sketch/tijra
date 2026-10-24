@@ -5,7 +5,7 @@ import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { roleLandingHref, type TiJraRole } from "@/lib/role-workspaces";
 
-export const metadata = { title: "مصفوفة وظائف وصلاحيات تِجرا" };
+export const metadata = { title: "مصفوفة وظائف وصلاحيات مدار" };
 export const dynamic = "force-dynamic";
 
 const roles: Array<{ role: TiJraRole; title: string; work: string; data: string }> = [
@@ -40,7 +40,7 @@ export default async function RolePermissionsPage() {
   });
   const numbers = new Map(counts.map((row) => [row.role, row._count.id]));
   return <>
-    <PageHeader eyebrow="حوكمة الموظفين" title="من يشاهد ماذا في تِجرا؟"
+    <PageHeader eyebrow="حوكمة الموظفين" title="من يشاهد ماذا في مدار؟"
       description="دليل حي لتوجيه الأدوار وشاشات الدخول. الإخفاء في الواجهة لا يكفي؛ يلزم تدقيق مسارات الخادم والصلاحيات على كل عملية."
       actions={<Link href="/employees" className="button secondary">الموظفون وصلاحيات حساباتهم</Link>} />
     <section className="panel tablePanel">
