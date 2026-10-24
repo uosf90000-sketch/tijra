@@ -35,7 +35,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!bid) throw new Error("BID_NOT_FOUND");
       const totalCents = (moneyHalalas(bid.unitPrice.toFixed(2)) *
         milliUnits(rfq.quantity.toFixed(3)) + 500n) / 1000n;
-      if (totalCents <= 0n || totalCents > 99999999999999n) throw new Error("INVALID_RFQ_TOTAL");
+      if (totalCents <= 0n || totalCents > 999999999999n) throw new Error("INVALID_RFQ_TOTAL");
       const total = halalasToDecimal(totalCents);
       const gated = needsPurchaseApproval(Number(total), {
         enabled: policy.purchaseApprovalEnabled,
