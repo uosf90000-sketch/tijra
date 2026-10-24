@@ -6,6 +6,7 @@ import { GovernancePolicyForm } from "@/components/governance-policy-form";
 import { GovernanceAccessMatrix } from "@/components/governance-access-matrix";
 import { RevokeOtherSessionsButton } from "@/components/revoke-other-sessions-button";
 import { LocationGovernanceMatrix } from "@/components/location-governance-matrix";
+import { RoleDashboardEditor } from "@/components/role-dashboard-editor";
 import { listInventoryLocations } from "@/lib/commerce-ops";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -18,6 +19,9 @@ const categories: Record<string, string> = {
   WORKSPACE_PROFILE_UPDATED: "تغيير مساحة العمل",
   COMPANY_SWITCH: "تبديل الشركة",
   STAFF_PERMISSIONS_CHANGED: "تعديل صلاحيات موظف",
+  ROLE_DASHBOARD_CHANGED: "تخصيص شاشة وظيفة",
+  ACCOUNTING_MAPPING_CHANGED: "تحديث خريطة الحسابات",
+  ACCOUNTING_SALE_DRAFTED: "إعداد قيد مبيعات من مصدر",
   STAFF_ACCOUNT_CREATED: "إنشاء حساب موظف",
   EMPLOYEE_CREATED: "إضافة موظف",
   OTHER_SESSIONS_REVOKED: "إنهاء جلسات الدخول الأخرى",
@@ -53,6 +57,7 @@ export default async function GovernancePage() {
   if (!context) redirect("/login");
   if (context.membership.role !== "OWNER") redirect("/management/workspace");
   const businessId = context.business.id;
+  const roleDashboards = await db.roleDashboardProfile.findMany({ where: { businessId }, select: { role: true, widgetKeys: true } });
   const [memberships, pendingOrders, draftPayrolls, recentEvents, recentExpenses, policy, sessions, locations, locationGrants] = await Promise.all([
     db.membership.findMany({
       where: { businessId },
@@ -120,6 +125,7 @@ export default async function GovernancePage() {
         expenseOwnerThreshold: Number(policy.expenseOwnerThreshold),
         cashierMaxDiscountPercent: Number(policy.cashierMaxDiscountPercent),
       }}/>
+      <RoleDashboardEditor initial={roleDashboards}/>
       <GovernanceAccessMatrix members={memberships}/>
       <LocationGovernanceMatrix members={memberships.map((x) => ({ id: x.id, role: x.role, user: { name: x.user.name } }))} locations={locations} grants={locationGrants} enforced={context.business.locationAccessEnforced}/>
       <RevokeOtherSessionsButton activeCount={sessions}/>
