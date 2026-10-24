@@ -21,6 +21,7 @@ const tools = [
   { href: "/management/workspace", title: "الشركات ومساحة العمل", description: "خصص الواجهة حسب حجم المنشأة ونشاطها، وبدّل بين شركات المجموعة.", icon: Building2, module: "ALWAYS" },
   { href: "/sales/analytics", title: "تحليلات المبيعات", description: "المبيعات والربح ومتوسط الفاتورة واتجاه الأداء.", icon: BarChart3, module: "INSIGHTS" },
   { href: "/control-center", title: "مركز الرقابة", description: "المخزون المنخفض والهدر والفروقات والتنبيهات المهمة.", icon: Bell, module: "INSIGHTS" },
+  { href: "/accounting/automation", title: "ربط الكاشير بالمحاسبة", description: "مراجعة مصادر فواتير البيع وإعداد مسودات قيود متوازنة بموافقات مستقلة.", icon: Calculator, module: "ACCOUNTING" },
   { href: "/accounting/ledger", title: "دفتر القيود المالية", description: "قيود مزدوجة قابلة للمراجعة، دليل حسابات، فترات مالية وإقفال.", icon: Calculator, module: "ACCOUNTING" },
   { href: "/accounting", title: "الملخص المالي", description: "الإيرادات والمصروفات والنتيجة المالية.", icon: Calculator, module: "ACCOUNTING" },
   { href: "/accounting/reconciliation", title: "مطابقة الأموال", description: "طابق مبيعات البطاقات والتحويلات مع التسويات الفعلية واكشف أي فرق.", icon: Landmark, module: "ACCOUNTING" },
