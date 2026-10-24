@@ -17,7 +17,7 @@ export function SupplierShareButton({ orderId }: { orderId: string }) {
 
     try {
       if (navigator.share) {
-        await navigator.share({ title: "طلب توريد من تِجرا", text: "راجع الطلب وأكد إمكانية التوريد.", url: result.url });
+        await navigator.share({ title: "طلب توريد من مدار", text: "راجع الطلب وأكد إمكانية التوريد.", url: result.url });
       } else {
         await navigator.clipboard.writeText(result.url);
       }
