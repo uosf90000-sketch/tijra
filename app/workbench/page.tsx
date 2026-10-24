@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { getSessionContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { loadVisibleRoleWidgets } from "@/lib/role-dashboard-config";
 import {
   canEnterRoleWorkbench, effectivePermissions, roleLandingLabel,
@@ -19,6 +20,22 @@ export default async function WorkbenchPage() {
   if (!context) redirect("/login");
   if (!canEnterRoleWorkbench(context.membership)) redirect("/no-access");
 
+  if (!(await hasBusinessWideRead(context))) {
+    const cashier = effectivePermissions(context.membership).includes("CASHIER");
+    const inventory = context.membership.role === "STAFF" &&
+      effectivePermissions(context.membership).includes("INVENTORY");
+    return <>
+      <PageHeader eyebrow="مساحة موظف مقيدة بالفروع" title={"مرحبًا " + context.user.name.split(" ")[0]}
+        description="صلاحيتك تشمل مواقع محددة. التقارير العامة للشركة تتطلب إذنًا لجميع الفروع؛ يمكنك إتمام مهام موقعك المصرح فقط." />
+      <section className="panel">
+        <div className="ownerHubGrid">
+          {cashier && <Link className="ownerHubCard" href="/sales"><strong>الكاشير في فرعك</strong></Link>}
+          {inventory && <Link className="ownerHubCard" href="/staff/inventory"><strong>مهام المخزون المسموحة</strong></Link>}
+        </div>
+        <p className="policyNote">لا تُعرض مجموعات المبيعات والمشتريات والمالية لكل الفروع حتى تتوفر تقارير مقيّدة بالموقع ومختبرة.</p>
+      </section>
+    </>;
+  }
   const businessId = context.business.id;
   const visible = await loadVisibleRoleWidgets(businessId, context.membership);
   const permissions = effectivePermissions(context.membership);
