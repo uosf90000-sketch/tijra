@@ -67,7 +67,7 @@ export function compareSupplierOffers(items: readonly SupplierOfferComparison[])
 }
 
 export type OperatingSignal = {
-  sourceId: string; type: "LOW_STOCK" | "OVERDUE_RECEIVABLE" | "APPROVAL_WAITING" | "RFQ_DEADLINE";
+  sourceId: string; type: "LOW_STOCK" | "OVERDUE_RECEIVABLE" | "APPROVAL_WAITING" | "RFQ_DEADLINE" | "DOCUMENT_EXPIRY";
   title: string; description: string; href: string; dueAt?: Date;
 };
 
@@ -77,6 +77,7 @@ export function identifyOperatingSignals(input: {
   receivables: Array<{ id: string; invoiceRef: string; remaining: string; dueAt: Date }>;
   approvals: Array<{ id: string; orderNumber: string | null; amount: string }>;
   rfqs: Array<{ id: string; productName: string; deadline: Date }>;
+  documents?: Array<{ id: string; title: string; expiresAt: Date; supplierName: string | null }>;
   now: Date;
 }): OperatingSignal[] {
   const signals: OperatingSignal[] = [];
@@ -105,5 +106,14 @@ export function identifyOperatingSignals(input: {
     description: "آخر موعد: " + rfq.deadline.toISOString().slice(0, 10),
     href: "/sourcing", dueAt: rfq.deadline,
   });
+  for (const doc of input.documents || []) {
+    if (doc.expiresAt.getTime() <= input.now.getTime() + 30 * 86_400_000) signals.push({
+      sourceId: doc.id, type: "DOCUMENT_EXPIRY",
+      title: "مستند " + (doc.supplierName ? "مورد " + doc.supplierName : "المنشأة") + ": " + doc.title,
+      description: (doc.expiresAt.getTime() < input.now.getTime() ? "منتهي" : "قريب من الانتهاء") +
+        " بتاريخ " + doc.expiresAt.toISOString().slice(0, 10) + " — راجع المتطلبات من المصدر الرسمي",
+      href: "/compliance", dueAt: doc.expiresAt,
+    });
+  }
   return signals;
 }
