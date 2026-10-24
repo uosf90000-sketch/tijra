@@ -774,6 +774,7 @@ model AccountingSourceEvent {
   businessId   String
   sourceType   AccountingSourceType
   sourceId     String
+  actorUserId  String?
   status       AccountingQueueStatus   @default(PENDING)
   draftEntryId String?                 @unique
   errorCode    String?
