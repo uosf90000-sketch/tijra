@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionContext } from "@/lib/auth";
@@ -6,8 +7,9 @@ import { db } from "@/lib/db";
 
 const kinds = z.enum(["SUPPLIER_DELIVERY", "CUSTOMER_PAYMENT", "SERVICE_COMPLETION"]);
 const schema = z.object({
-  kind: z.literal("SERVICE_COMPLETION"),
-  title: z.string().trim().min(3).max(180),
+  kind: z.enum(["SERVICE_COMPLETION", "SUPPLIER_DELIVERY"]),
+  title: z.string().trim().min(3).max(180).optional(),
+  sourceId: z.string().min(1).optional(),
   customerId: z.string().min(1).optional(),
   expectedAt: z.coerce.date(),
   expectedAmount: z.string().regex(/^\d{1,12}(?:\.\d{1,2})?$/).optional(),
@@ -40,24 +42,51 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "INVALID_COMMITMENT", details: parsed.error.flatten() }, { status: 400 });
   if (parsed.data.expectedAt.getTime() < Date.now() - 60_000)
     return NextResponse.json({ error: "EXPECTED_DATE_IN_PAST" }, { status: 400 });
-  const { customerId, title, kind, expectedAt, expectedAmount } = parsed.data;
+  const { customerId, kind, expectedAt, expectedAmount, sourceId } = parsed.data;
+  if (kind === "SERVICE_COMPLETION" && (!parsed.data.title || sourceId))
+    return NextResponse.json({ error: "INVALID_SERVICE_PROMISE" }, { status: 400 });
+  if (kind === "SUPPLIER_DELIVERY" && (!sourceId || customerId || expectedAmount))
+    return NextResponse.json({ error: "INVALID_SUPPLIER_PROMISE" }, { status: 400 });
+  let title = parsed.data.title || "";
+  let supplierId: string | null = null;
+  let validatedSource: string | null = null;
+  let amount: string | null = expectedAmount || null;
+  if (kind === "SUPPLIER_DELIVERY") {
+    const po = await db.purchaseOrder.findFirst({
+      where: { businessId: context.business.id, id: sourceId,
+        status: { notIn: ["CANCELLED", "RECEIVED"] } },
+      include: { supplier: { select: { id: true, name: true } } },
+    });
+    if (!po) return NextResponse.json({ error: "PURCHASE_ORDER_NOT_OPEN" }, { status: 404 });
+    supplierId = po.supplierId;
+    validatedSource = po.id;
+    title = `توريد طلب ${po.orderNumber || po.id.slice(-8)} — ${po.supplier.name}`;
+    amount = po.expectedTotal.toFixed(2);
+  }
   if (customerId) {
     const valid = await db.customer.findFirst({ where: { businessId: context.business.id, id: customerId }, select: { id: true } });
     if (!valid) return NextResponse.json({ error: "CUSTOMER_NOT_FOUND" }, { status: 404 });
   }
+  try {
   const record = await db.$transaction(async (tx) => {
     const item = await tx.businessCommitment.create({ data: {
       businessId: context.business.id, title, kind, expectedAt,
-      customerId: customerId || null, expectedAmount: expectedAmount || null,
+      customerId: customerId || null, supplierId, sourceId: validatedSource, expectedAmount: amount,
       createdByUserId: context.user.id,
     } });
     await tx.inventoryAuditEvent.create({ data: {
       businessId: context.business.id, action: "COMMITMENT_CREATED",
       orderId: item.id, actorUserId: context.user.id, actorName: context.user.name,
       actorRole: context.membership.role, itemName: title,
-      note: JSON.stringify({ kind, expectedAt, customerId, expectedAmount, externallyVerified: false }),
+      note: JSON.stringify({ kind, expectedAt, customerId, supplierId, sourceId: validatedSource, expectedAmount: amount, externallyVerified: false }),
     } });
     return item;
   });
   return NextResponse.json({ commitment: record }, { status: 201 });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && ["P2002", "P2034"].includes(error.code))
+      return NextResponse.json({ error: "COMMITMENT_DUPLICATE_OR_CONCURRENT" }, { status: 409 });
+    console.error("Commitment creation failed", error);
+    return NextResponse.json({ error: "COMMITMENT_CREATION_FAILED" }, { status: 500 });
+  }
 }

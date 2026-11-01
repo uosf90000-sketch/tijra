@@ -91,6 +91,7 @@ const sourcing360: NavItem = { href: "/sourcing", label: "عروض المورد�
 const flow360: NavItem = { href: "/flow", label: "مدار Flow", icon: Activity };
 const compliance360: NavItem = { href: "/compliance", label: "التصاريح والمستندات", icon: ClipboardCheck };
 const intelligence360: NavItem = { href: "/intelligence", label: "نبض الأعمال", icon: BarChart3 };
+const commitments360: NavItem = { href: "/commitments", label: "سجل الالتزامات", icon: ClipboardCheck };
 
 const sellerProducts: NavItem = { href: "/marketplace/seller", label: "المنتجات", icon: Store };
 const importProducts: NavItem = { href: "/supplier/import", label: "استيراد Excel / CSV", icon: FileSpreadsheet };
@@ -164,7 +165,7 @@ function retailerSections(): NavSection[] {
     { label: "البيع", items: [sales, shifts] },
     { label: "المخزون والتشغيل", items: [inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, waste, dayClosing] },
     { label: "الشراء والسوق", items: [market, smartBuy, reorder, sourcing360, catalog, marketplaceSuppliers, smartPrice, smartAlerts, purchases, purchaseGuardian, orders] },
-    { label: "العملاء والتحصيل", items: [crm360, receivables360] },
+    { label: "العملاء والتحصيل", items: [crm360, receivables360, commitments360] },
     { label: "الإدارة", items: [intelligence360, flow360, compliance360, activityCenter, { ...accounting, label: "الملخص المالي" }, saleLedgerAutomation, reconciliation, employees, payroll] },
   ];
 }
@@ -173,7 +174,7 @@ function supplierSections(isOwner: boolean): NavSection[] {
   return [
     { label: "البيع والطلبات", items: [sales, shifts, sellerOrders, supplierPicking, externalSale] },
     { label: "المخزون", items: [sellerProducts, importProducts, stockUpdate, stockCount, inventory, receiving, returns, locations, units, batches, productSettings, movements] },
-    { label: "التجار والتسعير", items: [crm360, receivables360, customers, dormantCustomers, supplierPricing, supplierPrice, supplierForecast, supplierAlerts] },
+    { label: "التجار والتسعير", items: [crm360, receivables360, commitments360, customers, dormantCustomers, supplierPricing, supplierPrice, supplierForecast, supplierAlerts] },
     { label: "الإدارة", items: [intelligence360, flow360, compliance360, sourcing360, ...(isOwner ? [salesAnalytics, controlCenter, saleLedgerAutomation] : []), supplierActivity, accounting, reconciliation, employees, payroll] },
   ];
 }
@@ -246,9 +247,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         if (role === "MANAGER") permitted.push(purchases, purchaseApprovals, sourcing360);
       }
       if (allowedPermissions.has("ACCOUNTING")) permitted.push(accounting, reconciliation);
-      if (role === "ACCOUNTANT") permitted.push(financeLedger, saleLedgerAutomation, receivables360);
+      if (role === "ACCOUNTANT") permitted.push(financeLedger, saleLedgerAutomation, receivables360, commitments360);
       if (role === "MANAGER") permitted.push(
-        crm360, receivables360, flow360, intelligence360, compliance360, salesAnalytics,
+        crm360, receivables360, commitments360, flow360, intelligence360, compliance360, salesAnalytics,
       );
       if (role === "SUPPLIER") permitted.push(sellerOrders, supplierActivity);
       permitted.push(workspaceSetup, accountSecurity);
@@ -273,6 +274,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       ...(enabled.has("INVENTORY") ? [inventory, productsHub] : []),
       ...(enabled.has("MARKETPLACE") ? [market] : []),
       ...(enabled.has("CRM") ? [crm360] : []),
+       commitments360,
       ...(enabled.has("FLOW") ? [flow360] : []),
       ...(enabled.has("SOURCING") ? [sourcing360] : []),
       managementHub,
