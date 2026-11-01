@@ -1190,6 +1190,7 @@ model ManufacturingBom {
   components    ManufacturingBomComponent[]
   orders        ManufacturingOrder[]
 
+  @@unique([businessId, outputProductId, name])
   @@index([businessId, outputProductId])
 }
 
@@ -1214,6 +1215,8 @@ model ManufacturingOrder {
   status        ManufacturingOrderStatus @default(PLANNED)
   materialCost  Decimal?               @db.Decimal(14, 2)
   lotNumber     String?
+  requestKey    String?
+  requestHash   String?
   createdByUserId String
   completedByUserId String?
   completedAt   DateTime?
@@ -1224,6 +1227,7 @@ model ManufacturingOrder {
   outputProduct Product                @relation("ProductionOutput", fields: [outputProductId], references: [id])
   materials     ManufacturingOrderMaterial[]
 
+  @@unique([businessId, requestKey])
   @@index([businessId, status, createdAt])
   @@index([businessId, locationId, createdAt])
 }
