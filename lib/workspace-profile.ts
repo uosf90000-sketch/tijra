@@ -14,6 +14,7 @@ export const workspaceModules = [
   { key: "CRM", label: "العملاء وعروض الأسعار", href: "/crm", description: "العملاء، العروض، الذمم والتحصيل" },
   { key: "SOURCING", label: "مقارنة الموردين", href: "/sourcing", description: "طلب عروض الأسعار واختيار العرض الأفضل" },
   { key: "COMMITMENTS", label: "سجل الالتزامات", href: "/commitments", description: "وعود الموردين والتحصيل والخدمات" },
+  { key: "PROFIT_SHIELD", label: "درع الأرباح", href: "/profit-shield", description: "هامش البيع والهدر" },
   { key: "FLOW", label: "تِجرا Flow", href: "/flow", description: "قواعد التنبيهات والمهام المشتركة" },
   { key: "COMPLIANCE", label: "التصاريح والمستندات", href: "/compliance", description: "متابعة صلاحية مستندات المنشأة والموردين" },
 ] as const;
