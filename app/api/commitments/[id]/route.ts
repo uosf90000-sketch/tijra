@@ -22,7 +22,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const result = await db.$transaction(async (tx) => {
     const item = await tx.businessCommitment.findFirst({ where: { id, businessId: context.business.id } });
     if (!item) return "NOT_FOUND";
-    if (!canCloseManually(item.kind, item.status, parsed.data.evidenceNote)) return "SOURCE_CONTROLLED_OR_CLOSED";
+    if (item.sourceId || !canCloseManually(item.kind, item.status, parsed.data.evidenceNote)) return "SOURCE_CONTROLLED_OR_CLOSED";
     const changed = await tx.businessCommitment.updateMany({
       where: { businessId: context.business.id, id, status: "OPEN", kind: "SERVICE_COMPLETION" },
       data: { status: parsed.data.status, evidenceNote: parsed.data.evidenceNote,

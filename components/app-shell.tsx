@@ -93,6 +93,7 @@ const compliance360: NavItem = { href: "/compliance", label: "التصاريح �
 const intelligence360: NavItem = { href: "/intelligence", label: "نبض الأعمال", icon: BarChart3 };
 const commitments360: NavItem = { href: "/commitments", label: "سجل الالتزامات", icon: ClipboardCheck };
 const profitShield360: NavItem = { href: "/profit-shield", label: "درع الأرباح", icon: BarChart3 };
+const serviceJobs360: NavItem = { href: "/service-jobs", label: "أوامر الخدمات", icon: ClipboardList };
 
 const sellerProducts: NavItem = { href: "/marketplace/seller", label: "المنتجات", icon: Store };
 const importProducts: NavItem = { href: "/supplier/import", label: "استيراد Excel / CSV", icon: FileSpreadsheet };
@@ -167,7 +168,7 @@ function retailerSections(): NavSection[] {
     { label: "المخزون والتشغيل", items: [inventory, receiving, returns, inventoryAudit, locations, units, batches, productSettings, movements, waste, dayClosing] },
     { label: "الشراء والسوق", items: [market, smartBuy, reorder, sourcing360, catalog, marketplaceSuppliers, smartPrice, smartAlerts, purchases, purchaseGuardian, orders] },
     { label: "العملاء والتحصيل", items: [crm360, receivables360, commitments360] },
-    { label: "الإدارة", items: [intelligence360, profitShield360, flow360, compliance360, activityCenter, { ...accounting, label: "الملخص المالي" }, saleLedgerAutomation, reconciliation, employees, payroll] },
+    { label: "الإدارة", items: [intelligence360, profitShield360, serviceJobs360, flow360, compliance360, activityCenter, { ...accounting, label: "الملخص المالي" }, saleLedgerAutomation, reconciliation, employees, payroll] },
   ];
 }
 
@@ -176,7 +177,7 @@ function supplierSections(isOwner: boolean): NavSection[] {
     { label: "البيع والطلبات", items: [sales, shifts, sellerOrders, supplierPicking, externalSale] },
     { label: "المخزون", items: [sellerProducts, importProducts, stockUpdate, stockCount, inventory, receiving, returns, locations, units, batches, productSettings, movements] },
     { label: "التجار والتسعير", items: [crm360, receivables360, commitments360, customers, dormantCustomers, supplierPricing, supplierPrice, supplierForecast, supplierAlerts] },
-    { label: "الإدارة", items: [intelligence360, profitShield360, flow360, compliance360, sourcing360, ...(isOwner ? [salesAnalytics, controlCenter, saleLedgerAutomation] : []), supplierActivity, accounting, reconciliation, employees, payroll] },
+    { label: "الإدارة", items: [intelligence360, profitShield360, serviceJobs360, flow360, compliance360, sourcing360, ...(isOwner ? [salesAnalytics, controlCenter, saleLedgerAutomation] : []), supplierActivity, accounting, reconciliation, employees, payroll] },
   ];
 }
 
@@ -232,7 +233,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         permissions: viewer.membership.permissions ?? [],
       });
       const permitted: NavItem[] = [];
-      if (role === "MANAGER") permitted.push(roleWorkbench);
+      if (role === "MANAGER") permitted.push(roleWorkbench, serviceJobs360);
+      if (role === "STAFF") permitted.push(serviceJobs360);
       if (role === "ACCOUNTANT" || role === "MANAGER" || (role === "STAFF" && allowedPermissions.has("ACCOUNTING")))
         permitted.push(financeWorkbench);
       if (role === "STAFF" && allowedPermissions.size > 1) permitted.push(roleWorkbench);
@@ -248,7 +250,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         if (role === "MANAGER") permitted.push(purchases, purchaseApprovals, sourcing360);
       }
       if (allowedPermissions.has("ACCOUNTING")) permitted.push(accounting, reconciliation);
-      if (role === "ACCOUNTANT") permitted.push(financeLedger, saleLedgerAutomation, receivables360, commitments360, profitShield360);
+      if (role === "ACCOUNTANT") permitted.push(financeLedger, saleLedgerAutomation, receivables360, commitments360, profitShield360, serviceJobs360);
       if (role === "MANAGER") permitted.push(
         crm360, receivables360, commitments360, flow360, intelligence360, profitShield360, compliance360, salesAnalytics,
       );
@@ -275,6 +277,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       ...(enabled.has("INVENTORY") ? [inventory, productsHub] : []),
       ...(enabled.has("MARKETPLACE") ? [market] : []),
       ...(enabled.has("CRM") ? [crm360] : []),
+       ...(enabled.has("FIELD_SERVICE") ? [serviceJobs360] : []),
        commitments360,
       ...(enabled.has("FLOW") ? [flow360] : []),
       ...(enabled.has("SOURCING") ? [sourcing360] : []),
@@ -293,7 +296,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         !["OWNER", "MANAGER"].includes(viewer.membership.role);
       if (path === "/compliance") return !enabled.has("COMPLIANCE") ||
         !["OWNER", "MANAGER", "ACCOUNTANT"].includes(viewer.membership.role);
-      if (path === "/intelligence") return !enabled.has("INSIGHTS") ||
+      if (path === "/service-jobs") return !enabled.has("FIELD_SERVICE");
+       if (path === "/intelligence") return !enabled.has("INSIGHTS") ||
         !["OWNER", "MANAGER", "ACCOUNTANT"].includes(viewer.membership.role);
       if (path.startsWith("/sales")) return !enabled.has("SALES");
       if (path.startsWith("/inventory")) return !enabled.has("INVENTORY");

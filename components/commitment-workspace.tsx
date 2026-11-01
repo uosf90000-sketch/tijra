@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 type Entry = {
   id: string; kind: string; status: string; title: string; expectedAt: string;
   fulfilledAt: string | null; expectedAmount: string | null;
-  evidenceNote: string | null; counterparty: string;
+  evidenceNote: string | null; counterparty: string; sourceControlled: boolean;
 };
 type Option = { id: string; label: string };
 export function CommitmentWorkspace({ entries, orderOptions, customerOptions, totalCount, currency, canEdit }: {
@@ -93,7 +93,7 @@ export function CommitmentWorkspace({ entries, orderOptions, customerOptions, to
             <td>{x.counterparty}</td><td>{x.expectedAmount ? x.expectedAmount + " " + currency : "—"}</td>
             <td>{x.expectedAt.slice(0,10)}</td>
             <td>{status === "OVERDUE" ? "متأخر" : status === "FULFILLED" ? "سجل كمنجز" : status === "CANCELLED" ? "ملغي" : "مفتوح"}</td>
-            <td>{canEdit && x.kind === "SERVICE_COMPLETION" && x.status === "OPEN"
+            <td>{canEdit && x.kind === "SERVICE_COMPLETION" && !x.sourceControlled && x.status === "OPEN"
               ? <div style={{ display: "flex", gap: 8 }}>
                 <button className="button secondary" type="button" disabled={busy} onClick={() => close(x.id, "FULFILLED")}>توثيق الإنجاز</button>
                 <button className="button secondary" type="button" disabled={busy} onClick={() => close(x.id, "CANCELLED")}>إلغاء</button>

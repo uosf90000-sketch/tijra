@@ -45,13 +45,8 @@ export function ServiceJobsWorkspace({jobs,customers,employees,locations,canMana
       scheduledAt:scheduledAt.toISOString(),
     });
   }
-  function action(job:Job,act:"ASSIGN"|"START"|"COMPLETE"|"CANCEL"){
-    let assignedEmployeeId: string | undefined;
-    if(act==="ASSIGN"){
-      const answer=window.prompt("اكتب رقم/معرف الموظف من قائمة الموظفين الظاهرة أسفل الطلب:");
-      if(!answer || !employees.some(e=>e.id===answer.trim()))return;
-      assignedEmployeeId=answer.trim();
-    }
+  function action(job:Job,act:"ASSIGN"|"START"|"COMPLETE"|"CANCEL",assignedEmployeeId?:string){
+    if(act==="ASSIGN"&&(!assignedEmployeeId||!employees.some(e=>e.id===assignedEmployeeId)))return;
     const note=act==="START"?"":window.prompt(act==="COMPLETE"?
       "اكتب دليل إنجاز الخدمة أو ملاحظة التسليم (8 أحرف على الأقل):":
       act==="CANCEL"?"سبب إلغاء أمر الخدمة (8 أحرف):":"سبب إعادة/تحديد التعيين (8 أحرف):");
@@ -100,7 +95,10 @@ export function ServiceJobsWorkspace({jobs,customers,employees,locations,canMana
           <td>{labels[job.status]}</td>
           <td><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             {canManage&&["OPEN","SCHEDULED"].includes(job.status)&&employees.length>0&&
-              <button type="button" disabled={busy} className="button secondary" onClick={()=>action(job,"ASSIGN")}>إسناد</button>}
+              <select aria-label={"تعيين فني لأمر "+job.title} value={job.assignedEmployeeId||""} disabled={busy}
+                onChange={e=>{if(e.target.value!==job.assignedEmployeeId) action(job,"ASSIGN",e.target.value);}}>
+                <option value="">تعيين فني</option>{employees.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}
+              </select>}
             {canAct&&(canManage||job.assignedToMe)&&
               ["OPEN","SCHEDULED"].includes(job.status)&&job.assignedEmployeeId&&
               <button type="button" disabled={busy} className="button secondary" onClick={()=>action(job,"START")}>بدء</button>}
@@ -113,10 +111,5 @@ export function ServiceJobsWorkspace({jobs,customers,employees,locations,canMana
         {!shown.length&&<tr><td colSpan={6}>لا توجد أوامر تطابق الفلتر.</td></tr>}
         </tbody></table></div>
     </section>
-    {canManage&&<section className="panel"><div className="panelHeader"><div><span className="eyebrow">المعرفات الداخلية للتعيين</span><h2>الموظفون المتاحون</h2></div></div>
-      <div className="tableScroll"><table className="dataTable"><thead><tr><th>الاسم</th><th>المعرف</th></tr></thead>
-      <tbody>{employees.map(x=><tr key={x.id}><td>{x.name}</td><td><code>{x.id}</code></td></tr>)}</tbody></table></div>
-      <p className="policyNote">التعيين اللاحق يستخدم معرّف الموظف. ينبغي استبداله باختيار مباشر من قائمة في تحسين الواجهة القادم.</p>
-    </section>}
   </div>;
 }
