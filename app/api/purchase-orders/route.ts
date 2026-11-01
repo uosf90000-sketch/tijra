@@ -89,12 +89,18 @@ export async function POST(request: Request) {
   });
 
     if (parsed.data.promisedDeliveryAt) {
-      await tx.businessCommitment.create({ data: {
+      const commitment = await tx.businessCommitment.create({ data: {
         businessId: auth.context.business.id, kind: "SUPPLIER_DELIVERY",
         title: `توريد طلب ${order.orderNumber || order.id.slice(-8)} — ${supplier.name}`,
         supplierId: supplier.id, sourceId: order.id,
         expectedAt: parsed.data.promisedDeliveryAt, expectedAmount: expectedTotal,
         createdByUserId: auth.context.user.id,
+      } });
+      await tx.inventoryAuditEvent.create({ data: {
+        businessId: auth.context.business.id, action: "COMMITMENT_CREATED", orderId: order.id,
+        actorUserId: auth.context.user.id, actorName: auth.context.user.name,
+        actorRole: auth.context.membership.role, itemName: commitment.title,
+        note: JSON.stringify({ kind: commitment.kind, expectedAt: commitment.expectedAt, sourceId: order.id, externallyVerified: false }),
       } });
     }
     return order;

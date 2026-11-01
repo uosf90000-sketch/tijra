@@ -69,6 +69,22 @@ export async function POST(request: Request) {
   }
   try {
   const record = await db.$transaction(async (tx) => {
+    // Lock the purchase order row against concurrent cancellation/receipt.
+    // Outside-transaction validation above is only for a helpful error response.
+    if (kind === "SUPPLIER_DELIVERY") {
+      const locked = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "PurchaseOrder"
+        WHERE "id" = ${validatedSource} AND "businessId" = ${context.business.id}
+        FOR UPDATE
+      `;
+      if (!locked.length) throw new Error("PURCHASE_ORDER_NOT_OPEN");
+      const current = await tx.purchaseOrder.findFirst({
+        where: { id: validatedSource!, businessId: context.business.id,
+          status: { notIn: ["CANCELLED", "RECEIVED"] } },
+        select: { id: true },
+      });
+      if (!current) throw new Error("PURCHASE_ORDER_NOT_OPEN");
+    }
     const item = await tx.businessCommitment.create({ data: {
       businessId: context.business.id, title, kind, expectedAt,
       customerId: customerId || null, supplierId, sourceId: validatedSource, expectedAmount: amount,
@@ -84,6 +100,8 @@ export async function POST(request: Request) {
   });
   return NextResponse.json({ commitment: record }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message === "PURCHASE_ORDER_NOT_OPEN")
+      return NextResponse.json({ error: error.message }, { status: 409 });
     if (error instanceof Prisma.PrismaClientKnownRequestError && ["P2002", "P2034"].includes(error.code))
       return NextResponse.json({ error: "COMMITMENT_DUPLICATE_OR_CONCURRENT" }, { status: 409 });
     console.error("Commitment creation failed", error);
