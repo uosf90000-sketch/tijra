@@ -335,6 +335,8 @@ model Business {
   salesAccountMap             SalesAccountingMap?
   businessCommitments         BusinessCommitment[]
   serviceJobs                 ServiceJob[]
+  manufacturingBoms          ManufacturingBom[]
+  manufacturingOrders        ManufacturingOrder[]
 
   @@index([organizationId])
 }
@@ -460,6 +462,10 @@ model Product {
   saleItems            SaleItem[]
   stockMovements       StockMovement[]
   sourcedRequests      SourcingRequest[]
+  bomsAsOutput        ManufacturingBom[]  @relation("BomOutput")
+  bomMaterials        ManufacturingBomComponent[] @relation("BomIngredient")
+  manufacturingOutputs ManufacturingOrder[] @relation("ProductionOutput")
+  manufacturingMaterials ManufacturingOrderMaterial[] @relation("ProductionMaterial")
 
   @@unique([businessId, sku])
   @@index([businessId, barcode])
@@ -1161,4 +1167,75 @@ model ServiceJob {
   @@index([businessId, assignedEmployeeId, scheduledAt])
   @@index([businessId, locationId, scheduledAt])
   @@index([customerId, createdAt])
+}
+
+enum ManufacturingOrderStatus {
+  PLANNED
+  COMPLETED
+  CANCELLED
+}
+
+/// Additive, immutable BOM recipe; changes require a new BOM version in a later release.
+model ManufacturingBom {
+  id            String    @id @default(cuid())
+  businessId    String
+  outputProductId String
+  name          String
+  outputQty     Decimal   @db.Decimal(14, 3)
+  active        Boolean   @default(true)
+  createdByUserId String
+  createdAt     DateTime  @default(now())
+  business      Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  outputProduct Product   @relation("BomOutput", fields: [outputProductId], references: [id])
+  components    ManufacturingBomComponent[]
+  orders        ManufacturingOrder[]
+
+  @@index([businessId, outputProductId])
+}
+
+model ManufacturingBomComponent {
+  id            String           @id @default(cuid())
+  bomId         String
+  productId     String
+  quantity      Decimal          @db.Decimal(14, 3)
+  bom           ManufacturingBom @relation(fields: [bomId], references: [id], onDelete: Cascade)
+  product       Product          @relation("BomIngredient", fields: [productId], references: [id])
+
+  @@unique([bomId, productId])
+}
+
+model ManufacturingOrder {
+  id            String                 @id @default(cuid())
+  businessId    String
+  bomId         String
+  outputProductId String
+  locationId    String
+  quantity      Decimal                @db.Decimal(14, 3)
+  status        ManufacturingOrderStatus @default(PLANNED)
+  materialCost  Decimal?               @db.Decimal(14, 2)
+  lotNumber     String?
+  createdByUserId String
+  completedByUserId String?
+  completedAt   DateTime?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  business      Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  bom           ManufacturingBom       @relation(fields: [bomId], references: [id])
+  outputProduct Product                @relation("ProductionOutput", fields: [outputProductId], references: [id])
+  materials     ManufacturingOrderMaterial[]
+
+  @@index([businessId, status, createdAt])
+  @@index([businessId, locationId, createdAt])
+}
+
+model ManufacturingOrderMaterial {
+  id            String           @id @default(cuid())
+  orderId       String
+  productId     String
+  quantity      Decimal          @db.Decimal(14, 3)
+  unitCost      Decimal?         @db.Decimal(12, 2)
+  order         ManufacturingOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product          @relation("ProductionMaterial", fields: [productId], references: [id])
+
+  @@unique([orderId, productId])
 }
