@@ -102,6 +102,7 @@ enum DashboardRole {
 }
 
 enum BusinessSignalType {
+  OVERDUE_COMMITMENT
   DOCUMENT_EXPIRY
   LOW_STOCK
   OVERDUE_RECEIVABLE

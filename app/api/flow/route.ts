@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { hasBusinessWideRead } from "@/lib/business-wide-access";
 import { currentBusinessSignals } from "@/lib/business-signals";
 
-const typeSchema = z.enum(["LOW_STOCK","OVERDUE_RECEIVABLE","APPROVAL_WAITING","RFQ_DEADLINE","DOCUMENT_EXPIRY"]);
+const typeSchema = z.enum(["LOW_STOCK","OVERDUE_RECEIVABLE","APPROVAL_WAITING","RFQ_DEADLINE","DOCUMENT_EXPIRY","OVERDUE_COMMITMENT"]);
 const ruleSchema = z.object({ signalType: typeSchema, enabled: z.boolean() }).strict();
 
 export async function GET() {

@@ -81,3 +81,17 @@ test("Business compliance document expiry appears as an action rather than offic
   assert.equal(signals[0].href, "/compliance");
   assert.ok(signals[0].description.includes("راجع"));
 });
+
+test("supplier and service promises create overdue review signals without duplicate AR", () => {
+  const now = new Date("2026-11-01T00:00:00Z");
+  const signals = identifyOperatingSignals({
+    products: [], receivables: [], approvals: [], rfqs: [],
+    commitments: [
+      {id:"p1",title:"طلب توريد",kind:"SUPPLIER_DELIVERY",expectedAt:new Date("2026-10-30T00:00:00Z")},
+      {id:"s1",title:"فحص صيانة",kind:"SERVICE_COMPLETION",expectedAt:new Date("2026-11-10T00:00:00Z")},
+    ], now,
+  });
+  assert.equal(signals.length,1);
+  assert.equal(signals[0].type,"OVERDUE_COMMITMENT");
+  assert.equal(signals[0].href,"/commitments");
+});
