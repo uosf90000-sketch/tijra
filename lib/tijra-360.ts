@@ -67,7 +67,7 @@ export function compareSupplierOffers(items: readonly SupplierOfferComparison[])
 }
 
 export type OperatingSignal = {
-  sourceId: string; type: "LOW_STOCK" | "OVERDUE_RECEIVABLE" | "APPROVAL_WAITING" | "RFQ_DEADLINE" | "DOCUMENT_EXPIRY";
+  sourceId: string; type: "LOW_STOCK" | "OVERDUE_RECEIVABLE" | "APPROVAL_WAITING" | "RFQ_DEADLINE" | "DOCUMENT_EXPIRY" | "OVERDUE_COMMITMENT";
   title: string; description: string; href: string; dueAt?: Date;
 };
 
@@ -78,6 +78,7 @@ export function identifyOperatingSignals(input: {
   approvals: Array<{ id: string; orderNumber: string | null; amount: string }>;
   rfqs: Array<{ id: string; productName: string; deadline: Date }>;
   documents?: Array<{ id: string; title: string; expiresAt: Date; supplierName: string | null }>;
+  commitments?: Array<{ id: string; title: string; kind: "SUPPLIER_DELIVERY" | "SERVICE_COMPLETION"; expectedAt: Date }>;
   now: Date;
 }): OperatingSignal[] {
   const signals: OperatingSignal[] = [];
@@ -113,6 +114,15 @@ export function identifyOperatingSignals(input: {
       description: (doc.expiresAt.getTime() < input.now.getTime() ? "منتهي" : "قريب من الانتهاء") +
         " بتاريخ " + doc.expiresAt.toISOString().slice(0, 10) + " — راجع المتطلبات من المصدر الرسمي",
       href: "/compliance", dueAt: doc.expiresAt,
+    });
+  }
+  for (const promise of input.commitments || []) {
+    if (promise.expectedAt.getTime() >= input.now.getTime()) continue;
+    signals.push({
+      sourceId: promise.id, type: "OVERDUE_COMMITMENT",
+      title: (promise.kind === "SUPPLIER_DELIVERY" ? "توريد متأخر: " : "مهمة خدمة متأخرة: ") + promise.title,
+      description: "الموعد المسجل " + promise.expectedAt.toISOString().slice(0, 10) + " — راجع التعهد ودليل الإنجاز",
+      href: "/commitments", dueAt: promise.expectedAt,
     });
   }
   return signals;

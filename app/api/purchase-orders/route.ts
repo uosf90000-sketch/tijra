@@ -15,6 +15,7 @@ const orderSchema = z.object({
   orderNumber: z.string().trim().max(80).optional(),
   notes: z.string().trim().max(1000).optional(),
   sendNow: z.boolean().default(true),
+  promisedDeliveryAt: z.coerce.date().optional(),
   items: z.array(itemSchema).min(1).max(500),
 }).superRefine((data, ctx) => {
   const ids = data.items.map((item) => item.productId);
@@ -42,6 +43,9 @@ export async function POST(request: Request) {
   const parsed = orderSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "INVALID_INPUT", details: parsed.error.flatten() }, { status: 400 });
 
+  if (parsed.data.promisedDeliveryAt && parsed.data.promisedDeliveryAt.getTime() < Date.now() - 60_000)
+    return NextResponse.json({ error: "DELIVERY_PROMISE_MUST_BE_FUTURE" }, { status: 400 });
+
   const supplier = await db.supplier.findFirst({
     where: { id: parsed.data.supplierId, businessId: auth.context.business.id },
   });
@@ -62,7 +66,8 @@ export async function POST(request: Request) {
     enabled: policy.purchaseApprovalEnabled, threshold: Number(policy.purchaseApprovalThreshold),
   });
   const send = parsed.data.sendNow && !gated;
-  const order = await db.purchaseOrder.create({
+  const order = await db.$transaction(async (tx) => {
+    const order = await tx.purchaseOrder.create({
     data: {
       businessId: auth.context.business.id,
       requestedByUserId: auth.context.user.id,
@@ -83,5 +88,22 @@ export async function POST(request: Request) {
     include: { supplier: true, items: { include: { product: true } } },
   });
 
+    if (parsed.data.promisedDeliveryAt) {
+      const commitment = await tx.businessCommitment.create({ data: {
+        businessId: auth.context.business.id, kind: "SUPPLIER_DELIVERY",
+        title: `توريد طلب ${order.orderNumber || order.id.slice(-8)} — ${supplier.name}`,
+        supplierId: supplier.id, sourceId: order.id,
+        expectedAt: parsed.data.promisedDeliveryAt, expectedAmount: expectedTotal,
+        createdByUserId: auth.context.user.id,
+      } });
+      await tx.inventoryAuditEvent.create({ data: {
+        businessId: auth.context.business.id, action: "COMMITMENT_CREATED", orderId: order.id,
+        actorUserId: auth.context.user.id, actorName: auth.context.user.name,
+        actorRole: auth.context.membership.role, itemName: commitment.title,
+        note: JSON.stringify({ kind: commitment.kind, expectedAt: commitment.expectedAt, sourceId: order.id, externallyVerified: false }),
+      } });
+    }
+    return order;
+  });
   return NextResponse.json({ order }, { status: 201 });
 }

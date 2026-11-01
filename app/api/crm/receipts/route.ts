@@ -51,6 +51,15 @@ export async function POST(request: Request) {
         data: { status: outstanding === 0n ? "PAID" : "PARTIALLY_PAID" },
       });
       if (updated.count !== 1) throw new Error("CONCURRENT_RECEIPT");
+      if (outstanding === 0n) {
+        await tx.businessCommitment.updateMany({
+          where: { businessId: auth.context.business.id, kind: "CUSTOMER_PAYMENT", sourceId: row.id, status: "OPEN" },
+          data: { status: "FULFILLED", fulfilledAt: receipt.receivedAt,
+            updatedByUserId: auth.context.user.id,
+            evidenceNote: `تسجيل تحصيل داخلي مكتمل، المرجع ${receipt.reference}؛ غير متحقق بنكيًا.`,
+          },
+        });
+      }
       await tx.inventoryAuditEvent.create({ data: {
         businessId: auth.context.business.id, action: "CRM_RECEIPT_RECORDED",
         actorUserId: auth.context.user.id, actorName: auth.context.user.name,

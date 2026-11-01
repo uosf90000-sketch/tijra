@@ -82,6 +82,12 @@ export async function POST(request: Request) {
         amount: parsed.data.amount, dueAt: parsed.data.dueAt,
         description: parsed.data.description, createdByUserId: auth.context.user.id,
       } });
+      await tx.businessCommitment.create({ data: {
+        businessId: auth.context.business.id, kind: "CUSTOMER_PAYMENT",
+        title: `تحصيل مستحق ${receivable.invoiceRef} — ${customer.name}`,
+        customerId: customer.id, sourceId: receivable.id, expectedAt: receivable.dueAt,
+        expectedAmount: receivable.amount, createdByUserId: auth.context.user.id,
+      } });
       await tx.inventoryAuditEvent.create({ data: {
         businessId: auth.context.business.id, action: "CRM_RECEIVABLE_RECORDED",
         actorUserId: auth.context.user.id, actorName: auth.context.user.name,

@@ -31,6 +31,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         where: { id: order.id },
         data: { status: "CANCELLED" },
       });
+      await tx.businessCommitment.updateMany({
+        where: { businessId: auth.context.business.id, kind: "SUPPLIER_DELIVERY", sourceId: order.id, status: "OPEN" },
+        data: { status: "CANCELLED", updatedByUserId: auth.context.user.id, evidenceNote: parsed.data.reason },
+      });
       await tx.inventoryAuditEvent.create({
         data: {
           businessId: auth.context.business.id,

@@ -10,7 +10,7 @@ import { identifyOperatingSignals, halalasToDecimal, outstandingHalalas } from "
  * messages, bank transactions or customer notifications.
  */
 export async function currentBusinessSignals(businessId: string, now = new Date()) {
-  const [products, orders, marketplaceOrders, receivables, approvals, rfqs, documents] = await Promise.all([
+  const [products, orders, marketplaceOrders, receivables, approvals, rfqs, documents, commitments] = await Promise.all([
     db.product.findMany({
       where: { businessId, active: true }, select: {
         id: true, name: true, barcode: true, unit: true,
@@ -45,6 +45,10 @@ export async function currentBusinessSignals(businessId: string, now = new Date(
       where: { businessId, expiresAt: { lte: new Date(now.getTime() + 30 * 86_400_000) } },
       include: { supplier: { select: { name: true } } }, take: 1000,
     }),
+    db.businessCommitment.findMany({ where: {
+      businessId, status: "OPEN", expectedAt: { lt: now },
+      kind: { in: ["SUPPLIER_DELIVERY", "SERVICE_COMPLETION"] },
+    }, select: { id: true, title: true, kind: true, expectedAt: true }, take: 1000 }),
   ]);
   const incoming = combineIncomingQuantities(
     getIncomingPurchaseQuantities(orders.map((row) => ({
@@ -81,6 +85,7 @@ export async function currentBusinessSignals(businessId: string, now = new Date(
     documents: documents.map((doc) => ({
       id: doc.id, title: doc.title, expiresAt: doc.expiresAt, supplierName: doc.supplier?.name || null,
     })),
+    commitments,
     now,
   });
 }

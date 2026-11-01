@@ -102,6 +102,7 @@ enum DashboardRole {
 }
 
 enum BusinessSignalType {
+  OVERDUE_COMMITMENT
   DOCUMENT_EXPIRY
   LOW_STOCK
   OVERDUE_RECEIVABLE
@@ -332,6 +333,7 @@ model Business {
   roleDashboards              RoleDashboardProfile[]
   accountingEvents            AccountingSourceEvent[]
   salesAccountMap             SalesAccountingMap?
+  businessCommitments         BusinessCommitment[]
 
   @@index([organizationId])
 }
@@ -479,6 +481,7 @@ model Supplier {
   priceHistory      SupplierPriceHistory[]
   sourcingBids      SourcingBid[]
   complianceDocuments ComplianceDocument[]
+  businessCommitments BusinessCommitment[]
 
   @@index([businessId, name])
 }
@@ -834,6 +837,7 @@ model Customer {
   sales            Sale[]
   receivables      Receivable[]
   receipts         CustomerReceipt[]
+  businessCommitments BusinessCommitment[]
 
   @@index([businessId, name])
   @@index([businessId, createdAt])
@@ -1076,4 +1080,44 @@ model PayrollItem {
   employee     Employee   @relation(fields: [employeeId], references: [id])
 
   @@unique([payrollRunId, employeeId])
+}
+
+enum CommitmentKind {
+  SUPPLIER_DELIVERY
+  CUSTOMER_PAYMENT
+  SERVICE_COMPLETION
+}
+
+enum CommitmentStatus {
+  OPEN
+  FULFILLED
+  CANCELLED
+}
+
+/// Recorded business commitments are never external payment or regulatory attestations.
+model BusinessCommitment {
+  id              String           @id @default(cuid())
+  businessId      String
+  kind            CommitmentKind
+  status          CommitmentStatus @default(OPEN)
+  title           String
+  supplierId      String?
+  customerId      String?
+  sourceId        String?
+  expectedAt      DateTime
+  expectedAmount  Decimal?         @db.Decimal(14, 2)
+  fulfilledAt     DateTime?
+  evidenceNote    String?
+  createdByUserId String?
+  updatedByUserId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  business        Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  supplier        Supplier?        @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@unique([businessId, kind, sourceId])
+  @@index([businessId, status, expectedAt])
+  @@index([supplierId, expectedAt])
+  @@index([customerId, expectedAt])
 }
