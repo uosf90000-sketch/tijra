@@ -14,6 +14,7 @@ const tools = [
   { href: "/management/governance", title: "مركز الحوكمة والرقابة", description: "حدود الموافقات، الصلاحيات، سجل القرارات والعمليات الحساسة.", icon: ShieldCheck, module: "ALWAYS" },
   { href: "/compliance", title: "التصاريح والمستندات", description: "تواريخ انتهاء رخص المنشأة والموردين.", icon: Bell, module: "COMPLIANCE" },
   { href: "/intelligence", title: "نبض الأعمال", description: "مؤشرات حقيقية مشتركة من المبيعات والمخزون والمستحقات.", icon: BarChart3, module: "INSIGHTS" },
+  { href: "/manufacturing", title: "التصنيع وأوامر الإنتاج", description: "قوائم المكونات وتخطيط التشغيل واستهلاك المواد وإضافة الناتج للمخزون.", icon: Building2, module: "MANUFACTURING" },
   { href: "/service-jobs", title: "أوامر الخدمات الميدانية", description: "تنظيم الزيارات وتعيين الفنيين وتوثيق الإنجاز.", icon: Activity, module: "FIELD_SERVICE" },
   { href: "/commitments", title: "سجل الالتزامات", description: "مواعيد الموردين والذمم وتعهدات الخدمة.", icon: Bell, module: "COMMITMENTS" },
   { href: "/profit-shield", title: "درع الأرباح", description: "ربحية المبيعات وأثر الهدر المسجل.", icon: BarChart3, module: "PROFIT_SHIELD" },
