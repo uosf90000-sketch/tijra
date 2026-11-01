@@ -622,6 +622,15 @@ export async function receivePurchaseOrder(input: ReceivePurchaseInput) {
       },
     });
 
+    if (fullyReceived) {
+      await tx.businessCommitment.updateMany({
+        where: { businessId: input.businessId, kind: "SUPPLIER_DELIVERY", sourceId: order.id, status: "OPEN" },
+        data: { status: "FULFILLED", fulfilledAt: new Date(),
+          updatedByUserId: input.actorUserId || null,
+          evidenceNote: `تم تسجيل الاستلام الكامل وفق الفاتورة ${invoice.invoiceNumber || invoice.id}؛ لا يثبت دفع المستحقات.`,
+        },
+      });
+    }
     return { invoice, fullyReceived, review };
   });
 }
