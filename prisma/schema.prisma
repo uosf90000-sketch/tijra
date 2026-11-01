@@ -334,6 +334,7 @@ model Business {
   accountingEvents            AccountingSourceEvent[]
   salesAccountMap             SalesAccountingMap?
   businessCommitments         BusinessCommitment[]
+  serviceJobs                 ServiceJob[]
 
   @@index([organizationId])
 }
@@ -838,6 +839,7 @@ model Customer {
   receivables      Receivable[]
   receipts         CustomerReceipt[]
   businessCommitments BusinessCommitment[]
+  serviceJobs         ServiceJob[]
 
   @@index([businessId, name])
   @@index([businessId, createdAt])
@@ -1041,6 +1043,7 @@ model Employee {
   business         Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
   user             User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   payrollItems     PayrollItem[]
+  assignedServiceJobs ServiceJob[]
 
   @@unique([businessId, userId])
   @@index([businessId, active])
@@ -1120,4 +1123,42 @@ model BusinessCommitment {
   @@index([businessId, status, expectedAt])
   @@index([supplierId, expectedAt])
   @@index([customerId, expectedAt])
+}
+
+enum ServiceJobStatus {
+  OPEN
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model ServiceJob {
+  id                  String           @id @default(cuid())
+  businessId          String
+  customerId          String?
+  assignedEmployeeId  String?
+  locationId          String?
+  title               String
+  description         String?
+  scheduledAt         DateTime
+  quotedAmount        Decimal?         @db.Decimal(14, 2)
+  status              ServiceJobStatus @default(OPEN)
+  completionNote      String?
+  completedAt         DateTime?
+  createdByUserId     String
+  clientRequestId     String?
+  clientRequestHash   String?
+  updatedByUserId     String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  business            Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer            Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  assignedEmployee    Employee?        @relation(fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+
+  @@unique([businessId, clientRequestId])
+  @@index([businessId, status, scheduledAt])
+  @@index([businessId, assignedEmployeeId, scheduledAt])
+  @@index([businessId, locationId, scheduledAt])
+  @@index([customerId, createdAt])
 }

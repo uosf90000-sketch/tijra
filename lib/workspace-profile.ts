@@ -15,6 +15,7 @@ export const workspaceModules = [
   { key: "SOURCING", label: "مقارنة الموردين", href: "/sourcing", description: "طلب عروض الأسعار واختيار العرض الأفضل" },
   { key: "COMMITMENTS", label: "سجل الالتزامات", href: "/commitments", description: "وعود الموردين والتحصيل والخدمات" },
   { key: "PROFIT_SHIELD", label: "درع الأرباح", href: "/profit-shield", description: "هامش البيع والهدر" },
+  { key: "FIELD_SERVICE", label: "الخدمات الميدانية", href: "/service-jobs", description: "أوامر الفنيين والإنجاز" },
   { key: "FLOW", label: "تِجرا Flow", href: "/flow", description: "قواعد التنبيهات والمهام المشتركة" },
   { key: "COMPLIANCE", label: "التصاريح والمستندات", href: "/compliance", description: "متابعة صلاحية مستندات المنشأة والموردين" },
 ] as const;
@@ -46,7 +47,7 @@ const defaultModules: Record<OperatingModelValue, WorkspaceModuleKey[]> = {
   SHOP: ["SALES", "INVENTORY", "PURCHASING", "MARKETPLACE", "ACCOUNTING", "INSIGHTS", "CRM", "FLOW"],
   RESTAURANT: ["SALES", "INVENTORY", "PURCHASING", "ACCOUNTING", "STAFF", "INSIGHTS", "CRM", "FLOW", "COMPLIANCE"],
   WHOLESALE: ["SALES", "INVENTORY", "PURCHASING", "MARKETPLACE", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS", "CRM", "SOURCING", "FLOW", "COMPLIANCE"],
-  SERVICES: ["SALES", "PURCHASING", "ACCOUNTING", "STAFF", "INSIGHTS", "CRM", "FLOW"],
+  SERVICES: ["SALES", "PURCHASING", "ACCOUNTING", "STAFF", "INSIGHTS", "CRM", "FLOW", "COMMITMENTS", "FIELD_SERVICE"],
   MANUFACTURING: ["INVENTORY", "PURCHASING", "MARKETPLACE", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS", "CRM", "SOURCING", "FLOW"],
   LOGISTICS: ["SALES", "PURCHASING", "ACCOUNTING", "STAFF", "LOCATIONS", "INSIGHTS", "CRM", "FLOW", "COMPLIANCE"],
   MIXED: [...moduleKeys],

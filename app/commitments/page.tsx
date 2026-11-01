@@ -39,7 +39,7 @@ export default async function CommitmentsPage() {
         id: x.id, kind: x.kind, status: x.status, title: x.title,
         expectedAt: x.expectedAt.toISOString(), fulfilledAt: x.fulfilledAt?.toISOString() || null,
         expectedAmount: x.expectedAmount?.toFixed(2) || null,
-        evidenceNote: x.evidenceNote,
+        evidenceNote: x.evidenceNote, sourceControlled: Boolean(x.sourceId),
         counterparty: x.supplier?.name || x.customer?.name || "—",
       }))}
       orderOptions={orders.filter(x => !existing.has(x.id)).map(x => ({
