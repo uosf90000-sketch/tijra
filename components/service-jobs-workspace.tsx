@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 type Job = {
   id: string; title: string; description: string | null; scheduledAt: string;
@@ -19,6 +19,7 @@ export function ServiceJobsWorkspace({jobs,customers,employees,locations,canMana
 }){
   const router=useRouter(),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
   const [activeFilter,setActiveFilter]=useState("ALL");
+  const pendingCreate=useRef<{signature:string;id:string}|null>(null);
   async function call(path:string,method:"POST"|"PATCH",data:object){
     if(busy)return;
     setBusy(true);setMessage("");
@@ -27,6 +28,7 @@ export function ServiceJobsWorkspace({jobs,customers,employees,locations,canMana
       const payload=await res.json().catch(()=>({}));
       if(!res.ok){setMessage("تعذر الإجراء: "+(payload.error||"راجع البيانات"));return;}
       setMessage("حُفظ التحديث. التنفيذ مسجل داخليًا ولم يتحقق مدار من حضور الفني أو الدفع خارجيًا.");
+      if(method==="POST"&&path==="/api/service-jobs")pendingCreate.current=null;
       router.refresh();
     }catch{setMessage("تعذر الاتصال؛ افحص الأمر قبل إعادة الطلب.");}
     finally{setBusy(false);}
@@ -36,14 +38,18 @@ export function ServiceJobsWorkspace({jobs,customers,employees,locations,canMana
     const f=new FormData(e.currentTarget),dt=String(f.get("scheduledAt")||"");
     const scheduledAt=new Date(dt);
     if(!dt||!Number.isFinite(scheduledAt.getTime())){setMessage("أدخل موعدًا صحيحًا");return;}
-    void call("/api/service-jobs","POST",{
+    const payload={
       title:String(f.get("title")||""),description:f.get("description")||undefined,
       customerId:f.get("customerId")||undefined,
       assignedEmployeeId:f.get("assignedEmployeeId")||undefined,
       quotedAmount:f.get("quotedAmount")||undefined,
       locationId:f.get("locationId")||undefined,
       scheduledAt:scheduledAt.toISOString(),
-    });
+    };
+    const signature=JSON.stringify(payload);
+    if(pendingCreate.current?.signature!==signature)
+      pendingCreate.current={signature,id:crypto.randomUUID()};
+    void call("/api/service-jobs","POST",{...payload,clientRequestId:pendingCreate.current.id});
   }
   function action(job:Job,act:"ASSIGN"|"START"|"COMPLETE"|"CANCEL",assignedEmployeeId?:string){
     if(act==="ASSIGN"&&(!assignedEmployeeId||!employees.some(e=>e.id===assignedEmployeeId)))return;
@@ -61,7 +67,7 @@ export function ServiceJobsWorkspace({jobs,customers,employees,locations,canMana
     <section className="metricsGrid three">
       <article className="panel"><span className="eyebrow">أوامر في المعروض</span><h2>{jobs.length}</h2></article>
       <article className="panel"><span className="eyebrow">قيد التنفيذ</span><h2>{jobs.filter(j=>j.status==="IN_PROGRESS").length}</h2></article>
-      <article className="panel"><span className="eyebrow">تجاوز موعدها دون إكمال</span><h2>{jobs.filter(j=>!["COMPLETED","CANCELLED"].includes(j.status)&&new Date(j.scheduledAt)<new Date()).length}</h2></article>
+      <article className="panel"><span className="eyebrow">تجاوز موعدها دون إكمال</span><h2>{jobs.filter(j=>!["COMPLETED","CANCELLED"].includes(j.status)&&new Date(j.scheduledAt).getTime()<Date.now()).length}</h2></article>
     </section>
     <div className="infoNote">تعرض الشاشة حتى 200 أمر من الأقرب موعدًا. حالة «مكتمل» تعني أن موظفًا مخولًا سجل الإنجاز؛ لا تعني إثباتًا بنكيًا أو اعتماد العميل عبر OTP.</div>
     {canManage&&<section className="panel">

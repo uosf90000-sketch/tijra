@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionContext } from "@/lib/auth";
@@ -14,6 +15,7 @@ const jobSchema = z.object({
   assignedEmployeeId: z.string().min(1).optional(),
   scheduledAt: z.coerce.date(),
   quotedAmount: z.string().regex(/^\d{1,12}(?:\.\d{1,2})?$/).optional(),
+  clientRequestId: z.string().uuid().optional(),
   locationId: z.string().min(1).optional(),
 }).strict();
 
@@ -65,6 +67,13 @@ export async function POST(request: Request) {
   const parsed = jobSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "INVALID_SERVICE_JOB", details: parsed.error.flatten() }, { status: 400 });
   const data = parsed.data;
+  const requestHash = data.clientRequestId
+    ? createHash("sha256").update(JSON.stringify([
+        data.title, data.description || null, data.customerId || null,
+        data.assignedEmployeeId || null, data.scheduledAt.toISOString(),
+        data.quotedAmount || null, data.locationId || null,
+      ])).digest("hex")
+    : null;
   if (data.scheduledAt.getTime() < Date.now() - 60_000)
     return NextResponse.json({ error: "SERVICE_DATE_MUST_BE_FUTURE" }, { status: 400 });
   const businessId = context.business.id;
@@ -76,7 +85,16 @@ export async function POST(request: Request) {
   if (!(await locationAuthorized(context, locationId)))
     return NextResponse.json({ error: "LOCATION_ACCESS_DENIED" }, { status: 403 });
   try {
-    const job = await db.$transaction(async (tx) => {
+    const result = await db.$transaction(async (tx) => {
+      if (data.clientRequestId) {
+        const existing = await tx.serviceJob.findUnique({
+          where: { businessId_clientRequestId: { businessId, clientRequestId: data.clientRequestId } },
+        });
+        if (existing) {
+          if (existing.clientRequestHash !== requestHash) throw new Error("SERVICE_IDEMPOTENCY_REUSE");
+          return { job: existing, duplicate: true };
+        }
+      }
       if (data.customerId) {
         const customer = await tx.customer.findFirst({
           where: { id: data.customerId, businessId }, select: { id: true },
@@ -96,6 +114,7 @@ export async function POST(request: Request) {
           locationId, scheduledAt: data.scheduledAt, quotedAmount: data.quotedAmount || null,
           status: data.assignedEmployeeId ? "SCHEDULED" : "OPEN",
           createdByUserId: context.user.id,
+          clientRequestId: data.clientRequestId || null, clientRequestHash: requestHash,
         },
       });
       await tx.businessCommitment.create({ data: {
@@ -113,14 +132,24 @@ export async function POST(request: Request) {
           externalAttendanceVerified: false,
         }),
       } });
-      return job;
+      return { job, duplicate: false };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    return NextResponse.json({ job, externallyVerified: false }, { status: 201 });
+    return NextResponse.json({ ...result, externallyVerified: false }, { status: result.duplicate ? 200 : 201 });
   } catch (error) {
     const code = error instanceof Error ? error.message : "SERVICE_CREATE_FAILED";
     if (code === "CUSTOMER_NOT_FOUND" || code === "EMPLOYEE_NOT_FOUND")
       return NextResponse.json({ error: code }, { status: 404 });
-    if (error instanceof Prisma.PrismaClientKnownRequestError && ["P2002","P2034"].includes(error.code))
+    if (code === "SERVICE_IDEMPOTENCY_REUSE")
+      return NextResponse.json({ error: code }, { status: 409 });
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" && data.clientRequestId) {
+      const existing = await db.serviceJob.findUnique({
+        where: { businessId_clientRequestId: { businessId, clientRequestId: data.clientRequestId } },
+      });
+      if (existing && existing.clientRequestHash === requestHash)
+        return NextResponse.json({ job: existing, duplicate: true, externallyVerified: false });
+      return NextResponse.json({ error: "SERVICE_IDEMPOTENCY_REUSE" }, { status: 409 });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034")
       return NextResponse.json({ error: "SERVICE_CONCURRENT_CHANGE" }, { status: 409 });
     console.error("Service job creation failed", error);
     return NextResponse.json({ error: "SERVICE_CREATE_FAILED" }, { status: 500 });
